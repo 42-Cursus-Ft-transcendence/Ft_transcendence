@@ -1,0 +1,8 @@
+lien vers le mini figma
+
+
+
+https://www.figma.com/design/D1qK9Fq8Ug1uVEtJczD8i2/transcendance-visualizer--Copy-?node-id=0-1&t=emELX48kpllD2G7m-1
+
+aussi on oublie le docker compose ca va juste mettre un seul docker
+
