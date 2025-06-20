@@ -1,0 +1,21 @@
+{
+  "name": "fastify-tailwind-sqlite-app",
+  "version": "1.0.0",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js",
+    "build:css": "npx tailwindcss -i ./public/input.css -o ./public/styles.css --minify"
+  },
+  "dependencies": {
+    "fastify": "^4.27.2",
+    "sqlite3": "^5.1.6"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.3",
+    "postcss": "^8.4.31",
+    "autoprefixer": "^10.4.19",
+    "nodemon": "^3.1.0"
+  }
+}

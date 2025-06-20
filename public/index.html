@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Fastify + Tailwind + SQLite SPA</title>
+  <link href="/styles.css" rel="stylesheet">
+</head>
+<body class="bg-gray-100 p-10">
+  <div class="max-w-lg mx-auto bg-white p-6 rounded shadow">
+    <h1 class="text-2xl font-bold mb-4">Hello Fastify + Tailwind!</h1>
+    <div id="data"></div>
+  </div>
+  <script>
+    fetch('/api/items').then(r => r.json()).then(data => {
+      document.getElementById('data').innerText = JSON.stringify(data, null, 2);
+    });
+  </script>
+</body>
+</html>
