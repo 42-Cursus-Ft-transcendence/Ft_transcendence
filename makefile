@@ -2,10 +2,11 @@
 IMAGE_NAME=ft_transcendence-backend
 CONTAINER_NAME=transcendence-dev
 PORT=3000
+PATH_TO_DOCKER=./src/docker/
 
 # Commandes de base
 build:
-	docker build -t $(IMAGE_NAME) .
+	docker build -t $(IMAGE_NAME) $(PATH_TO_DOCKER)
 
 run:
 	docker run  \
