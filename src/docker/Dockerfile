@@ -1,24 +1,52 @@
-# Étape 1 : Image de base
-FROM node:20
+# ────────────────────────────────────────────────
+# 1) STAGE “builder” : installe et compile tout
+# ────────────────────────────────────────────────
+FROM node:20-alpine AS builder
+ENV NODE_ENV=development
+WORKDIR /app
 
-# Étape 2 : Définir le dossier de travail
-WORKDIR ../back
+# Installer les dépendances système pour sqlite3
+RUN apk add --no-cache python3 make g++ sqlite-dev
 
-# Étape 3 : Copier les fichiers package.json
-COPY package*.json ./
-
-# Étape 4 : Installer les dépendances (y compris devDependencies pour Tailwind build)
+# ─── BACKEND ────────────────────────────────────
+COPY src/back/package.json src/back/package-lock.json ./back/
+WORKDIR /app/back
 RUN npm install
 
-# Étape 5 : Copier le reste des fichiers du projet
-COPY . .
+COPY src/back/tsconfig.json ./tsconfig.json
+COPY src/back/src ./src
+RUN npm run build    # génère dist/
 
-# Étape 6 : Compiler Tailwind CSS
-RUN npm run build:css
+# ─── FRONTEND ───────────────────────────────────
+WORKDIR /app
+COPY src/front/package.json src/front/package-lock.json ./front/
+WORKDIR /app/front
+RUN npm install
 
-# Étape 7 : Exposer le port utilisé par Fastify
+COPY src/front/styles ./styles
+COPY src/front/public ./public
+RUN npm run build:css   # génère public/styles.css
+
+# ────────────────────────────────────────────────
+# 2) STAGE “runtime” : image légère pour l’exécution
+# ────────────────────────────────────────────────
+FROM node:20-alpine AS runtime
+WORKDIR /app
+
+# Installer la librairie runtime SQLite
+RUN apk add --no-cache sqlite-libs
+
+# Copier les artefacts compilés
+COPY --from=builder /app/back/dist   ./dist
+COPY --from=builder /app/front/public ./public
+
+# Installer uniquement les dépendances de prod du backend
+COPY src/back/package.json src/back/package-lock.json ./
+RUN npm install --omit=dev
+
+# Créer le dossier de données pour SQLite
+RUN mkdir -p /app/data
+VOLUME ["/app/data"]
+
 EXPOSE 3000
-
-# Étape 8 : Lancer le serveur
-CMD ["npm", "start"]
-
+CMD ["node", "dist/server.js"]
