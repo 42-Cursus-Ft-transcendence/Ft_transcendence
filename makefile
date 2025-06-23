@@ -11,7 +11,7 @@ PORT           := 3000
 # ──────────────────────────────────────────────────────
 # Cibles par défaut et aide
 # ──────────────────────────────────────────────────────
-.PHONY: all help install-back install-front dev-back dev-front dev docker-build docker-run docker-stop docker-clean logs exec
+.PHONY: all help install-back install-front build-front-ts watch-front-ts watch-front-css dev-back dev-front dev docker-build docker-run docker-stop docker-clean logs exec
 
 all: help
 
@@ -19,27 +19,27 @@ help:
 	@echo "Usage: make [target]"
 	@echo ""
 	@echo "Local development (no Docker):"
-	@echo "  install-back    Install backend deps"
-	@echo "  install-front   Install frontend deps"
-	@echo "  dev-back        Run backend in dev mode (ts-node-dev)"
-	@echo "  dev-front       Run Tailwind watch (CSS rebuild)"
-	@echo "  dev             install-back, install-front, then dev-back & dev-front"
+	@echo "  install-back       Install backend deps"
+	@echo "  install-front      Install frontend deps"
+	@echo "  build-front-ts     Compile front TypeScript once"
+	@echo "  watch-front-ts     Watch & recompile front TS"
+	@echo "  watch-front-css    Watch & rebuild Tailwind CSS"
+	@echo "  dev-back           Run backend in dev mode"
+	@echo "  dev-front          Run front TS+CSS watchers"
+	@echo "  dev                install-* then dev-back & dev-front"
 	@echo ""
 	@echo "Docker targets:"
-	@echo "  docker-build    Build Docker image ($(IMAGE_NAME))"
-	@echo "  docker-run      Run Docker container ($(CONTAINER_NAME)) on port $(PORT)"
-	@echo "  docker-stop     Stop Docker container"
-	@echo "  docker-clean    Remove container and image"
-	@echo "  logs            Follow container logs"
-	@echo "  exec            Open a shell inside the running container"
+	@echo "  docker-build       Build Docker image ($(IMAGE_NAME))"
+	@echo "  docker-run         Run Docker container ($(CONTAINER_NAME))"
+	@echo "  docker-stop        Stop Docker container"
+	@echo "  docker-clean       Remove container and image"
+	@echo "  logs               Follow container logs"
+	@echo "  exec               Shell into the running container"
 	@echo ""
 
 # ──────────────────────────────────────────────────────
 # 1) LOCAL DEV (hors Docker)
 # ──────────────────────────────────────────────────────
-
-# ne pas oublier d installer :
-#dotenv
 
 install-back:
 	cd $(BACK_DIR) && npm install
@@ -47,11 +47,21 @@ install-back:
 install-front:
 	cd $(FRONT_DIR) && npm install
 
+build-front-ts:
+	cd $(FRONT_DIR) && npm run build:ts
+
+watch-front-ts:
+	cd $(FRONT_DIR) && npm run watch:ts
+
+watch-front-css:
+	cd $(FRONT_DIR) && npm run watch:css
+
 dev-back:
 	cd $(BACK_DIR) && npm run dev
 
-dev-front:
-	cd $(FRONT_DIR) && npm run watch:css
+dev-front: install-front
+	$(MAKE) watch-front-css &
+	$(MAKE) watch-front-ts
 
 dev: install-back install-front
 	@echo "🚀 Starting backend and frontend in dev mode…"

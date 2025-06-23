@@ -3,6 +3,8 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
+    "build:ts": "tsc -p tsconfig.json",
+    "watch:ts": "tsc -p tsconfig.json --watch",
     "build:css": "tailwindcss -i ./styles/input.css -o ./public/styles.css --minify",
     "watch:css": "tailwindcss -i ./styles/input.css -o ./public/styles.css --watch"
   },
