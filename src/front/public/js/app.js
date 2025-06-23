@@ -101,7 +101,7 @@ window.addEventListener('DOMContentLoaded', () => {
         function resetBall() {
             ball.x = cw / 2;
             ball.y = ch / 2;
-            ball.dx = Math.random() > 0.5 ? 2 : -2; // pour varier la direction
+            ball.dx = ball.dx > 0 ? -2 : 2;
             ball.dy = Math.random() > 0.5 ? 1 : -1; // pour éviter un mouvement toujours identique
         }
         // main loop
