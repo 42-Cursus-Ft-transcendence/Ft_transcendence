@@ -93,7 +93,7 @@ window.addEventListener('DOMContentLoaded', () => {
         const cw = canvasEl.width, ch = canvasEl.height;
         paddleLeft = { x: 0, y: ch / 2 - 40, w: 10, h: 80, dy: 0 };
         paddleRight = { x: cw - 10, y: ch / 2 - 40, w: 10, h: 80, dy: 0 };
-        ball = { x: cw / 2, y: ch / 2, r: 8, dx: 4, dy: 3 };
+        ball = { x: cw / 2, y: ch / 2, r: 8, dx: 2, dy: -1 };
         // attach key listeners
         window.addEventListener('keydown', onKeyDown);
         window.addEventListener('keyup', onKeyUp);
@@ -101,7 +101,8 @@ window.addEventListener('DOMContentLoaded', () => {
         function resetBall() {
             ball.x = cw / 2;
             ball.y = ch / 2;
-            ball.dx *= -1;
+            ball.dx = Math.random() > 0.5 ? 2 : -2; // pour varier la direction
+            ball.dy = Math.random() > 0.5 ? 1 : -1; // pour éviter un mouvement toujours identique
         }
         // main loop
         function loop() {
@@ -117,7 +118,7 @@ window.addEventListener('DOMContentLoaded', () => {
                 playerScoreEl.textContent = `${playerScore} - ${computerScore}`;
                 resetBall();
             }
-            else if (ball.x + ball.r > cw - paddleRight.w) {
+            else if (ball.x > cw - paddleRight.w) {
                 playerScore++;
                 playerScoreEl.textContent = `${playerScore} - ${computerScore}`;
                 resetBall();
@@ -129,13 +130,17 @@ window.addEventListener('DOMContentLoaded', () => {
             if (ball.x - ball.r < paddleLeft.x + paddleLeft.w &&
                 ball.y > paddleLeft.y &&
                 ball.y < paddleLeft.y + paddleLeft.h &&
-                ball.dx < 0)
+                ball.dx < 0) {
+                ball.dx -= 0.5;
                 ball.dx *= -1;
+            }
             if (ball.x + ball.r > paddleRight.x &&
                 ball.y > paddleRight.y &&
                 ball.y < paddleRight.y + paddleRight.h &&
-                ball.dx > 0)
+                ball.dx > 0) {
+                ball.dx += 0.1;
                 ball.dx *= -1;
+            }
             // draw
             ctxEl.fillStyle = '#000';
             ctxEl.fillRect(0, 0, cw, ch);
