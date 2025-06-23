@@ -1,13 +1,19 @@
 {
   "compilerOptions": {
-    "target": "ES2017",            // modern enough for most browsers
-    "module": "ESNext",            // keeps import/export, or use "ES2015"
-    "moduleResolution": "node",
-    "outDir": "public/src", // emit .js into your public/js folder
-    "rootDir": "public/src",// where your .ts lives
-    "strict": true,                
-    "esModuleInterop": true,
-    "skipLibCheck": true
+    "target": "ES2017",                
+    "module": "ESNext",                
+    "moduleResolution": "node",        
+    "strict": true,                    
+    "esModuleInterop": true,           
+    "allowSyntheticDefaultImports": true,
+    "rootDir": "public/ts",           
+    "outDir": "public/js",             
+    "skipLibCheck": true               
   },
-  "include": ["public/src/*.ts"]
+  "include": [
+    "public/ts/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
 }
