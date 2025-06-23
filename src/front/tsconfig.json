@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "target": "ES2017",            // modern enough for most browsers
+    "module": "ESNext",            // keeps import/export, or use "ES2015"
+    "moduleResolution": "node",
+    "outDir": "public/src", // emit .js into your public/js folder
+    "rootDir": "public/src",// where your .ts lives
+    "strict": true,                
+    "esModuleInterop": true,
+    "skipLibCheck": true
+  },
+  "include": ["public/src/*.ts"]
+}
