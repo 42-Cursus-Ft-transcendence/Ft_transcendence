@@ -132,6 +132,7 @@ app.register(async fastify => {
         game.applyInput(ply, msg.dir)
       }
     })
+// petit update a venir pour le sscore et renvoyer a la db
 
     socket.on('close', () => {
       clearInterval(timer)
