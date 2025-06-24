@@ -5,6 +5,7 @@ window.addEventListener('DOMContentLoaded', () => {
   if (!app) throw new Error('No element with id="app" found');
 
   // --- Constantes pour le canvas ---
+  // reutilisees sur le serv
   const CANVAS_WIDTH  = 600;
   const CANVAS_HEIGHT = 400;
   const PADDLE_W      = 10;
@@ -16,7 +17,7 @@ window.addEventListener('DOMContentLoaded', () => {
   let ctx: CanvasRenderingContext2D;
   let scoreEl: HTMLElement;
 
-  // ⚡️ Ouvre la WS sur le même hôte/port que ta page
+  // Ouvre la WS sur le même hôte/port que ta page
   const protocol = location.protocol === 'https:' ? 'wss' : 'ws';
   const socket   = new WebSocket(`${protocol}://${location.host}/ws`);
 
@@ -48,7 +49,7 @@ window.addEventListener('DOMContentLoaded', () => {
     ctx.fillStyle = '#000';
     ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-    // Raquettes
+    // paddle
     ctx.fillStyle = '#0f0';
     ctx.fillRect(msg.p1.x, msg.p1.y, PADDLE_W, PADDLE_H);
     ctx.fillRect(msg.p2.x, msg.p2.y, PADDLE_W, PADDLE_H);
@@ -161,47 +162,5 @@ function onKeyUp(e: KeyboardEvent): void {
   }
 }
 
-
-//   // Envoi des inputs au serveur
-//   function onKeyUp(e: KeyboardEvent): void {
-//     let dir: 'up'|'down'|null = null;
-//     let player: "1" | "2" |null = null;
-//     const k = e.key.toLowerCase();
-//     if (k === 'w' || k === 'arrowup')
-//     {
-//             dir = 'up';
-//             if (k === "w")
-//                 player = '1';
-//             else
-//                 player = '2';
-//     }
-//     else if (k === 's' || k === 'arrowdown')
-//     {
-//         dir = 'down';
-//         if (k === "s")
-//                 player = '1';
-//             else
-//                 player = '2';
-//     }
-//     else if (e.key === 'Escape') {
-//       cleanupAndHome();
-//       return;
-//     }
-//     if (dir) socket.send(JSON.stringify({ type: 'input', dir,'player':player}));
-//   }
-
-//   function onKeyDown(e: KeyboardEvent): void {
-//     const k = e.key.toLowerCase();
-//     let player : "1" | "2" | null = null;
-//     if (['w','s','arrowup','arrowdown'].includes(k)) {
-//         if (['w','s'].includes(k))
-//             player = '1';
-//         else
-//             player = '2';
-//       socket.send(JSON.stringify({ type: 'input', dir: 'stop'}));
-//     }
-//   }
-
-  // ─── Démarrage ───
   renderHome();
 });

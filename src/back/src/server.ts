@@ -6,9 +6,7 @@ import FastifyWebSocket from '@fastify/websocket'
 import fastifyStatic from '@fastify/static'
 import sqlite3 from 'sqlite3'
 
-// ---------------------------------------------
-// Classe Game : logique du Pong côté serveur
-// ---------------------------------------------
+
 type Vec2 = { x: number; y: number }
 
 class Game {
@@ -46,11 +44,8 @@ class Game {
     // Déplacer la balle
     this.ball.x += this.ball.dx
     this.ball.y += this.ball.dy
-
-    // Rebond murs
-    if (this.ball.y < 0 || this.ball.y > CH) this.ball.dy *= -1
-
-    // Rebond paddles
+    if (this.ball.y < 0 || this.ball.y > CH)
+        this.ball.dy *= -1
     if (
       this.ball.x < this.p1.x + 10 &&
       this.ball.y > this.p1.y &&
@@ -68,7 +63,6 @@ class Game {
       this.ball.dx = -this.ball.dx - BALL_INC
     }
 
-    // Score
     if (this.ball.x < 0) {
       this.score[1]++
       this.resetBall()
@@ -78,11 +72,11 @@ class Game {
       this.resetBall()
     }
   }
-
   private resetBall() {
     this.ball.x = 300
     this.ball.y = 200
     this.ball.dx = -this.ball.dx
+    //math.random renvoie un nombre entre 0 et 1
     this.ball.dy = Math.random() > 0.5 ? 1 : -1
   }
 
@@ -91,7 +85,7 @@ class Game {
   }
 }
 
-// Charger .env
+// Charger le .env dans bon
 dotenv.config({ path: path.resolve(__dirname, '../../.env') })
 
 // Déterminer le dossier public
@@ -105,17 +99,17 @@ console.log('⛳️ Serving static from:', publicDir)
 
 // Créer et configurer Fastify
 const app = Fastify()
-console.log('🔧 Fastify instance created')
+console.log('Fastify instance created')
 
 // Enregistrer WebSocket
 app.register(FastifyWebSocket)
-console.log('🔧 WebSocket plugin registered')
+console.log('WebSocket plugin registered')
 
 // Route WS pour Pong
 app.register(async fastify => {
   fastify.get('/ws', { websocket: true }, (socket, _req) => {
     // const { socket } = connection
-    console.log('🔌 WS client connected')
+    console.log('WS client connected')
 
     const game = new Game()
     let timer: ReturnType<typeof setInterval>
@@ -136,7 +130,7 @@ app.register(async fastify => {
 
     socket.on('close', () => {
       clearInterval(timer)
-      console.log('⛔️ WS client disconnected')
+      console.log('WS client disconnected')
     })
   })
 })
@@ -144,26 +138,22 @@ app.register(async fastify => {
 // Servir le front
 app.register(fastifyStatic, { root: publicDir, prefix: '/', index: ['index.html'], wildcard: true })
 
-// Favicon
+// Favicon bugge gingembre
 app.get('/favicon.ico', (_req, reply) => {
   const ico = path.join(publicDir, 'favicon.ico')
   if (fs.existsSync(ico)) reply.header('Content-Type','image/x-icon').send(fs.readFileSync(ico))
   else reply.code(204).send()
 })
 
-// SPA fallback
+// SPA fallback: le truc renvoye par defaut vu qu on sert que le index.html
 app.setNotFoundHandler((_req, reply) => reply.sendFile('index.html'))
 
-// SQLite scores
+// SQLite scores setup
 const dbPath = path.resolve(__dirname, process.env.DB_PATH || '../data/db.sqlite')
 fs.mkdirSync(path.dirname(dbPath), { recursive: true })
 const db = new sqlite3.Database(dbPath, err => err ? console.error(err) : console.log('✅ SQLite ready'))
 db.run(`CREATE TABLE IF NOT EXISTS scores (id INTEGER PRIMARY KEY, player TEXT, score INTEGER, date DATETIME DEFAULT CURRENT_TIMESTAMP)`)  
 
-// API example\app.get('/api/hello', async () => ({ hello: 'world' }))
 
-// Debug routes
-console.log(app.printRoutes())
-
-// Start server
+// serveur en ligne omg
 app.listen({ port: 3000, host: '0.0.0.0' }, err => err ? (console.error(err), process.exit(1)) : console.log('🚀 Server running at http://0.0.0.0:3000'))
