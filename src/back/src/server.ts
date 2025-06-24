@@ -25,11 +25,12 @@ class Game {
   }
 
   public update() {
-    const CANVAS_WIDTH  = 600;
-    const CANVAS_HEIGHT = 400;
-    const PADDLE_W      = 10;
-    const BALL_R        = 8;
+    // const CANVAS_WIDTH  = 600;
+    // const CANVAS_HEIGHT = 400;
+    // const PADDLE_W      = 10;
+    // const BALL_R        = 8;
     const CW = 600, CH = 400
+    let med_pad:number;
     const PADDLE_SPEED = 4, PADDLE_H = 80, BALL_INC = 0.1
 
     // Déplacer les paddles
@@ -53,6 +54,8 @@ class Game {
       this.ball.dx < 0
     ) {
       this.ball.dx = -this.ball.dx + BALL_INC
+      med_pad = this.p1.y + PADDLE_H/2;
+      this.ball.dy = (this.ball.y - med_pad) / 10;
     }
     if (
       this.ball.x > this.p2.x - 10 &&
@@ -61,6 +64,8 @@ class Game {
       this.ball.dx > 0
     ) {
       this.ball.dx = -this.ball.dx - BALL_INC
+      med_pad = this.p2.y + PADDLE_H/2;
+      this.ball.dy = (this.ball.y - med_pad) / 10;
     }
 
     if (this.ball.x < 0) {
