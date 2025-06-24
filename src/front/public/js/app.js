@@ -95,27 +95,95 @@ window.addEventListener('DOMContentLoaded', () => {
         window.removeEventListener('keyup', onKeyUp);
         renderHome();
     }
-    // Envoi des inputs au serveur
+    // Joue pour “Player 1” (W/S) ou “Player 2” (↑/↓)
     function onKeyDown(e) {
-        let dir = null;
         const k = e.key.toLowerCase();
-        if (k === 'w' || k === 'arrowup')
+        let player = null;
+        let dir = null;
+        if (k === 'w') {
+            player = 'p1';
             dir = 'up';
-        else if (k === 's' || k === 'arrowdown')
+        }
+        else if (k === 's') {
+            player = 'p1';
             dir = 'down';
+        }
+        else if (k === 'arrowup') {
+            player = 'p2';
+            dir = 'up';
+        }
+        else if (k === 'arrowdown') {
+            player = 'p2';
+            dir = 'down';
+        }
         else if (e.key === 'Escape') {
             cleanupAndHome();
             return;
         }
-        if (dir)
-            socket.send(JSON.stringify({ type: 'input', dir }));
+        if (player && dir) {
+            socket.send(JSON.stringify({
+                type: 'input',
+                player,
+                dir
+            }));
+        }
     }
     function onKeyUp(e) {
         const k = e.key.toLowerCase();
-        if (['w', 's', 'arrowup', 'arrowdown'].includes(k)) {
-            socket.send(JSON.stringify({ type: 'input', dir: 'stop' }));
+        let player = null;
+        if (['w', 's'].includes(k)) {
+            player = 'p1';
+        }
+        else if (['arrowup', 'arrowdown'].includes(k)) {
+            player = 'p2';
+        }
+        if (player) {
+            // “stop” pour arrêter le mouvement de la raquette de ce joueur
+            socket.send(JSON.stringify({
+                type: 'input',
+                player,
+                dir: 'stop'
+            }));
         }
     }
+    //   // Envoi des inputs au serveur
+    //   function onKeyUp(e: KeyboardEvent): void {
+    //     let dir: 'up'|'down'|null = null;
+    //     let player: "1" | "2" |null = null;
+    //     const k = e.key.toLowerCase();
+    //     if (k === 'w' || k === 'arrowup')
+    //     {
+    //             dir = 'up';
+    //             if (k === "w")
+    //                 player = '1';
+    //             else
+    //                 player = '2';
+    //     }
+    //     else if (k === 's' || k === 'arrowdown')
+    //     {
+    //         dir = 'down';
+    //         if (k === "s")
+    //                 player = '1';
+    //             else
+    //                 player = '2';
+    //     }
+    //     else if (e.key === 'Escape') {
+    //       cleanupAndHome();
+    //       return;
+    //     }
+    //     if (dir) socket.send(JSON.stringify({ type: 'input', dir,'player':player}));
+    //   }
+    //   function onKeyDown(e: KeyboardEvent): void {
+    //     const k = e.key.toLowerCase();
+    //     let player : "1" | "2" | null = null;
+    //     if (['w','s','arrowup','arrowdown'].includes(k)) {
+    //         if (['w','s'].includes(k))
+    //             player = '1';
+    //         else
+    //             player = '2';
+    //       socket.send(JSON.stringify({ type: 'input', dir: 'stop'}));
+    //     }
+    //   }
     // ─── Démarrage ───
     renderHome();
 });

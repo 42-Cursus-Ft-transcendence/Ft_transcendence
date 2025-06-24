@@ -27,6 +27,10 @@ class Game {
   }
 
   public update() {
+    const CANVAS_WIDTH  = 600;
+    const CANVAS_HEIGHT = 400;
+    const PADDLE_W      = 10;
+    const BALL_R        = 8;
     const CW = 600, CH = 400
     const PADDLE_SPEED = 4, PADDLE_H = 80, BALL_INC = 0.1
 
@@ -124,7 +128,8 @@ app.register(async fastify => {
           socket.send(JSON.stringify(game.getState()))
         }, 1000 / 60)
       } else if (msg.type === 'input') {
-        game.applyInput('p1', msg.dir)
+        const ply =(msg.player === 'p2' ? 'p2' :'p1');
+        game.applyInput(ply, msg.dir)
       }
     })
 
