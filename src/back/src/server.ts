@@ -1,87 +1,163 @@
-// src/back/src/server.ts
+import path from 'path'
+import fs from 'fs'
+import dotenv from 'dotenv'
+import Fastify from 'fastify'
+import FastifyWebSocket from '@fastify/websocket'
+import fastifyStatic from '@fastify/static'
+import sqlite3 from 'sqlite3'
 
-import path from 'path';
-import fs from 'fs';
-import dotenv from 'dotenv';
-import Fastify from 'fastify';
-import fastifyStatic from '@fastify/static';
-import sqlite3 from 'sqlite3';
+// ---------------------------------------------
+// Classe Game : logique du Pong côté serveur
+// ---------------------------------------------
+type Vec2 = { x: number; y: number }
 
-// 1) Load env from your project root
-dotenv.config({ path: path.resolve(__dirname, '../../.env') });
+class Game {
+  public p1: Vec2 = { x: 0, y: 160 }
+  public p2: Vec2 = { x: 590, y: 160 }
+  public ball: Vec2 & { dx: number; dy: number } = { x: 300, y: 200, dx: 2, dy: 1 }
+  public score: [number, number] = [0, 0]
 
-// 2) Compute the publicDir for static files
-const prodStatic = path.resolve(__dirname, '../public');                // after `npm run build` or in Docker
-const devStatic  = path.resolve(__dirname, '../../../src/front/public'); // during local `ts-node-dev`
+  private inputs: { p1: 'up' | 'down' | 'stop'; p2: 'up' | 'down' | 'stop' } = {
+    p1: 'stop',
+    p2: 'stop'
+  }
 
-let publicDir: string;
-if (fs.existsSync(prodStatic)) {
-  publicDir = prodStatic;
-} else if (fs.existsSync(devStatic)) {
-  publicDir = devStatic;
-} else {
-  console.error('❌ Cannot locate your frontend build – checked:', prodStatic, devStatic);
-  process.exit(1);
+  public applyInput(player: 'p1' | 'p2', dir: 'up' | 'down' | 'stop') {
+    this.inputs[player] = dir
+  }
+
+  public update() {
+    const CW = 600, CH = 400
+    const PADDLE_SPEED = 4, PADDLE_H = 80, BALL_INC = 0.1
+
+    // Déplacer les paddles
+    if (this.inputs.p1 === 'up') this.p1.y -= PADDLE_SPEED
+    if (this.inputs.p1 === 'down') this.p1.y += PADDLE_SPEED
+    if (this.inputs.p2 === 'up') this.p2.y -= PADDLE_SPEED
+    if (this.inputs.p2 === 'down') this.p2.y += PADDLE_SPEED
+
+    this.p1.y = Math.max(0, Math.min(CH - PADDLE_H, this.p1.y))
+    this.p2.y = Math.max(0, Math.min(CH - PADDLE_H, this.p2.y))
+
+    // Déplacer la balle
+    this.ball.x += this.ball.dx
+    this.ball.y += this.ball.dy
+
+    // Rebond murs
+    if (this.ball.y < 0 || this.ball.y > CH) this.ball.dy *= -1
+
+    // Rebond paddles
+    if (
+      this.ball.x < this.p1.x + 10 &&
+      this.ball.y > this.p1.y &&
+      this.ball.y < this.p1.y + PADDLE_H &&
+      this.ball.dx < 0
+    ) {
+      this.ball.dx = -this.ball.dx + BALL_INC
+    }
+    if (
+      this.ball.x > this.p2.x - 10 &&
+      this.ball.y > this.p2.y &&
+      this.ball.y < this.p2.y + PADDLE_H &&
+      this.ball.dx > 0
+    ) {
+      this.ball.dx = -this.ball.dx - BALL_INC
+    }
+
+    // Score
+    if (this.ball.x < 0) {
+      this.score[1]++
+      this.resetBall()
+    }
+    if (this.ball.x > CW) {
+      this.score[0]++
+      this.resetBall()
+    }
+  }
+
+  private resetBall() {
+    this.ball.x = 300
+    this.ball.y = 200
+    this.ball.dx = -this.ball.dx
+    this.ball.dy = Math.random() > 0.5 ? 1 : -1
+  }
+
+  public getState() {
+    return { type: 'state', p1: this.p1, p2: this.p2, ball: { x: this.ball.x, y: this.ball.y }, score: this.score }
+  }
 }
-console.log('⛳️ Serving static from:', publicDir);
 
-// 3) Create Fastify instance
-const app = Fastify();
+// Charger .env
+dotenv.config({ path: path.resolve(__dirname, '../../.env') })
 
-// 4) Register static plugin (wildcard=true so *all* files* under publicDir are served)
-app.register(fastifyStatic, {
-  root:     publicDir,
-  prefix:   '/',          // serve at the root URL
-  index:    ['index.html'],
-  wildcard: true
-});
+// Déterminer le dossier public
+const prodDir = path.resolve(__dirname, '../public')
+const devDir  = path.resolve(__dirname, '../../../src/front/public')
+let publicDir: string
+if (fs.existsSync(prodDir)) publicDir = prodDir
+else if (fs.existsSync(devDir)) publicDir = devDir
+else { console.error(' ❌ Frontend introuvable'); process.exit(1) }
+console.log('⛳️ Serving static from:', publicDir)
 
-// 5) Fallback for /favicon.ico (in case static plugin somehow misses it)
+// Créer et configurer Fastify
+const app = Fastify()
+console.log('🔧 Fastify instance created')
+
+// Enregistrer WebSocket
+app.register(FastifyWebSocket)
+console.log('🔧 WebSocket plugin registered')
+
+// Route WS pour Pong
+app.register(async fastify => {
+  fastify.get('/ws', { websocket: true }, (socket, _req) => {
+    // const { socket } = connection
+    console.log('🔌 WS client connected')
+
+    const game = new Game()
+    let timer: ReturnType<typeof setInterval>
+
+    socket.on('message', (raw: Buffer) => {
+      const msg = JSON.parse((raw as Buffer).toString())
+      if (msg.type === 'start' && !timer) {
+        timer = setInterval(() => {
+          game.update()
+          socket.send(JSON.stringify(game.getState()))
+        }, 1000 / 60)
+      } else if (msg.type === 'input') {
+        game.applyInput('p1', msg.dir)
+      }
+    })
+
+    socket.on('close', () => {
+      clearInterval(timer)
+      console.log('⛔️ WS client disconnected')
+    })
+  })
+})
+
+// Servir le front
+app.register(fastifyStatic, { root: publicDir, prefix: '/', index: ['index.html'], wildcard: true })
+
+// Favicon
 app.get('/favicon.ico', (_req, reply) => {
-  const iconPath = path.join(publicDir, 'favicon.ico');
-  if (fs.existsSync(iconPath)) {
-    const icon = fs.readFileSync(iconPath);
-    reply
-      .header('Content-Type', 'image/x-icon')
-      .send(icon);
-  } else {
-    // no icon? send 204 No Content instead of a 404
-    reply.code(204).send();
-  }
-});
+  const ico = path.join(publicDir, 'favicon.ico')
+  if (fs.existsSync(ico)) reply.header('Content-Type','image/x-icon').send(fs.readFileSync(ico))
+  else reply.code(204).send()
+})
 
-// 6) SPA‐style fallback: any other unknown GET → index.html
-app.setNotFoundHandler((_req, reply) => {
-  reply.sendFile('index.html');
-});
+// SPA fallback
+app.setNotFoundHandler((_req, reply) => reply.sendFile('index.html'))
 
-// 7) SQLite setup
-const dbRel  = process.env.DB_PATH || '../data/db.sqlite';
-const dbPath = path.resolve(__dirname, dbRel);
-const dbDir  = path.dirname(dbPath);
-if (!fs.existsSync(dbDir)) fs.mkdirSync(dbDir, { recursive: true });
+// SQLite scores
+const dbPath = path.resolve(__dirname, process.env.DB_PATH || '../data/db.sqlite')
+fs.mkdirSync(path.dirname(dbPath), { recursive: true })
+const db = new sqlite3.Database(dbPath, err => err ? console.error(err) : console.log('✅ SQLite ready'))
+db.run(`CREATE TABLE IF NOT EXISTS scores (id INTEGER PRIMARY KEY, player TEXT, score INTEGER, date DATETIME DEFAULT CURRENT_TIMESTAMP)`)  
 
-const db = new sqlite3.Database(dbPath, err => {
-  if (err) console.error('SQLite error:', err);
-  else console.log('✅ SQLite ready at', dbPath);
-});
-db.run(`
-  CREATE TABLE IF NOT EXISTS scores (
-    id     INTEGER PRIMARY KEY AUTOINCREMENT,
-    player TEXT    NOT NULL,
-    score  INTEGER NOT NULL,
-    date   DATETIME DEFAULT CURRENT_TIMESTAMP
-  )
-`);
+// API example\app.get('/api/hello', async () => ({ hello: 'world' }))
 
-// 8) Your API routes
-app.get('/api/hello', async () => ({ hello: 'world' }));
+// Debug routes
+console.log(app.printRoutes())
 
-// 9) Start the server
-app.listen({ port: 3000, host: '0.0.0.0' }, (err, address) => {
-  if (err) {
-    console.error(err);
-    process.exit(1);
-  }
-  console.log(`🚀 Server running at ${address}`);
-});
+// Start server
+app.listen({ port: 3000, host: '0.0.0.0' }, err => err ? (console.error(err), process.exit(1)) : console.log('🚀 Server running at http://0.0.0.0:3000'))
