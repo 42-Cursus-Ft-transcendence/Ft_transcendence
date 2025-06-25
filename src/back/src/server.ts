@@ -9,7 +9,59 @@ import sqlite3 from 'sqlite3'
 
 type Vec2 = { x: number; y: number }
 
+/** Linear interpolation entre a et b 
+ * pour lisser l approche du paddle vers la position dirigee
+ * a etant le point de depart b le point a atteindre
+ * et t l indice de souplesse : 
+ * quand t tend vers 0 -> peu de movement 
+ * quand t tend vers 1 -> tres proche de la difference actuelle => pas de lissage 
+*/
+function lerp(a: number, b: number, t: number): number {
+  return a + (b - a) * t;
+}
+
+function startAI(game: Game, difficulty: number) {
+  const REACTION_MS = 1000;  // 1 s
+  const TOLERANCE   = lerp(30, 5, difficulty);
+  const NOISE       = lerp(20, 0, difficulty);
+  const KP          = lerp(0.5, 1.5, difficulty);
+  const KD          = lerp(0.1, 0.4, difficulty);
+
+  let lastError = 0;
+
+  return setInterval(() => {
+    // 1) Projection de la balle…
+    let { x: bx, y: by, dx, dy } = game.ball;
+    const targetX = game.p2.x;
+    while ((dx > 0 && bx < targetX) || (dx < 0 && bx > targetX)) {
+      bx += dx;
+      by += dy;
+      if (by < 0 || by > 400) dy = -dy;
+    }
+
+    // 2) Bruit
+    by += (Math.random() * 2 - 1) * NOISE;
+
+    // 3) Erreur
+    const paddleCenter = game.p2.y + 80/2;
+    const error = by - paddleCenter;
+    const derivative = error - lastError;
+    lastError = error;
+
+    // 4) Commande PD
+    const output = KP * error + KD * derivative;
+
+    // 5) Application
+    if (output >  TOLERANCE)      game.applyInput('p2', 'down');
+    else if (output < -TOLERANCE) game.applyInput('p2', 'up');
+    else                          game.applyInput('p2', 'stop');
+  }, REACTION_MS);
+}
+
+
+
 class Game {
+  public mode: 'player' | 'bot' = 'player';
   public p1: Vec2 = { x: 0, y: 160 }
   public p2: Vec2 = { x: 590, y: 160 }
   public ball: Vec2 & { dx: number; dy: number } = { x: 300, y: 200, dx: 2, dy: 1 }
@@ -116,28 +168,42 @@ app.register(async fastify => {
     // const { socket } = connection
     console.log('WS client connected')
 
-    const game = new Game()
-    let timer: ReturnType<typeof setInterval>
 
-    socket.on('message', (raw: Buffer) => {
-      const msg = JSON.parse((raw as Buffer).toString())
-      if (msg.type === 'start' && msg.vs == 'player' && !timer) {
-        timer = setInterval(() => {
-          game.update()
-          socket.send(JSON.stringify(game.getState()))
-        }, 1000 / 60)
-      } else if (msg.type === 'input') {
-        const ply =(msg.player === 'p2' ? 'p2' :'p1');
-        game.applyInput(ply, msg.dir)
-      }
-    })
-// petit update a venir pour le sscore et renvoyer a la db
+const game = new Game()
+let timer: ReturnType<typeof setInterval>
+let aiTimer: ReturnType<typeof setInterval>  // ← for the bot
 
-    socket.on('close', () => {
-      clearInterval(timer)
-      console.log('WS client disconnected')
-    })
-  })
+socket.on('message', (raw: Buffer) => {
+  const msg = JSON.parse(raw.toString())
+
+  if (msg.type === 'start' && !timer) {
+    // always start the main game loop
+    if (msg.vs === 'bot')
+        game.mode = 'bot';
+    timer = setInterval(() => {
+      game.update()
+      socket.send(JSON.stringify(game.getState()))
+    }, 1000 / 60)
+    if (msg.vs === 'bot') {
+        aiTimer = startAI(game, msg.difficulty ?? 1);
+    }
+  }
+  else if (msg.type === 'input') {
+    // human player input
+    const ply = msg.player === 'p2' ? 'p2' : 'p1'
+    if (ply === 'p2' && game.mode !== 'player') {
+      return;
+    }
+    game.applyInput(ply, msg.dir)
+  }
+})
+
+socket.on('close', () => {
+  clearInterval(timer)
+  clearInterval(aiTimer)
+  console.log('WS client disconnected')
+})
+})
 })
 
 // Servir le front
