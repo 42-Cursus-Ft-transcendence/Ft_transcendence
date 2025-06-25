@@ -121,7 +121,7 @@ app.register(async fastify => {
 
     socket.on('message', (raw: Buffer) => {
       const msg = JSON.parse((raw as Buffer).toString())
-      if (msg.type === 'start' && !timer) {
+      if (msg.type === 'start' && msg.vs == 'player' && !timer) {
         timer = setInterval(() => {
           game.update()
           socket.send(JSON.stringify(game.getState()))
