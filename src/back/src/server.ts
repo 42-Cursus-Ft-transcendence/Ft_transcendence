@@ -31,7 +31,7 @@ class Game {
     // const BALL_R        = 8;
     const CW = 600, CH = 400
     let med_pad:number;
-    const PADDLE_SPEED = 4, PADDLE_H = 80, BALL_INC = 0.1
+    const PADDLE_SPEED = 4, PADDLE_H = 80, BALL_INC = 0.5
 
     // Déplacer les paddles
     if (this.inputs.p1 === 'up') this.p1.y -= PADDLE_SPEED
@@ -80,7 +80,7 @@ class Game {
   private resetBall() {
     this.ball.x = 300
     this.ball.y = 200
-    this.ball.dx = -this.ball.dx
+    this.ball.dx = this.ball.dx > 0 ? -2:2;
     //math.random renvoie un nombre entre 0 et 1
     this.ball.dy = Math.random() > 0.5 ? 1 : -1
   }
