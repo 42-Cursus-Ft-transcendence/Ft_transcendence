@@ -59,10 +59,16 @@ window.addEventListener('DOMContentLoaded', () => {
                      transition-all duration-200">
         Play
       </button>
+      <button id="playVBot"
+              class="px-6 py-3 border-2 border-accent uppercase text-sm
+                     tracking-widest hover:bg-accent hover:text-background
+                     transition-all duration-200">
+        Play vs bot
+      </button>
     `;
         document.getElementById('playBtn').addEventListener('click', () => {
             console.log("envoi bien start serv");
-            socket.send(JSON.stringify({ type: 'start' }));
+            socket.send(JSON.stringify({ type: 'start', 'vs': "player" }));
             renderPong();
         });
     }
