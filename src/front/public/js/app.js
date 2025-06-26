@@ -73,7 +73,7 @@ window.addEventListener('DOMContentLoaded', () => {
         });
         document.getElementById('playVBot').addEventListener('click', () => {
             console.log("envoi bien start serv");
-            socket.send(JSON.stringify({ type: 'start', 'vs': "bot" }));
+            socket.send(JSON.stringify({ type: 'start', 'vs': "bot", "difficulty": "1" }));
             renderPong();
         });
     }
@@ -105,7 +105,8 @@ window.addEventListener('DOMContentLoaded', () => {
     function cleanupAndHome() {
         window.removeEventListener('keydown', onKeyDown);
         window.removeEventListener('keyup', onKeyUp);
-        socket.close();
+        socket.send(JSON.stringify({ 'type': 'stop' }));
+        // socket.close();
         renderHome();
     }
     // Joue pour “Player 1” (W/S) ou “Player 2” (↑/↓)
