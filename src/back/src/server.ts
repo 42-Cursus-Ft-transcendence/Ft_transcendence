@@ -9,7 +9,7 @@ import sqlite3 from 'sqlite3'
 
 type Vec2 = { x: number; y: number }
 
-/** Linear interpolation entre a et b 
+/** lerp  = Linear interpolation entre a et b 
  * pour lisser l approche du paddle vers la position dirigee
  * a etant le point de depart b le point a atteindre
  * et t l indice de souplesse : 
@@ -22,8 +22,10 @@ function lerp(a: number, b: number, t: number): number {
 
 function startAI(game: Game, difficulty: number) {
   const REACTION_MS = 1000;  // 1 s
-  const TOLERANCE   = lerp(30, 5, difficulty);
-  const NOISE       = lerp(20, 0, difficulty);
+  const TOLERANCE   = 0;
+//   const TOLERANCE   = lerp(30, 0, difficulty);
+  const NOISE       = 0;
+//   const NOISE       = lerp(20, 0, difficulty);
   const KP          = lerp(0.5, 1.5, difficulty);
   const KD          = lerp(0.1, 0.4, difficulty);
 
@@ -168,16 +170,17 @@ app.register(async fastify => {
     // const { socket } = connection
     console.log('WS client connected')
 
+let game = new Game()
+let timer: ReturnType<typeof setInterval> | undefined = undefined
+let aiTimer: ReturnType<typeof setInterval> | undefined = undefined
 
-const game = new Game()
-let timer: ReturnType<typeof setInterval>
-let aiTimer: ReturnType<typeof setInterval>  // ← for the bot
 
 socket.on('message', (raw: Buffer) => {
   const msg = JSON.parse(raw.toString())
 
   if (msg.type === 'start' && !timer) {
     // always start the main game loop
+    game = new Game();
     if (msg.vs === 'bot')
         game.mode = 'bot';
     timer = setInterval(() => {
@@ -185,7 +188,9 @@ socket.on('message', (raw: Buffer) => {
       socket.send(JSON.stringify(game.getState()))
     }, 1000 / 60)
     if (msg.vs === 'bot') {
-        aiTimer = startAI(game, msg.difficulty ?? 1);
+        let diff:number;
+        diff = parseFloat(msg.difficulty);
+        aiTimer = startAI(game, diff);
     }
   }
   else if (msg.type === 'input') {
@@ -196,11 +201,33 @@ socket.on('message', (raw: Buffer) => {
     }
     game.applyInput(ply, msg.dir)
   }
+  else if (msg.type === 'stop')
+  {
+    console.log("bien termine game");
+    if (timer)
+    {
+        clearInterval(timer);
+        timer = undefined;
+    }
+    if (aiTimer)
+    {
+        clearInterval(aiTimer);
+        aiTimer = undefined;
+    }
+  }
 })
 
 socket.on('close', () => {
-  clearInterval(timer)
-  clearInterval(aiTimer)
+    if (timer)
+    {
+        clearInterval(timer);
+        timer = undefined;
+    }
+    if (aiTimer)
+    {
+        clearInterval(aiTimer);
+        aiTimer = undefined;
+    }
   console.log('WS client disconnected')
 })
 })
