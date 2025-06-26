@@ -22,10 +22,9 @@ function lerp(a: number, b: number, t: number): number {
 
 function startAI(game: Game, difficulty: number) {
   const REACTION_MS = 1000;  // 1 s
-  const TOLERANCE   = 0;
-//   const TOLERANCE   = lerp(30, 0, difficulty);
-  const NOISE       = 0;
-//   const NOISE       = lerp(20, 0, difficulty);
+//   const TOLERANCE   = 0;
+  const TOLERANCE   = lerp(30, 0, difficulty);
+  const NOISE       = lerp(20, 0, difficulty);
   const KP          = lerp(0.5, 1.5, difficulty);
   const KD          = lerp(0.1, 0.4, difficulty);
 
