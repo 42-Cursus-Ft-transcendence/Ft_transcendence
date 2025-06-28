@@ -1,3 +1,46 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import url("https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap");
+@import "tailwindcss";
+
+@layer components {
+  .threeD-button-set {
+    @apply w-full uppercase tracking-widest text-white text-lg
+           px-8 py-4 rounded-lg
+           bg-gradient-to-r from-[#FF3CAC] via-[#784BA0] to-[#2B86C5]
+           transition-transform duration-100 ease-out;
+    box-shadow: 0 0.5rem 0 #784BA0;
+  }
+  .threeD-button-set:hover {
+    @apply scale-105;
+    box-shadow: 0 1rem 0 #2B86C5;
+  }
+  .threeD-button-set:active {
+    @apply translate-y-2;
+    box-shadow: 0 0.25rem 0 #FF3CAC;
+  }
+}
+
+@layer utilities {
+  .font-arcade {
+    font-family: "Press Start 2P", monospace;
+  }
+
+   /* Backgrounds */
+  .bg-background { background-color: #080808 !important; }
+  .bg-primary    { background-color: #00FF00 !important; }
+  .bg-accent     { background-color: #FFD700 !important; }
+
+  /* Hover pour les backgrounds */
+  .hover\:bg-background:hover { background-color: #080808 !important; }
+  .hover\:bg-primary:hover    { background-color: #00FF00 !important; }
+  .hover\:bg-accent:hover     { background-color: #FFD700 !important; }
+
+  /* Text colors */
+  .text-background { color: #080808 !important; }
+  .text-primary    { color: #00FF00 !important; }
+  .text-accent     { color: #FFD700 !important; }
+
+  /* Hover pour les textes */
+  .hover\:text-background:hover { color: #080808 !important; }
+  .hover\:text-primary:hover    { color: #00FF00 !important; }
+  .hover\:text-accent:hover     { color: #FFD700 !important; }
+}

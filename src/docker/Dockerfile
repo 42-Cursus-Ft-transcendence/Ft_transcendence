@@ -19,14 +19,17 @@ RUN npm run build    # génère dist/
 
 # ─── FRONTEND ───────────────────────────────────
 WORKDIR /app
-COPY src/front/package.json src/front/package-lock.json ./front/
+COPY src/front/package.json ./front/
 WORKDIR /app/front
+
 RUN npm install
 
 COPY src/front/styles ./styles
 COPY src/front/public ./public
 
-RUN npm run build:css   # génère public/styles.css
+# RUN npm run build:css   # génère public/styles.css
+
+RUN npx tailwindcss -i ./styles/input.css -o ./public/styles.css --minify
 
 # ────────────────────────────────────────────────
 # 2) STAGE “runtime” : image légère pour l’exécution
