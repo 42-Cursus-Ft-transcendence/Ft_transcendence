@@ -1,0 +1,19 @@
+version: "3.8"
+
+services:
+  backend:
+    build:
+      context: ../..                  # project root (contains src/)
+      dockerfile: src/docker/Dockerfile
+      target: runtime
+
+  nginx:
+    build:
+      context: ../..                  # project root too
+      dockerfile: src/docker/nginx/Dockerfile
+    container_name: nginx
+    depends_on:
+      - backend
+    ports:
+      - "8080:80"    # map host 8080 → container 80 (HTTP)
+      - "8443:443"
