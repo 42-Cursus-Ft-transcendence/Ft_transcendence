@@ -13,8 +13,6 @@ PORT           := 3000
 # ──────────────────────────────────────────────────────
 .PHONY: all help install-back install-front build-front-ts watch-front-ts watch-front-css dev-back dev-front dev docker-build docker-run docker-stop docker-clean logs exec
 
-all: help
-
 help:
 	@echo "Usage: make [target]"
 	@echo ""
@@ -40,6 +38,8 @@ help:
 # ──────────────────────────────────────────────────────
 # 1) LOCAL DEV (hors Docker)
 # ──────────────────────────────────────────────────────
+
+all:docker-run
 
 install-back:
 	cd $(BACK_DIR) && npm install
