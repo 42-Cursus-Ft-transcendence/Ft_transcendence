@@ -1,17 +1,24 @@
 # ──────────────────────────────────────────────────────
 # Variables
 # ──────────────────────────────────────────────────────
-BACK_DIR       := src/back
-FRONT_DIR      := src/front
-DOCKERFILE     := src/docker/Dockerfile
-IMAGE_NAME     := fastify-app
-CONTAINER_NAME := fastify-app-dev
-PORT           := 3000
+BACK_DIR         := src/back
+FRONT_DIR        := src/front
+DOCKERFILE       := src/docker/Dockerfile
+COMPOSE_FILE     := src/docker/docker-compose.yml
+IMAGE_NAME       := fastify-app
+CONTAINER_NAME   := fastify-app-dev
+PORT             := 3000
 
 # ──────────────────────────────────────────────────────
 # Cibles par défaut et aide
 # ──────────────────────────────────────────────────────
-.PHONY: all help install-back install-front build-front-ts watch-front-ts watch-front-css dev-back dev-front dev docker-build docker-run docker-stop docker-clean logs exec
+.PHONY: all help install-back install-front build-front-ts \
+        watch-front-ts watch-front-css dev-back dev-front dev \
+        docker-build docker-run docker-stop docker-clean logs exec \
+        compose-build compose-up compose-down compose-logs \
+        compose-exec-backend compose-exec-nginx
+
+all: help
 
 help:
 	@echo "Usage: make [target]"
@@ -26,7 +33,7 @@ help:
 	@echo "  dev-front          Run front TS+CSS watchers"
 	@echo "  dev                install-* then dev-back & dev-front"
 	@echo ""
-	@echo "Docker targets:"
+	@echo "Single-container Docker targets:"
 	@echo "  docker-build       Build Docker image ($(IMAGE_NAME))"
 	@echo "  docker-run         Run Docker container ($(CONTAINER_NAME))"
 	@echo "  docker-stop        Stop Docker container"
@@ -34,12 +41,18 @@ help:
 	@echo "  logs               Follow container logs"
 	@echo "  exec               Shell into the running container"
 	@echo ""
+	@echo "Docker-Compose targets:"
+	@echo "  compose-build      Build all images via docker-compose"
+	@echo "  compose-up         Start all services in background"
+	@echo "  compose-down       Stop and remove all services"
+	@echo "  compose-logs       Follow logs for the entire stack"
+	@echo "  compose-exec-backend   Shell into the backend service"
+	@echo "  compose-exec-nginx     Shell into the nginx service"
+	@echo ""
 
 # ──────────────────────────────────────────────────────
 # 1) LOCAL DEV (hors Docker)
 # ──────────────────────────────────────────────────────
-
-all:docker-run
 
 install-back:
 	cd $(BACK_DIR) && npm install
@@ -69,7 +82,7 @@ dev: install-back install-front
 	$(MAKE) dev-front
 
 # ──────────────────────────────────────────────────────
-# 2) DOCKER WORKFLOW
+# 2) SINGLE-CONTAINER DOCKER WORKFLOW
 # ──────────────────────────────────────────────────────
 
 docker-build:
@@ -90,3 +103,26 @@ logs:
 
 exec:
 	docker exec -it $(CONTAINER_NAME) sh
+
+# ──────────────────────────────────────────────────────
+# 3) MULTI-CONTAINER DOCKER-COMPOSE WORKFLOW
+# ──────────────────────────────────────────────────────
+
+compose-build:
+	docker-compose -f $(COMPOSE_FILE) build
+
+compose-up: compose-build
+	docker-compose -f $(COMPOSE_FILE) up -d
+
+compose-down:
+	docker-compose -f $(COMPOSE_FILE) down --remove-orphans
+
+compose-logs:
+	docker-compose -f $(COMPOSE_FILE) logs -f
+
+# Ensure services are running before exec
+compose-exec-backend: compose-up
+	docker-compose -f $(COMPOSE_FILE) exec backend sh
+
+compose-exec-nginx: compose-up
+	docker-compose -f $(COMPOSE_FILE) exec nginx sh

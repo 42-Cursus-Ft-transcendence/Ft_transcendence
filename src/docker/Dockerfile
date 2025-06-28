@@ -48,6 +48,8 @@ COPY --from=builder /app/front/public ./public
 COPY src/back/package.json src/back/package-lock.json ./
 RUN npm install --omit=dev
 
+
+
 # Créer le dossier de données pour SQLite
 RUN mkdir -p /app/data
 VOLUME ["/app/data"]
