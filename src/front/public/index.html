@@ -1,23 +1,21 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Pong Arcade</title>
-
-  <!-- Favicon -->
-  <link rel="icon" href="/favicon.ico?" type="image/x-icon">
-  <!-- Pixel font -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PONG</title>
+  <link rel="icon" href="./assets/favicon.ico?" type="image/x-icon">
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
-  <!-- Tailwind CSS output -->
-  <link href="/styles.css" rel="stylesheet">
+  <link rel="stylesheet" href="./styles.css" />
 </head>
-<body class="bg-background text-primary font-arcade min-h-screen flex items-center justify-center">
 
-  <!-- App container – all views get injected here -->
-  <main id="app" class="w-full max-w-lg text-center"></main>
-
-  <!-- Your compiled front-end code -->
-  <script src="/js/app.js"></script>
+<body class="font-arcade p-0 bg-black h-screen w-screen flex items-center justify-center overflow-hidden bg-[url('./assets/backArcade1(1).jpg')] bg-cover bg-center">
+  <div id="root"></div>
+  <script type="module" src="./js/index.js"></script>
 </body>
+
+
+
+
 </html>
