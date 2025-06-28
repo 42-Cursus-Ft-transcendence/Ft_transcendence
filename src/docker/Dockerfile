@@ -25,6 +25,7 @@ RUN npm install
 
 COPY src/front/styles ./styles
 COPY src/front/public ./public
+
 RUN npm run build:css   # génère public/styles.css
 
 # ────────────────────────────────────────────────
