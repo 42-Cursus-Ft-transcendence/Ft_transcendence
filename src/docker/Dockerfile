@@ -24,12 +24,12 @@ WORKDIR /app/front
 
 RUN npm install
 
-COPY src/front/styles ./styles
+COPY src/front/src ./src
 COPY src/front/public ./public
 
-# RUN npm run build:css   # génère public/styles.css
+RUN npm run build:css   # génère public/styles.css
 
-RUN npx tailwindcss -i ./styles/input.css -o ./public/styles.css --minify
+# RUN npx tailwindcss -i ./styles/input.css -o ./public/styles.css --minify
 
 # ────────────────────────────────────────────────
 # 2) STAGE “runtime” : image légère pour l’exécution
