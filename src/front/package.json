@@ -9,6 +9,7 @@
     "watch:css": "tailwindcss -i ./styles/input.css -o ./public/styles.css --watch"
   },
   "dependencies": {
+    "@tailwindcss/cli": "^4.1.11",
     "@tailwindcss/postcss": "^4.1.11",
     "postcss": "^8.5.6",
     "tailwindcss": "^4.1.11"
