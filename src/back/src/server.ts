@@ -289,4 +289,4 @@ db.run(`CREATE TABLE IF NOT EXISTS scores (id INTEGER PRIMARY KEY, player TEXT, 
 
 
 // serveur en ligne omg
-app.listen({ port: 3000, host: '0.0.0.0' }, err => err ? (console.error(err), process.exit(1)) : console.log('🚀 Server running at http://0.0.0.0:8443'))
+app.listen({ port: 3000, host: '0.0.0.0' }, err => err ? (console.error(err), process.exit(1)) : console.log('🚀 Server running at http://0.0.0.0:3000'))
