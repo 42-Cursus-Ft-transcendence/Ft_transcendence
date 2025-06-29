@@ -1,5 +1,5 @@
 export const arcadeTemplate = `
-<div class="relative inline-block">
+<div class="relative zoomable inline-block">
      <img src="./assets/arcade.png" alt="borne arcade" class="filter brightness-100 hover:brightness-75 transition" />
      <div
        class="absolute top-[14.7%] left-[16.3%] w-[67.7%] h-[40%]

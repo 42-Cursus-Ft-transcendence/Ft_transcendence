@@ -35,6 +35,7 @@
     --radius-lg: 0.5rem;
     --radius-3xl: 1.5rem;
     --ease-out: cubic-bezier(0, 0, 0.2, 1);
+    --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
     --default-transition-duration: 150ms;
     --default-transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
     --default-font-family: var(--font-sans);
@@ -265,6 +266,9 @@
   .w-\[67\.7\%\] {
     width: 67.7%;
   }
+  .w-\[600px\] {
+    width: 600px;
+  }
   .w-full {
     width: 100%;
   }
@@ -279,6 +283,9 @@
   }
   .items-center {
     align-items: center;
+  }
+  .justify-between {
+    justify-content: space-between;
   }
   .justify-center {
     justify-content: center;
@@ -421,6 +428,9 @@
   .text-red-500 {
     color: var(--color-red-500);
   }
+  .text-white {
+    color: var(--color-white);
+  }
   .uppercase {
     text-transform: uppercase;
   }
@@ -525,6 +535,19 @@
     translate: var(--tw-translate-x) var(--tw-translate-y);
     box-shadow: 0 0.25rem 0 #FF3CAC;
   }
+  .zoomable {
+    transform-origin: 50% 15%;
+    transition-property: transform, translate, scale, rotate;
+    transition-timing-function: var(--tw-ease, var(--default-transition-timing-function));
+    transition-duration: var(--tw-duration, var(--default-transition-duration));
+    --tw-duration: 300ms;
+    transition-duration: 300ms;
+    --tw-ease: var(--ease-in-out);
+    transition-timing-function: var(--ease-in-out);
+  }
+  .zoomed {
+    transform: scale(1.8);
+  }
 }
 @layer utilities {
   .font-arcade {
@@ -565,6 +588,11 @@
   }
   .hover\:text-accent:hover {
     color: #FFD700 !important;
+  }
+}
+@layer base {
+  html, body {
+    overflow: hidden;
   }
 }
 @property --tw-space-y-reverse {
@@ -758,4 +786,3 @@
     }
   }
 }
-

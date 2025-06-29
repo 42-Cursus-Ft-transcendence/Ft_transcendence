@@ -10,7 +10,8 @@ export function renderPong(container, socket, onBack) {
     const canvasEl = container.querySelector('#pongCanvas');
     const scoreText = container.querySelector('#scoreText');
     const backBtn = container.querySelector('#backBtn');
-    const ctx = canvasEl.getContext('2d');
+    const ctx = canvasEl.getContext('2d', { alpha: true });
+    ;
     // À chaque état reçu du serveur, on dessine
     socket.onmessage = ev => {
         const msg = JSON.parse(ev.data);
@@ -19,14 +20,16 @@ export function renderPong(container, socket, onBack) {
     };
     function renderState(msg) {
         // Fond noir
-        ctx.fillStyle = '#000';
-        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+        // ctx.fillStyle = '#000';
+        // ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+        ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
         // paddle
-        ctx.fillStyle = '#0f0';
+        ctx.fillStyle = '#00F0FF';
         ctx.fillRect(msg.p1.x, msg.p1.y, PADDLE_W, PADDLE_H);
         ctx.fillRect(msg.p2.x, msg.p2.y, PADDLE_W, PADDLE_H);
         // Balle
         ctx.beginPath();
+        ctx.fillStyle = '#FF00AA';
         ctx.arc(msg.ball.x, msg.ball.y, BALL_R, 0, Math.PI * 2);
         ctx.fill();
         // Score

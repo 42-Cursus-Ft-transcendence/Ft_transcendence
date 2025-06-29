@@ -4,12 +4,14 @@ import { renderPong } from './controllers/pongController.js';
 import { renderOnline } from './controllers/onlineController.js';
 import { renderProfile } from './controllers/profileController.js';
 import { renderSettings } from './controllers/settingsController.js';
+import { arcadeTemplate } from './templates/arcadeTemplate.js';
 let socket;
 const root = document.getElementById('root');
 function doRender(screen) {
     if (screen === 'signup')
         renderSignup(root, () => navigate('menu'));
     else {
+        ensureArcadeFrame();
         const app = document.getElementById('app');
         if (!app)
             throw new Error('Le template arcade n’a pas été monté');
@@ -70,10 +72,12 @@ window.addEventListener('DOMContentLoaded', () => {
     // 4️⃣ const s = params.get('screen') as Screen;
     //    • Extrait la valeur du paramètre “screen” (ou null si absent).
     //    • Le “as Screen” dit à TypeScript de considérer la valeur comme l’un de nos écrans.
-    const s = params.get('screen');
+    let s = params.get('screen');
     // 5️⃣ const initial = s || 'signup';
     //    • Si on a lu un écran valide (p.ex. 'pong'), on l’utilise.
     //    • Sinon on retombe sur 'signup' par défaut.
+    if (s)
+        s = 'menu';
     const initial = s || 'signup';
     // 6️⃣ history.replaceState({ screen: initial }, '', location.href);
     //    • Remplace l’entrée courante de l’historique (celle du chargement de la page).
@@ -83,7 +87,7 @@ window.addEventListener('DOMContentLoaded', () => {
     // 7️⃣ doRender(initial);
     //    • Affiche immédiatement l’écran déterminé (signup ou autre) sans attendre
     //      une interaction utilisateur.
-    doRender(initial);
+    navigate(initial);
 });
 // Lorsque l’utilisateur clique sur Précédent/Suivant
 window.addEventListener('popstate', event => {
@@ -97,4 +101,10 @@ window.addEventListener('popstate', event => {
     //    • Cela permet de restaurer l’UI exactement comme elle était.
     doRender(screen || 'signup');
 });
+function ensureArcadeFrame() {
+    // Si #app n'existe pas encore, on l'injecte dans `root`
+    if (!document.getElementById('app')) {
+        root.innerHTML = arcadeTemplate;
+    }
+}
 //# sourceMappingURL=index.js.map
