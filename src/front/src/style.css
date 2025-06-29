@@ -17,6 +17,13 @@
     @apply translate-y-2;
     box-shadow: 0 0.25rem 0 #FF3CAC;
   }
+  .zoomable {
+    @apply transition-transform duration-300 ease-in-out origin-[50%_15%];
+  }
+  /* Classe à ajouter pour zoomer */
+  .zoomed {
+    transform: scale(1.8);
+  }
 }
 
 @layer utilities {
@@ -45,3 +52,9 @@
   .hover\:text-accent:hover     { color: #FFD700 !important; }
 }
 
+@layer base {
+  /* Empêche tout scroll sur la page, même quand un enfant déborde */
+  html, body {
+    overflow: hidden;
+  }
+}
