@@ -53,12 +53,18 @@ export function renderPong(container: HTMLElement, socket: WebSocket,  onBack: (
     scoreText.textContent = `${msg.score[0]} - ${msg.score[1]}`;
   }
 
+
   // Global cleanup 
   function cleanup(): void {
     window.removeEventListener('keydown', onKeyDown);
     window.removeEventListener('keyup',   onKeyUp);
     socket.send(JSON.stringify({ 'type': 'stop' }));
   }
+
+  window.addEventListener('popstate', (event) => {
+  cleanup();
+});
+
 
   function onKeyDown(e: KeyboardEvent): void {
   const k = e.key.toLowerCase();

@@ -71,7 +71,9 @@ function navigate(screen: Screen) {
     //
     //    Conséquence : l’URL change en “?screen=menu” (ou autre), et l’utilisateur
     //    pourra utiliser la flèche ← pour revenir à l’état précédent.
+
     history.pushState({ screen }, '', `?screen=${screen}`);
+
 
     // 2️⃣ doRender(screen);
     //    • Appelle la fonction qui affiche l’écran correspondant dans le DOM.
@@ -83,6 +85,7 @@ function navigate(screen: Screen) {
 
 // Au chargement initial du document HTML
 window.addEventListener('DOMContentLoaded', () => {
+
     const protocol = location.protocol === 'https:' ? 'wss' : 'ws';
     socket = new WebSocket(`${protocol}://${location.host}/ws`);
     socket.onopen  = () => console.log('✅ WebSocket connectée');
