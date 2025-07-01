@@ -1,11 +1,23 @@
-version: "3.8"
 
 services:
+
+  anvil:
+    image: ghcr.io/foundry-rs/foundry:latest
+    command: ["anvil", "--chain-id", "31337", "--port", "8545"]
+    ports:
+      - "8545:8545"
+
   backend:
     build:
       context: ../..                  
       dockerfile: src/docker/Dockerfile
       target: runtime
+    depends_on:
+      - anvil
+    env_file:
+      - ./.env.backend
+    networks:
+      - pongnet      # <-- no colon here
 
   nginx:
     build:
@@ -15,5 +27,12 @@ services:
     depends_on:
       - backend
     ports:
-      - "8080:80"    # map host 8080 → container 80 (HTTP)
-      - "8443:443"     # pareil mais 443
+      - "8080:80"
+      - "8443:443"
+    networks:
+      - pongnet
+
+# Define the network
+networks:
+  pongnet:
+    driver: bridge

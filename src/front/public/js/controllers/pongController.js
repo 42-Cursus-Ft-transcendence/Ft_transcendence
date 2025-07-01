@@ -41,6 +41,9 @@ export function renderPong(container, socket, onBack) {
         window.removeEventListener('keyup', onKeyUp);
         socket.send(JSON.stringify({ 'type': 'stop' }));
     }
+    window.addEventListener('popstate', (event) => {
+        cleanup();
+    });
     function onKeyDown(e) {
         const k = e.key.toLowerCase();
         let player = null;
