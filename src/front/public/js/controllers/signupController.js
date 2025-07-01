@@ -1,5 +1,4 @@
 import { signupTemplate } from '../templates/signupTemplate.js';
-import { arcadeTemplate } from '../templates/arcadeTemplate.js';
 export function renderSignup(container, onSuccess) {
     container.innerHTML = signupTemplate;
     const form = container.querySelector('#signupForm');
@@ -37,9 +36,40 @@ export function renderSignup(container, onSuccess) {
         }
         if (!valid)
             return;
-        else {
-            container.innerHTML = arcadeTemplate;
-            onSuccess();
+        btn.disabled = true;
+        txt.textContent = 'Creation in progress…';
+        try {
+            console.log('Sending fetch...');
+            const res = await fetch('/user', {
+                method: 'POST',
+                headers: { 'content-Type': 'application/json' },
+                body: JSON.stringify({
+                    userName: nameInput.value.trim(),
+                    email: emailInput.value.trim(),
+                    password: passInput.value
+                })
+            });
+            if (res.status === 201) {
+                const { idUser } = await res.json();
+                console.log('Utilisateur créé #', idUser);
+                onSuccess();
+            }
+            else {
+                const err = await res.json();
+                if (res.status === 400) {
+                    errName.textContent = err.error;
+                    errName.classList.remove('hidden');
+                }
+                else
+                    alert(err.error || 'Unknown error');
+            }
+        }
+        catch (networkError) {
+            alert('Unable to contact the server');
+        }
+        finally {
+            btn.disabled = false;
+            txt.textContent = 'Create account';
         }
     });
 }

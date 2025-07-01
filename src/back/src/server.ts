@@ -4,7 +4,8 @@ import dotenv from 'dotenv'
 import Fastify from 'fastify'
 import FastifyWebSocket from '@fastify/websocket'
 import fastifyStatic from '@fastify/static'
-import sqlite3 from 'sqlite3'
+import userRoutes from './db/userRoutes'   // ← import par défaut
+import './db/db'                           // ← initialise la BD et les tables
 
 
 type Vec2 = { x: number; y: number }
@@ -193,6 +194,10 @@ console.log('⛳️ Serving static from:', publicDir)
 const app = Fastify()
 console.log('Fastify instance created')
 
+
+// bd routes 
+app.register(userRoutes);
+
 // Enregistrer WebSocket
 app.register(FastifyWebSocket)
 console.log('WebSocket plugin registered')
@@ -280,13 +285,6 @@ app.get('/favicon.ico', (_req, reply) => {
 
 // SPA fallback: le truc renvoye par defaut vu qu on sert que le index.html
 app.setNotFoundHandler((_req, reply) => reply.sendFile('index.html'))
-
-// SQLite scores setup
-const dbPath = path.resolve(__dirname, process.env.DB_PATH || '../data/db.sqlite')
-fs.mkdirSync(path.dirname(dbPath), { recursive: true })
-const db = new sqlite3.Database(dbPath, err => err ? console.error(err) : console.log('✅ SQLite ready'))
-db.run(`CREATE TABLE IF NOT EXISTS scores (id INTEGER PRIMARY KEY, player TEXT, score INTEGER, date DATETIME DEFAULT CURRENT_TIMESTAMP)`)  
-
 
 // serveur en ligne omg
 app.listen({ port: 3000, host: '0.0.0.0' }, err => err ? (console.error(err), process.exit(1)) : console.log('🚀 Server running at http://0.0.0.0:3000'))

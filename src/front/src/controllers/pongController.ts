@@ -1,8 +1,5 @@
 import { pongTemplate } from '../templates/pongTemplate.js';
 
-interface Paddle { x: number; y: number; w: number; h: number; dy: number }
-interface Ball { x: number; y: number; r: number; dx: number; dy: number }
-
 export function renderPong(container: HTMLElement, socket: WebSocket,  onBack: () => void): void
 {
     container.innerHTML = pongTemplate;
@@ -53,7 +50,6 @@ export function renderPong(container: HTMLElement, socket: WebSocket,  onBack: (
     scoreText.textContent = `${msg.score[0]} - ${msg.score[1]}`;
   }
 
-
   // Global cleanup 
   function cleanup(): void {
     window.removeEventListener('keydown', onKeyDown);
@@ -62,9 +58,8 @@ export function renderPong(container: HTMLElement, socket: WebSocket,  onBack: (
   }
 
   window.addEventListener('popstate', (event) => {
-  cleanup();
-});
-
+    cleanup();
+  });
 
   function onKeyDown(e: KeyboardEvent): void {
   const k = e.key.toLowerCase();
@@ -85,7 +80,6 @@ export function renderPong(container: HTMLElement, socket: WebSocket,  onBack: (
   }
 
   if (player && dir) {
-    console.log("ouiii");
     socket.send(JSON.stringify({
       type: 'input',
       player,
