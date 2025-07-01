@@ -69,7 +69,6 @@ export function renderPong(container, socket, onBack) {
             onBack();
         }
         if (player && dir) {
-            console.log("ouiii");
             socket.send(JSON.stringify({
                 type: 'input',
                 player,
