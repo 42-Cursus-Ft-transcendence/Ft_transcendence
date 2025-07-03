@@ -1,4 +1,5 @@
 import { loginTemplate } from '../templates/loginTemplate.js';
+import { navigate } from '../index.js'
 
 export function renderLogin(container:  HTMLElement, onSuccess: () => void): void
 {
@@ -11,6 +12,13 @@ export function renderLogin(container:  HTMLElement, onSuccess: () => void): voi
     const passInput = container.querySelector<HTMLInputElement>('#password')!;
     const errName = container.querySelector<HTMLParagraphElement>('#error-name')!;
     const errPass = container.querySelector<HTMLParagraphElement>('#error-password')!;
+    const singupLink= container.querySelector<HTMLAnchorElement>('a[href="#signup"]')!;
+
+    singupLink.addEventListener('click', e => {
+        e.preventDefault();
+        navigate('signup');
+    })
+
     form.addEventListener('submit', async e => {
         e.preventDefault();
 
@@ -27,7 +35,7 @@ export function renderLogin(container:  HTMLElement, onSuccess: () => void): voi
             errName.classList.remove('hidden');
             valid = false;
         }
-        if (passInput.value.trim().length === 0) {
+        if (passInput.value.length === 0) {
             errPass.textContent = 'Password is required';
             errPass.classList.remove('hidden');
             valid = false;
@@ -39,8 +47,36 @@ export function renderLogin(container:  HTMLElement, onSuccess: () => void): voi
         txt.textContent = 'Connection ...';
         try 
         {
-            
-        } catch (networkError)
+            console.log('Sending fetch...');
+            const res = await fetch('/login', {
+                method: 'POST',
+                headers: {'content-Type': 'application/json'},
+                credentials: 'include',  // pour que le cookie HttpOnly soit envoyé/stocké
+                body: JSON.stringify({
+                    userName:   nameInput.value.trim(),
+                    password:   passInput.value
+                })
+            });
+            if(res.ok)
+            {
+                const {  userName, email, idUser } = await res.json();
+                localStorage.setItem('userId',   idUser.toString());
+                localStorage.setItem('userName', userName);
+                localStorage.setItem('email', email);
+                onSuccess();
+            }
+            else if(res.status === 401)
+            {
+                errName.innerHTML = 'Invalid <br/>username or password';
+                errName.classList.remove('hidden');
+            }
+            else
+            {
+                const { error } = await res.json();
+                alert(error || 'Unknown error');
+            }
+        } 
+        catch (networkError)
         {
             alert('Unable to contact the server');
         }

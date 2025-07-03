@@ -33,5 +33,21 @@ export function renderMenu(container, socket, onSelect) {
         zoomIn();
         onSelect('settings');
     });
+    container.querySelector('#btnLogout')
+        .addEventListener('click', async () => {
+        try {
+            const res = await fetch('/logout', {
+                method: 'POST',
+                credentials: 'include',
+                keepalive: true
+            });
+        }
+        catch (err) {
+        }
+        localStorage.removeItem('userId');
+        localStorage.removeItem('userName');
+        localStorage.removeItem('email');
+        onSelect('login');
+    });
 }
 //# sourceMappingURL=menuController.js.map

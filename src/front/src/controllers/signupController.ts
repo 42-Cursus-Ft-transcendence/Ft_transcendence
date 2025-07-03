@@ -1,4 +1,5 @@
 import { signupTemplate } from '../templates/signupTemplate.js';
+import { navigate } from '../index.js'
 
 export function renderSignup(container:  HTMLElement, onSuccess: () => void): void
 {
@@ -13,6 +14,12 @@ export function renderSignup(container:  HTMLElement, onSuccess: () => void): vo
     const errName = container.querySelector<HTMLParagraphElement>('#error-name')!;
     const errEmail = container.querySelector<HTMLParagraphElement>('#error-email')!;
     const errPass = container.querySelector<HTMLParagraphElement>('#error-password')!;
+    const loginLinker = container.querySelector<HTMLAnchorElement>('a[href="#login"]')!;
+
+    loginLinker.addEventListener('click', e => {
+        e.preventDefault();
+        navigate('login');
+    })
 
     form.addEventListener('submit', async e => {
         e.preventDefault();
@@ -49,7 +56,7 @@ export function renderSignup(container:  HTMLElement, onSuccess: () => void): vo
         try 
         {
             console.log('Sending fetch...');
-            const  res = await fetch('/user', {
+            const  res = await fetch('/signup', {
                 method: 'POST',
                 headers: {'content-Type': 'application/json'},
                 body: JSON.stringify({

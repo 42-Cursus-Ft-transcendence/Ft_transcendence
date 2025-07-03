@@ -1,6 +1,7 @@
 import { menuTemplate } from "../templates/menuTemplate.js";
-
-export type ScreenChoise = '2player' | 'ia' | 'online' | 'profile' | 'settings' ;
+// import { sendLogout } from "../index.js"
+ 
+export type ScreenChoise = '2player' | 'ia' | 'online' | 'profile' | 'settings' | 'login' ;
 
 export function renderMenu(container: HTMLElement, socket: WebSocket, onSelect: (choice: ScreenChoise) => void): void
 {
@@ -41,5 +42,24 @@ export function renderMenu(container: HTMLElement, socket: WebSocket, onSelect: 
       .addEventListener('click', () => {
         zoomIn();
         onSelect('settings')
+      });
+    container.querySelector<HTMLButtonElement>('#btnLogout')!
+      .addEventListener('click', async () => {
+        try
+        {
+          const res = await fetch('/logout', {
+            method: 'POST',
+            credentials: 'include',
+            keepalive: true
+          })
+
+        }
+        catch(err)
+        {
+        }
+        localStorage.removeItem('userId');
+        localStorage.removeItem('userName');
+        localStorage.removeItem('email');
+        onSelect('login')
       });
 }
