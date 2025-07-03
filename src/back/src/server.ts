@@ -19,7 +19,7 @@ import fastifyJwt from '@fastify/jwt'
 import fastifyCookie from '@fastify/cookie'
 import userRoutes from './db/userRoutes'   // ← import par défaut
 import './db/db'                           // ← initialise la BD et les tables
-
+import {getAsync} from './db/userRoutes'
 // ─────────────────────────────────────────────────────────────────────────────
 // Determine frontend directory
 // ─────────────────────────────────────────────────────────────────────────────
@@ -100,7 +100,7 @@ app.register(async fastify => {
     let loopTimer: ReturnType<typeof setInterval> | undefined;
     let aiTimer: ReturnType<typeof setInterval> | undefined;
 
-    socket.on("message", (raw: Buffer) => {
+    socket.on("message", async(raw: Buffer) => {
       let msg: any;
       try {
         msg = JSON.parse(raw.toString());
@@ -113,6 +113,7 @@ app.register(async fastify => {
         case "start":
           if (loopTimer) return;
           game = new Game();
+          
           if (msg.vs === "bot") game.mode = "bot";
           loopTimer = setInterval(() => {
             game.update();
@@ -144,14 +145,24 @@ app.register(async fastify => {
           }
           // extract and post both players' scores
           {
-            const { gameId, p1Address, p2Address, score } = msg;
-            const [s1, s2] = Array.isArray(score) ? score : [0, 0];
-            postScore(gameId, p1Address, s1).catch((e: any) =>
+            let gameId:string = '37';
+            let player:string = 'nono';
+            let p1Address = await  getAsync<{
+                address: string
+            }>(`SELECT address FROM User WHERE userName = ?`,
+                [player]
+            )
+            let addy:string = 'aaaaaa';
+            if (p1Address)
+                addy = p1Address.address;
+            console.log(addy);
+            postScore(gameId, addy,game.score[0] ).catch((e: any) =>
               console.error("postScore p1 failed:", e)
             );
-            postScore(gameId, p2Address, s2).catch((e: any) =>
-              console.error("postScore p2 failed:", e)
-            );
+            let arr = await (fetchScores('37').catch((e:any)=>
+              console.log('fetchscore failed')
+            ));
+            console.log(arr);
           }
           break;
 
@@ -237,24 +248,6 @@ app.setNotFoundHandler((req, reply) => {
 // ─────────────────────────────────────────────────────────────────────────────
 // SQLite for local logging (optional)
 // ─────────────────────────────────────────────────────────────────────────────
-const dbPath = path.resolve(
-  __dirname,
-  process.env.DB_PATH || "../data/db.sqlite"
-);
-fs.mkdirSync(path.dirname(dbPath), { recursive: true });
-const db = new sqlite3.Database(dbPath, (err) =>
-  err ? console.error(err) : console.log("✅ SQLite ready")
-);
-db.run(
-  `CREATE TABLE IF NOT EXISTS scores (
-    id INTEGER PRIMARY KEY,
-    gameId TEXT,
-    player TEXT,
-    score INTEGER,
-    date DATETIME DEFAULT CURRENT_TIMESTAMP
-  )`
-);
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Start server
 // ─────────────────────────────────────────────────────────────────────────────

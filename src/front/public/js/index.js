@@ -6,7 +6,7 @@ import { renderOnline } from './controllers/onlineController.js';
 import { renderProfile } from './controllers/profileController.js';
 import { renderSettings } from './controllers/settingsController.js';
 import { arcadeTemplate } from './templates/arcadeTemplate.js';
-let socket;
+export let socket;
 const root = document.getElementById('root');
 function doRender(screen) {
     if (screen === 'signup')
@@ -54,16 +54,14 @@ export function navigate(screen) {
 window.addEventListener('DOMContentLoaded', () => {
     (async () => {
         const profile = await checkAuth();
-        const protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-        socket = new WebSocket(`${protocol}://${location.host}/ws`);
-        socket.onopen = () => console.log('✅ WebSocket connectée');
-        socket.onerror = err => console.error('❌ Erreur WebSocket', err);
-        socket.onclose = () => console.log('⚠️ WebSocket fermée');
         // Récupère l’écran demandé dans l’URL
         const params = new URLSearchParams(location.search);
         let s = params.get('screen');
-        if (profile)
+        if (profile) {
             s = 'menu';
+            const protocol = location.protocol === 'https:' ? 'wss' : 'ws';
+            initSocket((`${protocol}://${location.host}/ws`));
+        }
         else
             s = 'login';
         const initial = s;
@@ -114,6 +112,18 @@ async function checkAuth() {
         console.log("err", err);
         return null;
     }
+}
+// Export function to initialize the socket
+export function initSocket(url) {
+    socket = new WebSocket(url);
+    socket.onopen = () => console.log('✅ WebSocket connectée');
+    socket.onerror = err => console.error('❌ Erreur WebSocket', err);
+    socket.onclose = () => console.log('⚠️ WebSocket fermée');
+    return socket;
+}
+// If you need to access the socket elsewhere
+export function getSocket() {
+    return socket;
 }
 function sendLogout() {
     if (navigator.sendBeacon) {

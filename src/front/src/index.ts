@@ -19,7 +19,7 @@ export type Screen =
   | 'profile'
   | 'settings';
 
-let socket: WebSocket;
+export let socket: WebSocket;
 
 const root = document.getElementById('root') as HTMLElement;
 
@@ -76,11 +76,6 @@ export function navigate(screen: Screen) {
 window.addEventListener('DOMContentLoaded', () => {(async () => 
     {
         const profile = await checkAuth();
-        const protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-        socket = new WebSocket(`${protocol}://${location.host}/ws`);
-        socket.onopen  = () => console.log('✅ WebSocket connectée');
-        socket.onerror = err => console.error('❌ Erreur WebSocket', err);
-        socket.onclose = () => console.log('⚠️ WebSocket fermée');
         
         // Récupère l’écran demandé dans l’URL
         const params = new URLSearchParams(location.search);
@@ -88,7 +83,11 @@ window.addEventListener('DOMContentLoaded', () => {(async () =>
 
 
         if (profile)
+        {
             s  = 'menu';
+            const protocol = location.protocol === 'https:' ? 'wss' : 'ws';
+            initSocket((`${protocol}://${location.host}/ws`));
+        }
         else
         s = 'login'
         const initial = s;
@@ -151,6 +150,22 @@ async function checkAuth(): Promise<{userName: string, email: string, idUser: nu
         return null;
     }
 }
+
+
+// Export function to initialize the socket
+export function initSocket(url: string) {
+  socket = new WebSocket(url);
+  socket.onopen = () => console.log('✅ WebSocket connectée');
+  socket.onerror = err => console.error('❌ Erreur WebSocket', err);
+  socket.onclose = () => console.log('⚠️ WebSocket fermée');
+  return socket;
+}
+
+// If you need to access the socket elsewhere
+export function getSocket() {
+  return socket;
+}
+
 
 function sendLogout() {
   if (navigator.sendBeacon) {

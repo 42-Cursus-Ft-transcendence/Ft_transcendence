@@ -77,6 +77,8 @@ export async function fetchScores(
   gameId: string
 ): Promise<Array<{ player: string; score: number }>> {
   const key = ethers.id(gameId);
+  console.log(key);
+  console.log("jusqu ici");
   const raw = await scoreboard.getScores(key);
   return raw.map((r) => ({
     player: r.player,
