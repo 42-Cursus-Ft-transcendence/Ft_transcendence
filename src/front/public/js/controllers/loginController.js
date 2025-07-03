@@ -1,5 +1,6 @@
 import { loginTemplate } from '../templates/loginTemplate.js';
 import { navigate } from '../index.js';
+import { initSocket } from '../index.js';
 export function renderLogin(container, onSuccess) {
     container.innerHTML = loginTemplate;
     const form = container.querySelector('#loginForm');
@@ -50,6 +51,8 @@ export function renderLogin(container, onSuccess) {
             });
             if (res.ok) {
                 const { userName, email, idUser } = await res.json();
+                const protocol = location.protocol === 'https:' ? 'wss' : 'ws';
+                initSocket(`${protocol}://${location.host}/ws`);
                 localStorage.setItem('userId', idUser.toString());
                 localStorage.setItem('userName', userName);
                 localStorage.setItem('email', email);

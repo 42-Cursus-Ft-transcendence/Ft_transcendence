@@ -21,6 +21,8 @@ db.serialize(() =>
       userName          TEXT UNIQUE,
       email             TEXT,
       password          TEXT,
+      address           TEXT,
+      privkey           TEXT,
       registrationDate  TEXT,
       connectionStatus  INTEGER
     );
@@ -44,5 +46,7 @@ db.serialize(() =>
       FOREIGN KEY(matchId) REFERENCES Match(idMatch)
     );
   `);
+  db.run(`INSERT OR IGNORE INTO User(userName, email, password, registrationDate, address, privkey, connectionStatus)
+                VALUES ('Jarvis', 'antarctica', 0, 'forever', 0, 0, 0)`)
 });
 

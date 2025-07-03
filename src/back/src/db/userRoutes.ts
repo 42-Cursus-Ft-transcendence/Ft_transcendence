@@ -5,7 +5,7 @@ import { error } from "console";
 import { resolve } from "path";
 import { rejects } from "assert";
 import { get } from "http";
-
+import { Wallet } from "ethers";
 
 function runAsync(sql: string, values: any[]): Promise<number>
 {
@@ -24,7 +24,7 @@ function runAsync(sql: string, values: any[]): Promise<number>
     });
 }
 
-function getAsync<T = any>(sql: string, params: any[]): Promise<T|null> 
+export function getAsync<T = any>(sql: string, params: any[]): Promise<T|null> 
 {
     return new Promise((resolve, rejects) => {
         db.get(sql, params, (err, row) =>
@@ -57,11 +57,13 @@ export default async function userRoutes(app: FastifyInstance)
         {
             const hashPass = await bcrypt.hash(password, 10);
             const now = new Date().toString();
-
+            const userWallet = Wallet.createRandom();
+            const address    = userWallet.address;
+            const privKey    = userWallet.privateKey;
             const idUser = await runAsync(
-                `INSERT INTO User(userName, email, password, registrationDate, connectionStatus)
-                VALUES (?, ?, ?, ?, 0)`,
-                [userName, email, hashPass, now]
+                `INSERT INTO User(userName, email, password, registrationDate, address, privkey, connectionStatus)
+                VALUES (?, ?, ?, ?, ?, ?, 0)`,
+                [userName, email, hashPass, now, address, privKey]
             )
             return (reply.status(201).send({ idUser }));
         }
@@ -184,4 +186,36 @@ export default async function userRoutes(app: FastifyInstance)
         }
     })
 
+}
+
+export async function createGame(idp1: number,idp2: number,p1score: number,p2score: number):
+ Promise<number> {
+  // 1) On génère la date au format ISO (meilleur pour SQLite)
+  const date = new Date().toISOString();
+
+  // 2) On détermine le gagnant
+  const winner = p1score > p2score ? idp1 : idp2;
+
+  // 3) On crée la partie et on récupère son ID
+  const gameId = await runAsync(
+    `INSERT INTO Match(matchDate, player1Score, player2Score, winnerId)
+     VALUES (?, ?, ?, ?)`,
+    [date, p1score, p2score, winner]
+  );
+
+  // 4) On lie chaque joueur à cette partie
+  //    ⚠️ Si tu veux stocker la date dans User_Match, tu peux,
+  //    mais ce champ est redondant (tu l’as déjà dans Match.matchDate).
+  await runAsync(
+    `INSERT INTO User_Match(userId, matchDate, matchId)
+     VALUES (?, ?, ?)`,
+    [idp1, date, gameId]
+  );
+  await runAsync(
+    `INSERT INTO User_Match(userId, matchDate, matchId)
+     VALUES (?, ?, ?)`,
+    [idp2, date, gameId]
+  );
+
+  return gameId;
 }
