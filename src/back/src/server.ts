@@ -14,6 +14,12 @@ import { ethers } from "ethers";
 import { postScore, fetchScores } from "./blockchain";
 import Game, { startAI } from "./game";
 
+import type { FastifyRequest, FastifyReply } from 'fastify'
+import fastifyJwt from '@fastify/jwt'
+import fastifyCookie from '@fastify/cookie'
+import userRoutes from './db/userRoutes'   // ← import par défaut
+import './db/db'                           // ← initialise la BD et les tables
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Determine frontend directory
 // ─────────────────────────────────────────────────────────────────────────────
@@ -36,6 +42,46 @@ console.log("⛳️ Serving static from:", publicDir);
 // ─────────────────────────────────────────────────────────────────────────────
 const app = Fastify();
 console.log("Fastify instance created");
+
+
+
+// cookie
+
+app.register(fastifyCookie, {
+  secret: process.env.COOKIE_SECRET || 'une_autre_chaine_complexe', // signe/encrypte les cookies
+  parseOptions: {}
+})
+
+// JWT 
+app.register(fastifyJwt, {
+  secret: process.env.JWT_SECRET || 'une_chaine_tres_complexe',
+  cookie: {
+    cookieName: 'token',   // le nom exact de ton cookie
+    signed:     false      // true si tu utilises la signature de fastify-cookie
+  },
+  sign: {
+    expiresIn: '2h'
+  }
+})
+
+app.decorate("authenticate", async function (request:FastifyRequest, reply:FastifyReply) : Promise<void>  {
+   console.log('Cookies reçus:', request.cookies)
+   console.log('Authorization header:', request.headers.authorization)  
+  try 
+    {
+      await request.jwtVerify();
+    } 
+    catch (err) 
+    {
+      reply.send(err);  
+    }
+})
+
+
+
+
+// bd routes 
+app.register(userRoutes);
 
 // Register WebSocket plugin without any options
 app.register(fastifyWebsocket);

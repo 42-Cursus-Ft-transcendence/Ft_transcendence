@@ -1,4 +1,5 @@
 import { renderSignup } from './controllers/signupController.js';
+import { renderLogin } from './controllers/loginController.js';
 import { renderMenu } from './controllers/menuController.js';
 import { renderPong } from './controllers/pongController.js';
 import { renderOnline } from './controllers/onlineController.js';
@@ -9,7 +10,9 @@ let socket;
 const root = document.getElementById('root');
 function doRender(screen) {
     if (screen === 'signup')
-        renderSignup(root, () => navigate('menu'));
+        renderSignup(root, () => navigate('login'));
+    else if (screen === 'login')
+        renderLogin(root, () => navigate('menu'));
     else {
         ensureArcadeFrame();
         const app = document.getElementById('app');
@@ -43,68 +46,85 @@ function doRender(screen) {
 /**
  * Change d'écran et met à jour l'historique
  */
-function navigate(screen) {
-    // 1️⃣ history.pushState({ screen }, '', `?screen=${screen}`);
-    //    • Ajoute une entrée dans l’historique du navigateur, sans recharger la page.
-    //    • Le premier argument ({ screen }) est l’objet d’état que l’on stocke.
-    //    • Le second argument ('') est le titre (majoritairement ignoré par les navigateurs).
-    //    • Le troisième (`?screen=${screen}`) est la nouvelle URL affichée (paramètre query).
-    //
-    //    Conséquence : l’URL change en “?screen=menu” (ou autre), et l’utilisateur
-    //    pourra utiliser la flèche ← pour revenir à l’état précédent.
+export function navigate(screen) {
     history.pushState({ screen }, '', `?screen=${screen}`);
-    // 2️⃣ doRender(screen);
-    //    • Appelle la fonction qui affiche l’écran correspondant dans le DOM.
-    //    • C’est ici que l’on va effectivement injecter le formulaire, le menu, le jeu, etc.
     doRender(screen);
 }
 // Au chargement initial du document HTML
 window.addEventListener('DOMContentLoaded', () => {
-    const protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-    socket = new WebSocket(`${protocol}://${location.host}/ws`);
-    socket.onopen = () => console.log('✅ WebSocket connectée');
-    socket.onerror = err => console.error('❌ Erreur WebSocket', err);
-    socket.onclose = () => console.log('⚠️ WebSocket fermée');
-    // 3️⃣ const params = new URLSearchParams(location.search);
-    //    • Récupère la chaîne de requête dans l’URL (tout ce qui suit le “?”).
-    //    • Exemple : pour “index.html?screen=pong”, params contient { screen: 'pong' }.
-    const params = new URLSearchParams(location.search);
-    // 4️⃣ const s = params.get('screen') as Screen;
-    //    • Extrait la valeur du paramètre “screen” (ou null si absent).
-    //    • Le “as Screen” dit à TypeScript de considérer la valeur comme l’un de nos écrans.
-    let s = params.get('screen');
-    // 5️⃣ const initial = s || 'signup';
-    //    • Si on a lu un écran valide (p.ex. 'pong'), on l’utilise.
-    //    • Sinon on retombe sur 'signup' par défaut.
-    if (s)
-        s = 'menu';
-    const initial = s || 'signup';
-    // 6️⃣ history.replaceState({ screen: initial }, '', location.href);
-    //    • Remplace l’entrée courante de l’historique (celle du chargement de la page).
-    //    • Synchronise history.state avec l’écran qu’on va afficher.
-    //    • L’URL n’est pas modifiée (on passe location.href pour être certain).
-    history.replaceState({ screen: initial }, '', location.href);
-    // 7️⃣ doRender(initial);
-    //    • Affiche immédiatement l’écran déterminé (signup ou autre) sans attendre
-    //      une interaction utilisateur.
-    navigate(initial);
+    (async () => {
+        const profile = await checkAuth();
+        const protocol = location.protocol === 'https:' ? 'wss' : 'ws';
+        socket = new WebSocket(`${protocol}://${location.host}/ws`);
+        socket.onopen = () => console.log('✅ WebSocket connectée');
+        socket.onerror = err => console.error('❌ Erreur WebSocket', err);
+        socket.onclose = () => console.log('⚠️ WebSocket fermée');
+        // Récupère l’écran demandé dans l’URL
+        const params = new URLSearchParams(location.search);
+        let s = params.get('screen');
+        if (profile)
+            s = 'menu';
+        else
+            s = 'login';
+        const initial = s;
+        console.log(initial);
+        // 6️⃣ history.replaceState({ screen: initial }, '', location.href);
+        //    • Remplace l’entrée courante de l’historique (celle du chargement de la page).
+        //    • Synchronise history.state avec l’écran qu’on va afficher.
+        //    • L’URL n’est pas modifiée (on passe location.href pour être certain).
+        history.replaceState({ screen: initial }, '', location.href);
+        navigate(initial);
+    })();
 });
 // Lorsque l’utilisateur clique sur Précédent/Suivant
-window.addEventListener('popstate', event => {
-    // 8️⃣ const screen = (event.state as { screen?: Screen })?.screen;
-    //    • event.state est l’objet qu’on a passé à pushState/replaceState.
-    //    • On y extrait la propriété `screen` (ou undefined si absent).
-    const screen = event.state?.screen;
-    // 9️⃣ doRender(screen || 'signup');
-    //    • Si on a bien un état (un écran), on l’affiche.
-    //    • Sinon on retombe sur 'signup'.
-    //    • Cela permet de restaurer l’UI exactement comme elle était.
-    doRender(screen || 'signup');
+window.addEventListener('popstate', async (event) => {
+    let screen = event.state?.screen;
+    const stillAuth = await checkAuth();
+    //   Si connecté, on ne veut jamais login/signup
+    if (stillAuth && (screen === 'login' || screen === 'signup')) {
+        screen = 'menu';
+    }
+    // 4) Si déconnecté, et qu’on veut aller au menu, on redirige sur login
+    if (!stillAuth && screen === 'menu') {
+        screen = 'login';
+    }
+    console.log("popstate", screen);
+    doRender(screen || 'login');
 });
 function ensureArcadeFrame() {
     // Si #app n'existe pas encore, on l'injecte dans `root`
     if (!document.getElementById('app')) {
         root.innerHTML = arcadeTemplate;
+    }
+}
+async function checkAuth() {
+    try {
+        const res = await fetch('/me', {
+            method: 'POST',
+            credentials: 'include'
+        });
+        if (!res.ok) {
+            console.log("non log");
+            return null;
+        }
+        console.log("log");
+        return await res.json();
+    }
+    catch (err) {
+        console.log("err", err);
+        return null;
+    }
+}
+function sendLogout() {
+    if (navigator.sendBeacon) {
+        navigator.sendBeacon('/logout');
+    }
+    else {
+        fetch('/logout', {
+            method: 'POST',
+            credentials: 'include',
+            keepalive: true
+        });
     }
 }
 //# sourceMappingURL=index.js.map

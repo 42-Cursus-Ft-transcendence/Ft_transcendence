@@ -1,4 +1,5 @@
 import { signupTemplate } from '../templates/signupTemplate.js';
+import { navigate } from '../index.js';
 export function renderSignup(container, onSuccess) {
     container.innerHTML = signupTemplate;
     const form = container.querySelector('#signupForm');
@@ -10,6 +11,11 @@ export function renderSignup(container, onSuccess) {
     const errName = container.querySelector('#error-name');
     const errEmail = container.querySelector('#error-email');
     const errPass = container.querySelector('#error-password');
+    const loginLinker = container.querySelector('a[href="#login"]');
+    loginLinker.addEventListener('click', e => {
+        e.preventDefault();
+        navigate('login');
+    });
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
         // 1) Reset des erreurs
@@ -40,7 +46,7 @@ export function renderSignup(container, onSuccess) {
         txt.textContent = 'Creation in progress…';
         try {
             console.log('Sending fetch...');
-            const res = await fetch('/user', {
+            const res = await fetch('/signup', {
                 method: 'POST',
                 headers: { 'content-Type': 'application/json' },
                 body: JSON.stringify({

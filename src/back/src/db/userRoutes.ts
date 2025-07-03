@@ -4,6 +4,7 @@ import bcrypt from 'bcrypt';
 import { error } from "console";
 import { resolve } from "path";
 import { rejects } from "assert";
+import { get } from "http";
 
 
 function runAsync(sql: string, values: any[]): Promise<number>
@@ -23,10 +24,23 @@ function runAsync(sql: string, values: any[]): Promise<number>
     });
 }
 
+function getAsync<T = any>(sql: string, params: any[]): Promise<T|null> 
+{
+    return new Promise((resolve, rejects) => {
+        db.get(sql, params, (err, row) =>
+        {
+            if(err)
+                rejects(err);
+            else
+                resolve((row as T) ?? null)
+        })
+    })
+}
+
 export default async function userRoutes(app: FastifyInstance) 
 {
     console.log('🛠️  userRoutes mounted')  
-    app.post('/user', async (request, reply) => 
+    app.post('/signup', async (request, reply): Promise<void> => 
     {
         console.log('>> Reçu POST /user'); 
         // Récupère et valide le body
@@ -61,4 +75,113 @@ export default async function userRoutes(app: FastifyInstance)
         }
 
     });
+
+    app.post('/login', async (request, reply): Promise<void> => 
+    {
+        console.log('>> Recu POST /login');
+        const {userName, password} = request.body as
+        {
+            userName?: string;
+            password?: string;
+        }
+        if(!userName || !password)
+            return(reply.status(400).send({error: 'userName and password required'}));
+
+        try
+        {
+            const user = await getAsync<{
+                idUser: number
+                email: string
+                password: string
+                connectionStatus: number
+            }>(`SELECT idUser, email, password, connectionStatus FROM User WHERE userName = ?`,
+                [userName]
+            )
+
+            if(!user)
+                return(reply.status(401).send({error: 'Invalid username or password'}));
+            const match = await bcrypt.compare(password, user.password);
+            if(!match)
+                return(reply.status(401).send({error: 'Invalid username or password'}));
+            await runAsync(`UPDATE User SET connectionStatus = 1 WHERE idUser = ?`, [user.idUser])
+            const token = app.jwt.sign(
+                { sub: user.idUser, userName},
+                { expiresIn: '2h'}
+            )
+            return(reply
+                .setCookie('token', token,{
+                    // signed: true,
+                    httpOnly: true,
+                    path: '/',
+                    sameSite: 'strict'
+                    // secure:   true
+                })
+                .status(200).send({
+                userName,
+                email: user.email,
+                idUser: user.idUser
+            }))
+        }
+        catch (err) 
+        {
+            return reply.status(500).send({ error: 'Internal server error' });
+        }
+    });
+
+    app.post('/me', { preHandler: [(app as any).authenticate]}, async (request, reply): Promise<void> =>
+    {
+        const idUser   = (request.user as any).sub   as number
+        const userName = (request.user as any).userName as string
+
+        try
+        {
+            const res = await getAsync<{ email: string }>(`SELECT email FROM User WHERE idUser = ?`,[idUser]);
+            if(!res)
+                return(reply.status(401).send({error: 'User not found'}));
+            reply.status(200).send({
+                idUser,
+                userName,
+                email: res.email
+            })
+        }
+        catch (err)
+        {
+            return (reply.status(500).send({error: 'Internal server error'}));
+        }
+    })
+
+    app.post('/logout', { preHandler: [(app as any).authenticate]}, async (request, reply) => 
+    {
+         // Récupère directement l’ID depuis le payload du JWT
+        const idUser = (request.user as any).sub as number;
+        try
+        {
+            await runAsync(`UPDATE User SET connectionStatus = 0 WHERE idUser = ?`, [idUser])
+            return(reply
+                .setCookie('token', '',{
+                    httpOnly: true,
+                    path: '/',
+                    maxAge: 0,
+                    sameSite: 'strict'
+                    // secure:   true
+                })
+                .status(200)
+                .send({ ok: true }))
+        }
+        catch (err) 
+        {
+            return(reply
+                .setCookie('token', '',{
+                    httpOnly: true,
+                    path: '/',
+                    maxAge: 0,
+                    sameSite: 'strict'
+                    // secure:   true
+                })
+                .status(200)
+                .send({ ok: true })
+            )
+        }
+    })
+
 }

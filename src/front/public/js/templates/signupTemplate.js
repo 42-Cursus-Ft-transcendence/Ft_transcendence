@@ -5,8 +5,8 @@ export const signupTemplate = `
         Create an account
       </h3>
       <p class="text-sm text-blue-300">
-        Already have an account?
-        <a href="#" class="font-medium text-pink-400 hover:text-pink-300 transition">
+        Already have an account?<br />
+        <a href="#login" class="font-medium text-pink-400 hover:text-pink-300 transition">
           Log in
         </a>
       </p>

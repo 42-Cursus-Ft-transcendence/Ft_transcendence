@@ -5,7 +5,7 @@ export const loginTemplate = `
         Welcome back
       </h3>
       <p class="text-sm text-blue-300">
-        Don’t have an account?
+        Don’t have an account?<br />
         <a href="#signup" class="font-medium text-pink-400 hover:text-pink-300 transition">
           Sign up
         </a>
