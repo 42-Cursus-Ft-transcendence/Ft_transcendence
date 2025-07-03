@@ -39,10 +39,10 @@ db.serialize(() =>
   `);
   db.run(`
     CREATE TABLE IF NOT EXISTS User_Match (
-      idUserMatch       INTEGER PRIMARY KEY,
       userId            INTEGER ,
       matchDate         TEXT,
       matchId           INTEGER,
+      PRIMARY KEY (userId, matchId),
       FOREIGN KEY(userId) REFERENCES User(idUSer),
       FOREIGN KEY(matchId) REFERENCES Match(idMatch)
     );
