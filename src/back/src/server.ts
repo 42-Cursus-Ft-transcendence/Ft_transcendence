@@ -20,6 +20,7 @@ import fastifyCookie from '@fastify/cookie'
 import userRoutes from './db/userRoutes'   // ← import par défaut
 import './db/db'                           // ← initialise la BD et les tables
 import {getAsync} from './db/userRoutes'
+import {createGame} from './db/userRoutes'
 // ─────────────────────────────────────────────────────────────────────────────
 // Determine frontend directory
 // ─────────────────────────────────────────────────────────────────────────────
@@ -91,15 +92,14 @@ console.log("WebSocket plugin registered");
 // WebSocket endpoint: /ws
 // ─────────────────────────────────────────────────────────────────────────────
 app.register(async fastify => {
-  fastify.get("/ws", { websocket: true }, (socket, _req) => {
+  fastify.get("/ws", { websocket: true,preHandler:[(fastify as any).authenticate] }, (socket, _req) => {
     console.log("WS client connected");
     
     // Note: directly using socket instead of connection.socket
-
     let game = new Game();
     let loopTimer: ReturnType<typeof setInterval> | undefined;
     let aiTimer: ReturnType<typeof setInterval> | undefined;
-
+    const payload = _req.user as { sub: number; userName: string };
     socket.on("message", async(raw: Buffer) => {
       let msg: any;
       try {
@@ -145,24 +145,40 @@ app.register(async fastify => {
           }
           // extract and post both players' scores
           {
-            let gameId:string = '37';
-            let player:string = 'nono';
-            let p1Address = await  getAsync<{
+            let idp1 = payload.sub;
+            let idp2 = await  getAsync<{
+                id: number
+            }>(`SELECT idUser FROM User WHERE userName = ?`,
+                ['Jarvis']
+            )
+            let addy = await  getAsync<{
                 address: string
             }>(`SELECT address FROM User WHERE userName = ?`,
-                [player]
+                [payload.userName]
             )
-            let addy:string = 'aaaaaa';
-            if (p1Address)
-                addy = p1Address.address;
-            console.log(addy);
-            postScore(gameId, addy,game.score[0] ).catch((e: any) =>
-              console.error("postScore p1 failed:", e)
-            );
-            let arr = await (fetchScores('37').catch((e:any)=>
-              console.log('fetchscore failed')
-            ));
-            console.log(arr);
+            let idpp2 = 20;
+            if (idp2)
+                idpp2 = idp2.id;
+            let gameId = await createGame(idp1,idpp2,game.score[0],game.score[1]);
+            if (addy)
+                postScore(gameId.toString(),addy.address,game.score[0]);
+            console.log(gameId);
+            if (gameId && addy)        
+            {
+                try {
+                const scores = await fetchScores(gameId.toString());
+                console.log("All scores array:", scores);
+                // if you want the first score:
+                if (scores.length > 0) {
+                    console.log("First player's score:", scores[0].score);
+                }
+                if (scores.length > 1) {
+                    console.log("First player's score:", scores[1].score);
+                }
+                } catch (err) {
+                console.log("fetchscore failed:", err);
+}
+            }
           }
           break;
 
@@ -206,6 +222,7 @@ app.post("/api/scores", async (req, reply) => {
 app.get("/api/scores/:gameId", async (req, reply) => {
   try {
     const gameId = (req.params as any).gameId;
+    console.log(gameId);
     const scores = await fetchScores(gameId);
     reply.send(scores);
   } catch (err: unknown) {
