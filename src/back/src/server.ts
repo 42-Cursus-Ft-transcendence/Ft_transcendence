@@ -161,12 +161,14 @@ app.register(async fastify => {
                 idpp2 = idp2.id;
             let gameId = await createGame(idp1,idpp2,game.score[0],game.score[1]);
             if (addy)
-                postScore(gameId.toString(),addy.address,game.score[0]);
+                await postScore(gameId.toString(),addy.address,game.score[0]);
             console.log(gameId);
             if (gameId && addy)        
             {
                 try {
                 const scores = await fetchScores(gameId.toString());
+                console.log(scores[0].score);
+                console.log(scores[0].player);
                 console.log("All scores array:", scores);
                 // if you want the first score:
                 if (scores.length > 0) {
