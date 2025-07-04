@@ -123,6 +123,10 @@ app.register(async fastify => {
             const diff = parseFloat(msg.difficulty) || 0;
             aiTimer = startAI(game, diff);
           }
+          if (msg.vs === 'online')
+          {
+            
+          }
           break;
 
         case "input":
