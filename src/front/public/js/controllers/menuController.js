@@ -21,6 +21,7 @@ export function renderMenu(container, socket, onSelect) {
     container.querySelector('#btnOnline')
         .addEventListener('click', () => {
         zoomIn();
+        socket.send(JSON.stringify({ type: 'start', vs: 'online' }));
         onSelect('online');
     });
     container.querySelector('#btnProfile')

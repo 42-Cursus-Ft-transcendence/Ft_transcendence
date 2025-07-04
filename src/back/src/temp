@@ -21,7 +21,6 @@ import userRoutes from './db/userRoutes'   // ← import par défaut
 import './db/db'                           // ← initialise la BD et les tables
 import { getAsync } from './db/userRoutes'
 import { createGame } from './db/userRoutes'
-import crypto from 'crypto';
 // ─────────────────────────────────────────────────────────────────────────────
 // Determine frontend directory
 // ─────────────────────────────────────────────────────────────────────────────
@@ -38,18 +37,6 @@ if (fs.existsSync(prodDir)) {
     process.exit(1);
 }
 console.log("⛳️ Serving static from:", publicDir);
-
-//creation session pour queue et lobby
-
-type Session = {
-    id: string;
-    game: Game;
-    sockets: { p1: WebSocket; p2: WebSocket };
-    loopTimer: NodeJS.Timeout;
-};
-const waiting: Array<{ socket: WebSocket; payload: { sub: number; userName: string } }> = [];
-const sessions = new Map<string, Session>();
-const socketToSession = new Map<WebSocket, Session>();
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Create Fastify + register WebSocket plugin
@@ -102,166 +89,115 @@ console.log("WebSocket plugin registered");
 // ─────────────────────────────────────────────────────────────────────────────
 // WebSocket endpoint: /ws
 // ─────────────────────────────────────────────────────────────────────────────
-// ─────────────────────────────────────────────────────────────────────────────
-// WebSocket endpoint: /ws (with online matchmaking + bot + local play)
-// ─────────────────────────────────────────────────────────────────────────────
 app.register(async fastify => {
-    fastify.get(
-        '/ws',
-        {
-            websocket: true,
-              preHandler: [(fastify as any).authenticate]
-        },
-        (socket, request) => {
-            // const { socket } = connection;
-              const payload = request.user as { sub: number; userName: string };
-              console.log(`✅ WS client connected: user #${payload.userName}`);
+    fastify.get("/ws", { websocket: true, preHandler: [(fastify as any).authenticate] }, (socket, _req) => {
+        console.log("WS client connected");
 
-            let localGame = new Game();
-            let localLoop: NodeJS.Timeout | undefined;
-            let localAI: NodeJS.Timeout | undefined;
+        // Note: directly using socket instead of connection.socket
+        let game = new Game();
+        let loopTimer: ReturnType<typeof setInterval> | undefined;
+        let aiTimer: ReturnType<typeof setInterval> | undefined;
+        const payload = _req.user as { sub: number; userName: string };
+        socket.on("message", async (raw: Buffer) => {
+            let msg: any;
+            try {
+                msg = JSON.parse(raw.toString());
+            } catch {
+                socket.send(JSON.stringify({ type: "error", message: "Invalid JSON" }));
+                return;
+            }
 
-            socket.on('message', async (raw: Buffer) => {
-                let msg: any;
-                try {
-                    msg = JSON.parse(raw.toString());
-                    console.log(msg);
-                } catch {
-                    return socket.send(JSON.stringify({ type: 'error', message: 'Invalid JSON' }));
-                }
+            switch (msg.type) {
+                case "start":
+                    if (loopTimer) return;
+                    game = new Game();
 
-                switch (msg.type) {
-                    // 1) START: decide online vs bot vs local
-                    case 'start':
-                        if (msg.vs === 'online') {
-                            if (waiting.length > 0) {
-                                const opponent = waiting.shift()!;
-                                const gameId = crypto.randomUUID();
-                                const sessionGame = new Game();
-                                sessionGame.mode = 'online';
+                    if (msg.vs === "bot") game.mode = "bot";
+                    loopTimer = setInterval(() => {
+                        game.update();
+                        socket.send(JSON.stringify(game.getState()));
+                    }, 1000 / 60);
+                    if (msg.vs === "bot") {
+                        const diff = parseFloat(msg.difficulty) || 0;
+                        aiTimer = startAI(game, diff);
+                    }
+                    if (msg.vs === 'online') {
 
-                                const loopTimer = setInterval(() => {
-                                    sessionGame.update();
-                                    const state = JSON.stringify(sessionGame.getState());
-                                    opponent.socket.send(state);
-                                    socket.send(state);
-                                }, 1000 / 60);
+                    }
+                    break;
 
-                                const session: Session = {
-                                    id: gameId,
-                                    game: sessionGame,
-                                    sockets: { p1: opponent.socket, p2: socket },
-                                    loopTimer
-                                };
-                                sessions.set(gameId, session);
-                                socketToSession.set(opponent.socket, session);
-                                socketToSession.set(socket, session);
+                case "input":
+                    {
+                        const ply = msg.player === "p2" ? "p2" : "p1";
+                        if (ply === "p2" && game.mode !== "player") return;
+                        game.applyInput(ply, msg.dir);
+                    }
+                    break;
 
-                                opponent.socket.send(
-                                    JSON.stringify({ type: 'matchFound', gameId, youAre: 'p1' })
-                                );
-                                socket.send(
-                                    JSON.stringify({ type: 'matchFound', gameId, youAre: 'p2' })
-                                );
-                            } else {
-                                waiting.push({ socket,payload  });
-                                socket.send(JSON.stringify({ type: 'waiting' }));
+                case "stop":
+                    console.log("Game over, saving scores");
+                    if (loopTimer) {
+                        clearInterval(loopTimer);
+                        loopTimer = undefined;
+                    }
+                    if (aiTimer) {
+                        clearInterval(aiTimer);
+                        aiTimer = undefined;
+                    }
+                    // extract and post both players' scores
+                    {
+                        let idp1 = payload.sub;
+                        let idp2 = await getAsync<{
+                            id: number
+                        }>(`SELECT idUser FROM User WHERE userName = ?`,
+                            ['Jarvis']
+                        )
+                        let addy = await getAsync<{
+                            address: string
+                        }>(`SELECT address FROM User WHERE userName = ?`,
+                            [payload.userName]
+                        )
+                        let idpp2 = 20;
+                        if (idp2)
+                            idpp2 = idp2.id;
+                        let gameId = await createGame(idp1, idpp2, game.score[0], game.score[1]);
+                        if (addy)
+                            await postScore(gameId.toString(), addy.address, game.score[0]);
+                        console.log(gameId);
+                        if (gameId && addy) {
+                            try {
+                                const scores = await fetchScores(gameId.toString());
+                                console.log(scores[0].score);
+                                console.log(scores[0].player);
+                                console.log("All scores array:", scores);
+                                // if you want the first score:
+                                if (scores.length > 0) {
+                                    console.log("First player's score:", scores[0].score);
+                                }
+                                if (scores.length > 1) {
+                                    console.log("First player's score:", scores[1].score);
+                                }
+                            } catch (err) {
+                                console.log("fetchscore failed:", err);
                             }
-                            return;
                         }
-
-                        // BOT or LOCAL PLAYER
-                        localGame = new Game();
-                        localLoop = setInterval(() => {
-                            localGame.update();
-                            socket.send(JSON.stringify(localGame.getState()));
-                        }, 1000 / 60);
-
-                        if (msg.vs === 'bot') {
-                            localGame.mode = 'bot';
-                            const diff = parseFloat(msg.difficulty) || 0;
-                            localAI = startAI(localGame, diff);
-                        }
-                        return;
-
-                    // 2) INPUT: route to the correct game instance
-                    case 'input': {
-                        const sess = socketToSession.get(socket);
-                        if (sess) {
-                            const who = socket === sess.sockets.p1 ? 'p1' : 'p2';
-                            sess.game.applyInput(who, msg.dir);
-                            return;
-                        }
-                        const ply = msg.player === 'p2' ? 'p2' : 'p1';
-                        if (ply === 'p2' && localGame.mode !== 'player') return;
-                        localGame.applyInput(ply, msg.dir);
-                        return;
                     }
+                    break;
 
-                    // 3) STOP: tear down the correct session and save scores
-                    case 'stop': {
-                        const sess = socketToSession.get(socket);
-                        if (sess) {
-                            clearInterval(sess.loopTimer);
-                            sessions.delete(sess.id);
-                            socketToSession.delete(sess.sockets.p1);
-                            socketToSession.delete(sess.sockets.p2);
+                default:
+                    socket.send(
+                        JSON.stringify({ type: "error", message: "Unknown message type" })
+                    );
+            }
+        });
 
-                            // TODO: post sess.game.score on–chain here…
-
-                            const result = JSON.stringify({
-                                type: 'matchOver',
-                                gameId: sess.id,
-                                score: sess.game.score
-                            });
-                            sess.sockets.p1.send(result);
-                            sess.sockets.p2.send(result);
-                            return;
-                        }
-
-                        console.log('Game over, saving local scores');
-                        if (localLoop) {
-                            clearInterval(localLoop);
-                            localLoop = undefined;
-                        }
-                        if (localAI) {
-                            clearInterval(localAI);
-                            localAI = undefined;
-                        }
-
-                        // TODO: post localGame.score on–chain here…
-                        return;
-                    }
-
-                    default:
-                        return socket.send(
-                            JSON.stringify({ type: 'error', message: 'Unknown message type' })
-                        );
-                }
-            });
-
-            socket.on('close', () => {
-                const idx = waiting.findIndex(w => w.socket === socket);
-                if (idx >= 0) waiting.splice(idx, 1);
-
-                const sess = socketToSession.get(socket);
-                if (sess) {
-                    clearInterval(sess.loopTimer);
-                    sessions.delete(sess.id);
-                    socketToSession.delete(sess.sockets.p1);
-                    socketToSession.delete(sess.sockets.p2);
-                }
-
-                if (localLoop) clearInterval(localLoop);
-                if (localAI) clearInterval(localAI);
-
-                console.log('⚠️ WS client disconnected');
-            });
-        }
-    );
+        socket.on("close", () => {
+            if (loopTimer) clearInterval(loopTimer);
+            if (aiTimer) clearInterval(aiTimer);
+            console.log("WS client disconnected");
+        });
+    });
 });
-
-
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HTTP API: on-chain scores

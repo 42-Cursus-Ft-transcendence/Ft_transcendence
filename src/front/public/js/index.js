@@ -2,7 +2,6 @@ import { renderSignup } from './controllers/signupController.js';
 import { renderLogin } from './controllers/loginController.js';
 import { renderMenu } from './controllers/menuController.js';
 import { renderPong } from './controllers/pongController.js';
-import { renderOnline } from './controllers/onlineController.js';
 import { renderProfile } from './controllers/profileController.js';
 import { renderSettings } from './controllers/settingsController.js';
 import { arcadeTemplate } from './templates/arcadeTemplate.js';
@@ -29,7 +28,7 @@ function doRender(screen) {
                 renderPong(app, socket, () => navigate('menu'));
                 break;
             case 'online':
-                renderOnline(app, () => navigate('menu'));
+                renderPong(app, socket, () => navigate('menu'));
                 break;
             case 'profile':
                 renderProfile(app, () => navigate('menu'));
