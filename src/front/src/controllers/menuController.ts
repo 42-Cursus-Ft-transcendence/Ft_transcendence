@@ -25,12 +25,13 @@ export function renderMenu(container: HTMLElement, socket: WebSocket, onSelect: 
     container.querySelector('#btnIa')!
     .addEventListener('click', () => {
       zoomIn();
-      socket.send(JSON.stringify({ type: 'start', vs: 'bot', difficulty: 0.1 }));
+      socket.send(JSON.stringify({ type: 'start', vs: 'bot', difficulty: 1 }));
       onSelect('ia');
     });
     container.querySelector('#btnOnline')!
       .addEventListener('click', () => {
         zoomIn();
+        socket.send(JSON.stringify({ type: 'start', vs: 'online'}));
         onSelect('online')
       });
     container.querySelector('#btnProfile')!

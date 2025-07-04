@@ -84,7 +84,7 @@ export default class Game {
   static readonly BALL_ACCEL = 0.5;
 
   public height = Game.HEIGHT;
-  public mode: 'player' | 'bot' = 'player';
+  public mode: 'player' | 'bot' | 'online' = 'player';
   public p1: Vec2 = { x: 0,                y: (Game.HEIGHT - Game.PADDLE_HEIGHT) / 2 };
   public p2: Vec2 = { x: Game.WIDTH - 10, y: (Game.HEIGHT - Game.PADDLE_HEIGHT) / 2 };
   public ball: Vec2 & { dx: number; dy: number } = {
