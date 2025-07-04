@@ -48,7 +48,7 @@ function doRender(screen: Screen) {
                 renderPong(app, socket, () => navigate('menu'));
                 break;
             case 'online':
-                renderOnline(app, () => navigate('menu'));
+                renderPong(app, socket, () => navigate('menu'));
                 break;
             case 'profile':
                 renderProfile(app, () => navigate('menu'));
