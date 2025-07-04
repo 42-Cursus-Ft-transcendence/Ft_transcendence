@@ -52,11 +52,19 @@ export function renderLogin(container, onSuccess) {
             if (res.ok) {
                 const { userName, email, idUser } = await res.json();
                 const protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-                initSocket(`${protocol}://${location.host}/ws`);
-                localStorage.setItem('userId', idUser.toString());
-                localStorage.setItem('userName', userName);
-                localStorage.setItem('email', email);
-                onSuccess();
+                // Wait for socket to connect before proceeding
+                const socket = initSocket(`${protocol}://${location.host}/ws`);
+                socket.onopen = () => {
+                    console.log('✅ WebSocket connected, proceeding to menu');
+                    localStorage.setItem('userId', idUser.toString());
+                    localStorage.setItem('userName', userName);
+                    localStorage.setItem('email', email);
+                    onSuccess();
+                };
+                socket.onerror = (error) => {
+                    console.error('❌ WebSocket connection failed:', error);
+                    alert('Failed to establish real-time connection');
+                };
             }
             else if (res.status === 401) {
                 errName.innerHTML = 'Invalid <br/>username or password';

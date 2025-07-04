@@ -2,8 +2,7 @@ import { loginTemplate } from '../templates/loginTemplate.js';
 import { navigate } from '../index.js'
 import { initSocket } from '../index.js'
 
-export function renderLogin(container:  HTMLElement, onSuccess: () => void): void
-{
+export function renderLogin(container: HTMLElement, onSuccess: () => void): void {
     container.innerHTML = loginTemplate;
 
     const form = container.querySelector<HTMLFormElement>('#loginForm')!;
@@ -13,7 +12,7 @@ export function renderLogin(container:  HTMLElement, onSuccess: () => void): voi
     const passInput = container.querySelector<HTMLInputElement>('#password')!;
     const errName = container.querySelector<HTMLParagraphElement>('#error-name')!;
     const errPass = container.querySelector<HTMLParagraphElement>('#error-password')!;
-    const singupLink= container.querySelector<HTMLAnchorElement>('a[href="#signup"]')!;
+    const singupLink = container.querySelector<HTMLAnchorElement>('a[href="#signup"]')!;
 
     singupLink.addEventListener('click', e => {
         e.preventDefault();
@@ -42,52 +41,57 @@ export function renderLogin(container:  HTMLElement, onSuccess: () => void): voi
             valid = false;
         }
 
-        if (!valid) 
+        if (!valid)
             return;
         btn.disabled = true;
         txt.textContent = 'Connection ...';
-        try 
-        {
+        try {
             console.log('Sending fetch...');
             const res = await fetch('/login', {
                 method: 'POST',
-                headers: {'content-Type': 'application/json'},
+                headers: { 'content-Type': 'application/json' },
                 credentials: 'include',  // pour que le cookie HttpOnly soit envoyé/stocké
                 body: JSON.stringify({
-                    userName:   nameInput.value.trim(),
-                    password:   passInput.value
+                    userName: nameInput.value.trim(),
+                    password: passInput.value
                 })
             });
-            if(res.ok)
-            {
-                const {  userName, email, idUser } = await res.json();
+            if (res.ok) {
+                const { userName, email, idUser } = await res.json();
                 const protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-                initSocket(`${protocol}://${location.host}/ws`);
-                localStorage.setItem('userId',   idUser.toString());
-                localStorage.setItem('userName', userName);
-                localStorage.setItem('email', email);
-                onSuccess();
+
+                // Wait for socket to connect before proceeding
+                const socket = initSocket(`${protocol}://${location.host}/ws`);
+
+                socket.onopen = () => {
+                    console.log('✅ WebSocket connected, proceeding to menu');
+                    localStorage.setItem('userId', idUser.toString());
+                    localStorage.setItem('userName', userName);
+                    localStorage.setItem('email', email);
+                    onSuccess();
+                };
+
+                socket.onerror = (error) => {
+                    console.error('❌ WebSocket connection failed:', error);
+                    alert('Failed to establish real-time connection');
+                };
             }
-            else if(res.status === 401)
-            {
+            else if (res.status === 401) {
                 errName.innerHTML = 'Invalid <br/>username or password';
                 errName.classList.remove('hidden');
             }
-            else
-            {
+            else {
                 const { error } = await res.json();
                 alert(error || 'Unknown error');
             }
-        } 
-        catch (networkError)
-        {
+        }
+        catch (networkError) {
             alert('Unable to contact the server');
         }
-        finally
-        {
+        finally {
             btn.disabled = false;
             txt.textContent = 'LOG IN';
         }
-        
+
     });
 }
