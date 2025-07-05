@@ -2,7 +2,6 @@ import { renderSignup }    from './controllers/signupController.js';
 import { renderLogin }     from './controllers/loginController.js';
 import { renderMenu }      from './controllers/menuController.js';
 import { renderPong }      from './controllers/pongController.js';
-import { renderOnline }    from './controllers/onlineController.js';
 import { renderProfile }   from './controllers/profileController.js';
 import { renderSettings }  from './controllers/settingsController.js';
 import { arcadeTemplate }  from './templates/arcadeTemplate.js';
@@ -34,7 +33,7 @@ function doRender(screen: Screen) {
         ensureArcadeFrame()
         const app = document.getElementById('app');
         if (!app) 
-            throw new Error('Le template arcade n’a pas été monté');
+            throw new Error('Le template arcade n a pas été monté');
         
         switch (screen) 
         {
