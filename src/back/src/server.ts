@@ -45,6 +45,10 @@ type Session = {
     id: string;
     game: Game;
     sockets: { p1: WebSocket; p2: WebSocket };
+    players: {
+    p1: { sub: number; userName: string };
+    p2: { sub: number; userName: string };
+    };
     loopTimer: NodeJS.Timeout;
 };
 const waiting: Array<{ socket: WebSocket; payload: { sub: number; userName: string } }> = [];
@@ -110,7 +114,7 @@ app.register(async fastify => {
         '/ws',
         {
             websocket: true,
-              preHandler: [(fastify as any).authenticate]
+            preHandler: [(fastify as any).authenticate]
         },
         (socket, request) => {
             // const { socket } = connection;
@@ -136,6 +140,8 @@ app.register(async fastify => {
                         if (msg.vs === 'online') {
                             if (waiting.length > 0) {
                                 const opponent = waiting.shift()!;
+                                const p1 = opponent.payload;
+                                const p2 = payload;
                                 const gameId = crypto.randomUUID();
                                 const sessionGame = new Game();
                                 sessionGame.mode = 'online';
@@ -151,7 +157,8 @@ app.register(async fastify => {
                                     id: gameId,
                                     game: sessionGame,
                                     sockets: { p1: opponent.socket, p2: socket },
-                                    loopTimer
+                                    players: {p1,p2},
+                                    loopTimer,
                                 };
                                 sessions.set(gameId, session);
                                 socketToSession.set(opponent.socket, session);
@@ -169,7 +176,6 @@ app.register(async fastify => {
                             }
                             return;
                         }
-
                         // BOT or LOCAL PLAYER
                         localGame = new Game();
                         localLoop = setInterval(() => {
@@ -197,7 +203,6 @@ app.register(async fastify => {
                         localGame.applyInput(ply, msg.dir);
                         return;
                     }
-
                     // 3) STOP: tear down the correct session and save scores
                     case 'stop': {
                         const sess = socketToSession.get(socket);
@@ -206,9 +211,27 @@ app.register(async fastify => {
                             sessions.delete(sess.id);
                             socketToSession.delete(sess.sockets.p1);
                             socketToSession.delete(sess.sockets.p2);
-
-                            // TODO: post sess.game.score on–chain here…
-
+                            const row1 = await getAsync<{ address: string }>(
+                                `SELECT address FROM User WHERE idUser = ?`,
+                                [ sess.players.p1.sub ]
+                            );
+                            const row2 = await getAsync<{ address: string }>(
+                                `SELECT address FROM User WHERE idUser = ?`,
+                                [ sess.players.p2.sub ]
+                            );
+                            if (!row1 || !row2) {
+                                console.error('Missing on-chain address for one of the players');
+                            } else {
+                                // 3) Post both scores on-chain
+                                console.log("blockchain posting")
+                                try {
+                                    const tx1 = await postScore(sess.id, row1.address, sess.game.score[0]);
+                                    const tx2 = await postScore(sess.id, row2.address, sess.game.score[1]);
+                                    console.log('Scores posted:', tx1, tx2);
+                                } catch (err) {
+                                    console.error('postScore failed:', err);
+                                }
+                            }
                             const result = JSON.stringify({
                                 type: 'matchOver',
                                 gameId: sess.id,
@@ -218,7 +241,6 @@ app.register(async fastify => {
                             sess.sockets.p2.send(result);
                             return;
                         }
-
                         console.log('Game over, saving local scores');
                         if (localLoop) {
                             clearInterval(localLoop);
