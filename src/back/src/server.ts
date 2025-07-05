@@ -208,6 +208,8 @@ app.register(async fastify => {
                         const sess = socketToSession.get(socket);
                         if (sess) {
                             clearInterval(sess.loopTimer);
+                            sess.sockets.p1.send(JSON.stringify({ type: 'STOP','score1':sess.game.score[0],'score2':sess.game.score[1]}));;
+                            sess.sockets.p2.send(JSON.stringify({ type: 'STOP'}));;
                             sessions.delete(sess.id);
                             socketToSession.delete(sess.sockets.p1);
                             socketToSession.delete(sess.sockets.p2);
@@ -237,8 +239,8 @@ app.register(async fastify => {
                                 gameId: sess.id,
                                 score: sess.game.score
                             });
-                            sess.sockets.p1.send(result);
-                            sess.sockets.p2.send(result);
+                            // sess.sockets.p1.send(result);
+                            // sess.sockets.p2.send(result);
                             return;
                         }
                         console.log('Game over, saving local scores');
@@ -256,11 +258,11 @@ app.register(async fastify => {
                     }
                     case 'stoplobby': {
                         // Rebuild the array without the one you want to drop
-                        let item = waiting.findIndex(socket);
+                        let item = waiting.findIndex(w => w.socket === socket);
                         if (item >= 0)
                             waiting.splice(item, 1);
                     }
-                    return;
+                        return;
                     default:
                         return socket.send(
                             JSON.stringify({ type: 'error', message: 'Unknown message type' })
