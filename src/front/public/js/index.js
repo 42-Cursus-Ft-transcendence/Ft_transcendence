@@ -16,7 +16,7 @@ function doRender(screen) {
         ensureArcadeFrame();
         const app = document.getElementById('app');
         if (!app)
-            throw new Error('Le template arcade n’a pas été monté');
+            throw new Error('Le template arcade n a pas été monté');
         switch (screen) {
             case 'menu':
                 renderMenu(app, socket, choice => navigate(choice));

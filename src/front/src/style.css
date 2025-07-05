@@ -24,6 +24,50 @@
   .zoomed {
     transform: scale(1.8);
   }
+    @keyframes gradient-border {
+    0%   { border-color: #2B86C5; }  /* cyan */
+    33%  { border-color: #FF3CAC; }  /* magenta */
+    66%  { border-color: #784BA0; }  /* violet */
+    100% { border-color: #2B86C5; }  /* retour au cyan */
+  }
+
+  /* 2. Classe utilitaire pour la bordure animée */
+  .animated-border {
+    @apply border-8;             /* largeur de la bordure */
+    animation: gradient-border 3s linear infinite;
+  }
+ @keyframes l3 {
+    25% { background-position: 
+      0 0,    /* paddle 1 haut */
+      100% 100%, /* paddle 2 bas */
+      100% calc(100% - 5px) /* balle coin */; }
+    50% { background-position: 
+      0 100%, 
+      100% 100%, 
+      0    calc(100% - 5px); }
+    75% { background-position: 
+      0 100%, 
+      100% 0, 
+      100% 5px; }
+  }
+
+  .loader {
+    @apply w-20 h-18 border-2 border-cyan-500 box-border;
+    padding: 0 8px;
+
+    /* paddles en cyan, balle en magenta */
+    background:
+      /* paddle gauche (cyan) */
+      linear-gradient(#0ff 0 0) 0    0/8px 20px,
+      /* paddle droite (cyan) */
+      linear-gradient(#0ff 0 0) 100% 0/8px 20px,
+      /* balle (radial magenta) */
+      radial-gradient(farthest-side, #f0f 90%, transparent) 0 5px/8px 8px content-box,
+      /* fond */
+       transparent;
+    background-repeat: no-repeat;
+    animation: l3 2s infinite linear;
+  }
 }
 
 @layer utilities {

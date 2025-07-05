@@ -1,11 +1,10 @@
-import { onlineTemplate } from "../templates/onlineTemplate.js";
+import { waitingTemplate } from "../templates/loadingTemplate.js";
 
-export function renderOnline(container: HTMLElement, onBack: () => void) 
-{  
-    container.innerHTML = onlineTemplate;
-    const backBtn = container.querySelector<HTMLButtonElement>('#backBtn')!;
-
-    backBtn.addEventListener('click', () => {
+export function renderOnline(container: HTMLElement, onBack: () => void) {
+    container.innerHTML = waitingTemplate;
+    const quit = container.querySelector<HTMLButtonElement>('#quit')!;
+    quit.addEventListener('click', () => {
         onBack();
     });
+ 
 }
