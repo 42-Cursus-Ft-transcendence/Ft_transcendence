@@ -42,6 +42,9 @@ export function renderPong(container, socket, onBack) {
             });
         }
     }
+    window.addEventListener('popstate', (event) => {
+        cleanup();
+    });
     function bindGame(initial) {
         const CW = 600, CH = 400, PW = 10, PH = 80, BR = 8;
         const canvasEl = container.querySelector('#pongCanvas');
