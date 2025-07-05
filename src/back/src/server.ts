@@ -46,8 +46,8 @@ type Session = {
     game: Game;
     sockets: { p1: WebSocket; p2: WebSocket };
     players: {
-    p1: { sub: number; userName: string };
-    p2: { sub: number; userName: string };
+        p1: { sub: number; userName: string };
+        p2: { sub: number; userName: string };
     };
     loopTimer: NodeJS.Timeout;
 };
@@ -118,8 +118,8 @@ app.register(async fastify => {
         },
         (socket, request) => {
             // const { socket } = connection;
-              const payload = request.user as { sub: number; userName: string };
-              console.log(`✅ WS client connected: user #${payload.userName}`);
+            const payload = request.user as { sub: number; userName: string };
+            console.log(`✅ WS client connected: user #${payload.userName}`);
 
             let localGame = new Game();
             let localLoop: NodeJS.Timeout | undefined;
@@ -157,7 +157,7 @@ app.register(async fastify => {
                                     id: gameId,
                                     game: sessionGame,
                                     sockets: { p1: opponent.socket, p2: socket },
-                                    players: {p1,p2},
+                                    players: { p1, p2 },
                                     loopTimer,
                                 };
                                 sessions.set(gameId, session);
@@ -171,7 +171,7 @@ app.register(async fastify => {
                                     JSON.stringify({ type: 'matchFound', gameId, youAre: 'p2' })
                                 );
                             } else {
-                                waiting.push({ socket,payload  });
+                                waiting.push({ socket, payload });
                                 socket.send(JSON.stringify({ type: 'waiting' }));
                             }
                             return;
@@ -213,11 +213,11 @@ app.register(async fastify => {
                             socketToSession.delete(sess.sockets.p2);
                             const row1 = await getAsync<{ address: string }>(
                                 `SELECT address FROM User WHERE idUser = ?`,
-                                [ sess.players.p1.sub ]
+                                [sess.players.p1.sub]
                             );
                             const row2 = await getAsync<{ address: string }>(
                                 `SELECT address FROM User WHERE idUser = ?`,
-                                [ sess.players.p2.sub ]
+                                [sess.players.p2.sub]
                             );
                             if (!row1 || !row2) {
                                 console.error('Missing on-chain address for one of the players');
@@ -254,7 +254,13 @@ app.register(async fastify => {
                         // TODO: post localGame.score on–chain here…
                         return;
                     }
-
+                    case 'stoplobby': {
+                        // Rebuild the array without the one you want to drop
+                        let item = waiting.findIndex(socket);
+                        if (item >= 0)
+                            waiting.splice(item, 1);
+                    }
+                    return;
                     default:
                         return socket.send(
                             JSON.stringify({ type: 'error', message: 'Unknown message type' })
