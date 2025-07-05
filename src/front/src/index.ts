@@ -97,7 +97,6 @@ window.addEventListener('DOMContentLoaded', () => {(async () =>
         //    • Synchronise history.state avec l’écran qu’on va afficher.
         //    • L’URL n’est pas modifiée (on passe location.href pour être certain).
         history.replaceState({ screen: initial }, '', location.href);
-
         navigate(initial);
     })();
 });

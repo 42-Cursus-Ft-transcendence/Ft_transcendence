@@ -47,7 +47,9 @@ export function renderPong(container: HTMLElement, socket: WebSocket, onBack: ()
       });
     }
   }
-
+    window.addEventListener('popstate', (event) => {
+    cleanup();
+  });
   function bindGame(initial: any) {
     const CW = 600, CH = 400, PW = 10, PH = 80, BR = 8;
 
@@ -112,6 +114,7 @@ export function renderPong(container: HTMLElement, socket: WebSocket, onBack: ()
     backBtn.addEventListener('click', () => { cleanup(); onBack(); });
     quitBtn.addEventListener('click', () => { cleanup(); onBack(); });
   }
+
 
   function cleanup() {
     console.log('🧹 Cleaning up pong controller...');
