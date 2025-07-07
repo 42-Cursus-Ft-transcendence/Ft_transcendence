@@ -11,36 +11,29 @@ function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * t;
 }
 
-/** Starts a simple AI loop that moves paddle p2 toward the predicted ball intercept.
- * @param game The Game instance to control.
- * @param difficulty A number in [0,1], where 0 is easiest and 1 is hardest.
- * @returns The interval timer ID so it can be cleared later.
+/**
+ * Super-smooth AI for Pong: always glides toward the predicted ball intersection, even when waiting.
+ * Difficulty controls accuracy and approach speed.
  */
 export function startAI(game: Game, difficulty: number): ReturnType<typeof setInterval> {
-  const REACTION_MS    = 1000;                      // AI updates once per second
-  const PADDLE_SPEED   = 240;                       // pixels per second
-  const MAX_TOLERANCE  = 40;
-  const MIN_TOLERANCE  = 4;
-  const NOISE_LEVEL    = lerp(20, 0, difficulty);
+  // Tune these:
+  const MIN_SPEED = 0.7;   // slowest pixels per frame
+  const MAX_SPEED = 4;     // fastest pixels per frame
+  const MAX_NOISE = 48;    // most error at low difficulty
+  const MIN_NOISE = 0;     // no error at high difficulty
 
-  const tolerance = lerp(MAX_TOLERANCE, MIN_TOLERANCE, difficulty);
-  let stopTimer: ReturnType<typeof setTimeout> | null = null;
+  // Compute params
+  const paddleSpeed = lerp(MIN_SPEED, MAX_SPEED, difficulty);
+  const noise = lerp(MAX_NOISE, MIN_NOISE, difficulty);
 
   return setInterval(() => {
-    if (stopTimer) {
-      clearTimeout(stopTimer);
-      stopTimer = null;
-    }
-
-    // Predict where the ball will intersect p2's x
+    // Predict where the ball will intersect paddle x
     const { x: bx0, y: by0, dx, dy } = game.ball;
-    const paddleX   = game.p2.x;
-    const paddleTop = game.p2.y;
-    const paddleCtr = paddleTop + Game.PADDLE_HEIGHT / 2;
-
+    const paddleX = game.p2.x;
     let targetY: number;
+
     if (dx > 0) {
-      // Simulate ball movement until it reaches paddleX
+      // Simulate ball movement to paddle X
       let bx = bx0, by = by0, vx = dx, vy = dy;
       while (bx < paddleX) {
         bx += vx;
@@ -50,30 +43,29 @@ export function startAI(game: Game, difficulty: number): ReturnType<typeof setIn
           by = Math.max(0, Math.min(game.height, by));
         }
       }
-      targetY = by + (Math.random() * 2 - 1) * NOISE_LEVEL;
+      targetY = by + (Math.random() * 2 - 1) * noise;
     } else {
-      // Ball moving away: return to center
       targetY = game.height / 2;
     }
 
-    const error    = targetY - paddleCtr;
-    const distance = Math.max(0, Math.abs(error) - tolerance);
+    // Paddle center and desired move
+    let paddleCenter = game.p2.y + Game.PADDLE_HEIGHT / 2;
+    let delta = targetY - paddleCenter;
 
-    if (distance === 0) {
-      game.applyInput('p2', 'stop');
+    // If very close, land smoothly (don't "snap" or instantly stop)
+    if (Math.abs(delta) < paddleSpeed) {
+      // Just finish the landing gently
+      paddleCenter = targetY;
     } else {
-      const dir = error > 0 ? 'down' : 'up';
-      game.applyInput('p2', dir);
-
-      const moveTime = Math.min(
-        Math.round(distance / PADDLE_SPEED * 1000),
-        REACTION_MS
-      );
-      stopTimer = setTimeout(() => {
-        game.applyInput('p2', 'stop');
-      }, moveTime);
+      // Move toward targetY at max paddleSpeed per frame
+      paddleCenter += Math.sign(delta) * paddleSpeed;
     }
-  }, REACTION_MS);
+
+    // Set new paddle position, clamped to the table
+    let newY = paddleCenter - Game.PADDLE_HEIGHT / 2;
+    newY = Math.max(0, Math.min(game.height - Game.PADDLE_HEIGHT, newY));
+    game.p2.y = newY;
+  }, 1000 / 60); // 60 FPS
 }
 
 export default class Game {
