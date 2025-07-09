@@ -34,8 +34,8 @@ jobs:
           (github.event_name == 'pull_request' && github.event.pull_request.base.ref != 'main')
         run: |
           echo "Validating branch name..."
-          # Branch name must start with one of the following: “feature/”, “hotfix/”, 'bugfix/'.
-          if [[ ! "$BRANCH_NAME" =~ ^(feature|hotfix|bugfix)/.+ ]]; then
+          # Branch name must start with one of the following: “feature/”, “hotfix/”, "bugfix/", "refac/" etc.
+          if [[ ! "$BRANCH_NAME" =~ ^(feature|hotfix|bugfix|refac|wip|build|style|core)/.+ ]]; then
             echo "Branch name '$BRANCH_NAME' does not conform to the required pattern. Example: feature/XXX"
             exit 1
           fi
