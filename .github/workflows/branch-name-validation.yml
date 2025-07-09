@@ -1,0 +1,42 @@
+name: Branch Naming Validation
+
+on:
+  push:
+    branches:
+      - "*" # Trigger on all branches
+  pull_request:
+    branches:
+      - "*" # Trigger on all pull request events
+
+jobs:
+  validate-branch-name:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Extract Branch Name
+        run: |
+          # For pull_request events, the originating branch name of the PR is in github.event.pull_request.head.ref.
+          if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
+            BRANCH_NAME=${{ github.event.pull_request.head.ref }}
+          else
+            # For push events, stripping the “refs/heads/” prefix from GITHUB_REF to extract the actual branch name.
+            BRANCH_NAME=${GITHUB_REF#refs/heads/}
+          fi
+          echo "Current branch: $BRANCH_NAME"
+          # Save to environment variable for use in later steps.
+          echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_ENV
+
+      - name: Validate Branch Name
+        if: >
+          (github.event_name == 'push' && github.ref != 'refs/heads/main') ||
+          (github.event_name == 'pull_request' && github.event.pull_request.base.ref != 'main')
+        run: |
+          echo "Validating branch name..."
+          # Branch name must start with one of the following: “feature/”, “hotfix/”, 'bugfix/'.
+          if [[ ! "$BRANCH_NAME" =~ ^(feature|hotfix|bugfix)/.+ ]]; then
+            echo "Branch name '$BRANCH_NAME' does not conform to the required pattern. Example: feature/XXX"
+            exit 1
+          fi
+          echo "Branch name is valid."
