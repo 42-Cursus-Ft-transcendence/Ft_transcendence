@@ -1,4 +1,4 @@
-export const loginTemplate =`
+export const loginTemplate = `
   <div id="form" class="w-full max-w-md space-y-6 bg-black/70 rounded-3xl p-8 text-green-400">
     <div class="text-center space-y-2">
       <h3 class="text-3xl font-bold text-pink-500 ">
@@ -43,7 +43,7 @@ export const loginTemplate =`
     </form>
     <!-- Social login -->
     <div>
-      <button class="w-full flex items-center justify-center gap-x-3
+      <button id="googleBtn" class="w-full flex items-center justify-center gap-x-3
              mt-4 py-2 border border-pink-500
              text-green-400 uppercase tracking-wide
              rounded-lg
@@ -54,4 +54,4 @@ export const loginTemplate =`
       </button>
     </div>
   </div>
-`
+`;
