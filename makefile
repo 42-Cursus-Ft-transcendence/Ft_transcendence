@@ -1,8 +1,6 @@
 # ──────────────────────────────────────────────────────
 # Variables
 # ──────────────────────────────────────────────────────
-BACK_DIR         := src/back
-FRONT_DIR        := src/front
 DOCKERFILE       := src/docker/Dockerfile
 COMPOSE_FILE     := src/docker/docker-compose.yml
 IMAGE_NAME       := fastify-app
@@ -21,68 +19,27 @@ PORT             := 3000
 all: help
 
 help:
+	@echo "Local development with npm"
+	@npm run help --silent
+	@echo "──────────────────────────────────────────────────────"
 	@echo "Usage: make [target]"
-	@echo ""
-	@echo "Local development (no Docker):"
-	@echo "  install-back       Install backend deps"
-	@echo "  install-front      Install frontend deps"
-	@echo "  build-front-ts     Compile front TypeScript once"
-	@echo "  watch-front-ts     Watch & recompile front TS"
-	@echo "  watch-front-css    Watch & rebuild Tailwind CSS"
-	@echo "  dev-back           Run backend in dev mode"
-	@echo "  dev-front          Run front TS+CSS watchers"
-	@echo "  dev                install-* then dev-back & dev-front"
-	@echo ""
-	@echo "Single-container Docker targets:"
+	@echo "\nSingle-container Docker targets:"
 	@echo "  docker-build       Build Docker image ($(IMAGE_NAME))"
 	@echo "  docker-run         Run Docker container ($(CONTAINER_NAME))"
 	@echo "  docker-stop        Stop Docker container"
 	@echo "  docker-clean       Remove container and image"
 	@echo "  logs               Follow container logs"
 	@echo "  exec               Shell into the running container"
-	@echo ""
-	@echo "Docker-Compose targets:"
+	@echo "\nDocker-Compose targets:"
 	@echo "  compose-build      Build all images via docker-compose"
 	@echo "  compose-up         Start all services in background"
 	@echo "  compose-down       Stop and remove all services"
 	@echo "  compose-logs       Follow logs for the entire stack"
 	@echo "  compose-exec-backend   Shell into the backend service"
-	@echo "  compose-exec-nginx     Shell into the nginx service"
-	@echo ""
+	@echo "  compose-exec-nginx     Shell into the nginx service\n"
 
 # ──────────────────────────────────────────────────────
-# 1) LOCAL DEV (hors Docker)
-# ──────────────────────────────────────────────────────
-
-install-back:
-	cd $(BACK_DIR) && npm install
-
-install-front:
-	cd $(FRONT_DIR) && npm install
-
-build-front-ts:
-	cd $(FRONT_DIR) && npm run build:ts
-
-watch-front-ts:
-	cd $(FRONT_DIR) && npm run watch:ts
-
-watch-front-css:
-	cd $(FRONT_DIR) && npm run watch:css
-
-dev-back:
-	cd $(BACK_DIR) && npm run dev
-
-dev-front: install-front
-	$(MAKE) watch-front-css &
-	$(MAKE) watch-front-ts
-
-dev: install-back install-front
-	@echo "🚀 Starting backend and frontend in dev mode…"
-	$(MAKE) dev-back &
-	$(MAKE) dev-front
-
-# ──────────────────────────────────────────────────────
-# 2) SINGLE-CONTAINER DOCKER WORKFLOW
+# 1) SINGLE-CONTAINER DOCKER WORKFLOW
 # ──────────────────────────────────────────────────────
 
 docker-build:
@@ -105,7 +62,7 @@ exec:
 	docker exec -it $(CONTAINER_NAME) sh
 
 # ──────────────────────────────────────────────────────
-# 3) MULTI-CONTAINER DOCKER-COMPOSE WORKFLOW
+# 2) MULTI-CONTAINER DOCKER-COMPOSE WORKFLOW
 # ──────────────────────────────────────────────────────
 
 compose-build:
