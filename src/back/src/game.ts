@@ -26,46 +26,70 @@ export function startAI(game: Game, difficulty: number): ReturnType<typeof setIn
   const paddleSpeed = lerp(MIN_SPEED, MAX_SPEED, difficulty);
   const noise = lerp(MAX_NOISE, MIN_NOISE, difficulty);
 
+  // Store last observation time and the target position decided from that observation
+  let lastObservation = Date.now();
+  let targetY = game.height / 2;
+  
+  // Store a snapshot of the game state
+  let snapshot = {
+    ball: { ...game.ball },
+    paddleX: game.p2.x,
+    height: game.height
+  };
+
   return setInterval(() => {
-    // Predict where the ball will intersect paddle x
-    const { x: bx0, y: by0, dx, dy } = game.ball;
-    const paddleX = game.p2.x;
-    let targetY: number;
+    const now = Date.now();
+    
+    // Only observe the game state once per second
+    if (now - lastObservation >= 1000) {
+      lastObservation = now;
+      
+      // Take a snapshot of the current game state
+      snapshot = {
+        ball: { ...game.ball },
+        paddleX: game.p2.x,
+        height: game.height
+      };
 
-    if (dx > 0) {
-      // Simulate ball movement to paddle X
-      let bx = bx0, by = by0, vx = dx, vy = dy;
-      while (bx < paddleX) {
-        bx += vx;
-        by += vy;
-        if (by < 0 || by > game.height) {
-          vy = -vy;
-          by = Math.max(0, Math.min(game.height, by));
+      // Predict where the ball will intersect paddle x using the snapshot
+      const { x: bx0, y: by0, dx, dy } = snapshot.ball;
+      
+      if (dx > 0) {
+        // Simulate ball movement to paddle X
+        let bx = bx0, by = by0, vx = dx, vy = dy;
+        while (bx < snapshot.paddleX) {
+          bx += vx;
+          by += vy;
+          if (by < 0 || by > snapshot.height) {
+            vy = -vy;
+            by = Math.max(0, Math.min(snapshot.height, by));
+          }
         }
+        targetY = by + (Math.random() * 2 - 1) * noise;
+      } else {
+        // Ball moving away, return to center
+        targetY = snapshot.height / 2;
       }
-      targetY = by + (Math.random() * 2 - 1) * noise;
-    } else {
-      targetY = game.height / 2;
     }
 
-    // Paddle center and desired move
-    let paddleCenter = game.p2.y + Game.PADDLE_HEIGHT / 2;
-    let delta = targetY - paddleCenter;
+    // Every frame, move toward the target position
+    // This happens at 60fps regardless of observation frequency
+    const paddleCenter = game.p2.y + Game.PADDLE_HEIGHT / 2;
+    const delta = targetY - paddleCenter;
 
-    // If very close, land smoothly (don't "snap" or instantly stop)
+    // Determine which direction to move based on target position
     if (Math.abs(delta) < paddleSpeed) {
-      // Just finish the landing gently
-      paddleCenter = targetY;
+      // Close enough, stop moving
+      game.applyInput('p2', 'stop');
+    } else if (delta > 0) {
+      // Target is below paddle, move down
+      game.applyInput('p2', 'down');
     } else {
-      // Move toward targetY at max paddleSpeed per frame
-      paddleCenter += Math.sign(delta) * paddleSpeed;
+      // Target is above paddle, move up
+      game.applyInput('p2', 'up');
     }
-
-    // Set new paddle position, clamped to the table
-    let newY = paddleCenter - Game.PADDLE_HEIGHT / 2;
-    newY = Math.max(0, Math.min(game.height - Game.PADDLE_HEIGHT, newY));
-    game.p2.y = newY;
-  }, 1000 / 60); // 60 FPS
+    
+  }, 1000 / 60); // Run at 60 FPS for smooth movement
 }
 
 export default class Game {
