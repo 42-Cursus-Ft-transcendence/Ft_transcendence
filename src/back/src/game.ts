@@ -93,11 +93,11 @@ export function startAI(game: Game, difficulty: number): ReturnType<typeof setIn
 }
 
 export default class Game {
-  static readonly WIDTH  = 600;
-  static readonly HEIGHT = 400;
-  static readonly PADDLE_SPEED = 4;
-  static readonly PADDLE_HEIGHT = 80;
-  static readonly BALL_ACCEL = 0.5;
+  static readonly WIDTH  = 500;
+  static readonly HEIGHT = 300;
+  static readonly PADDLE_SPEED = 3;
+  static readonly PADDLE_HEIGHT = 60;
+  static readonly BALL_ACCEL = 0.3;
 
   public height = Game.HEIGHT;
   public mode: 'player' | 'bot' | 'online' = 'player';
