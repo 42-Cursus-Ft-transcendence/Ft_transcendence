@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# This script sets up a custom merge driver for SQLite files in a Git repository.
+if ! git config merge.sqlite.driver &>/dev/null; then
+  git config merge.sqlite.name "SQLite DB merge driver"
+  git config merge.sqlite.driver "!f() { \
+    sqlite3 \"\$BASE\" .dump > \"\$BASE.sql\" && \
+    sqlite3 \"\$REMOTE\" .dump > \"\$REMOTE.sql\" && \
+    sqlite3 \"\$LOCAL\"  .dump > \"\$LOCAL.sql\"  && \
+    git merge-file -p \"\$LOCAL.sql\" \"\$BASE.sql\" \"\$REMOTE.sql\" \
+      | sqlite3 \"\$LOCAL\" && \
+    rm -f \"\$BASE.sql\" \"\$REMOTE.sql\" \"\$LOCAL.sql\"; \
+  }; f"
+fi

@@ -1,0 +1,3 @@
+# Handling SQLite File by 'sqlite' Driver
+*.sqlite merge=sqlite
+*.db     merge=sqlite
