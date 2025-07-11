@@ -51,7 +51,7 @@ export function renderPong(container: HTMLElement, socket: WebSocket, onBack: ()
     cleanup();
   });
   function bindGame(initial: any) {
-    const CW = 600, CH = 400, PW = 10, PH = 80, BR = 8;
+    const CW = 500, CH = 300, PW = 10, PH = 60, BR = 6;
 
     const canvasEl = container.querySelector<HTMLCanvasElement>('#pongCanvas')!;
     const scoreEl = container.querySelector<HTMLElement>('#scoreText')!;
