@@ -5,19 +5,22 @@
   "scripts": {
     "install:back": "cd src/back && npm install",
     "install:front": "cd src/front && npm install",
-    "build:front": "cd src/front && npm run build:ts",
-    "watch:front": "cd src/front && npm run watch:ts",
+    "build:front": "cd src/front && npm run build:ts && npm run build:css",
+    "watch:front": "cd src/front && npm run watch:ts && npm run watch:css",
     "watch:back": "cd src/back && npm run watch:ts",
     "watch:front:css": "cd src/front && npm run watch:css",
     "dev:back": "cd src/back && npm run dev",
-    "dev:front": "npm run install:front && npm run watch:front",
+    "dev:front": "cd src/front && npm run dev",
     "predev": "npm run install:back && npm run install:front && echo \"🚀 Starting backend and frontend in dev mode…\"",
-    "dev": "npm run predev && npm run dev:back && npm run dev:front",
+    "dev": "npm run predev && concurrently \"npm run dev:back\" \"npm run dev:front\"",
     "test": "echo \"Error: no test specified\" && exit 1",
     "help": "echo \"Usage: npm run <script>\" && echo \"\" && echo \"Local development:\" && echo \"  install:back       Install backend deps\" && echo \"  install:front      Install frontend deps\" && echo \"  build:front        Compile front TypeScript once\" && echo \"  watch:front:ts     Watch & recompile front TS\" && echo \"  watch:front:css    Watch & rebuild Tailwind CSS\" && echo \"  watch:back         Watch & recompile back TS\" && echo \"  dev:back           Run backend in dev mode\" && echo \"  dev:front          Run front TS+CSS watchers\" && echo \"  dev                install-* then dev:back & dev:front\""
   },
   "dependencies": {
     "@ethersproject/experimental": "^5.8.0"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.0"
   },
   "workspaces": [
     "front",
