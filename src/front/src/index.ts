@@ -66,40 +66,33 @@ export function navigate(screen: Screen) {
 // Au chargement initial du document HTML
 window.addEventListener("DOMContentLoaded", () => {
   (async () => {
-    const profile = await checkAuth();
     // Récupère l’écran demandé dans l’URL
     const params = new URLSearchParams(location.search);
-    let s = params.get("screen") as Screen;
+    const initialScreen = (params.get("screen") as Screen) || "menu";
+    history.replaceState({ screen: initialScreen }, "", location.href);
+    navigate(initialScreen);
 
-    if (profile) {
-      s = "menu";
-      const protocol = location.protocol === "https:" ? "wss" : "ws";
-      initSocket(`${protocol}://${location.host}/ws`);
-    } else s = "login";
-    console.log("s ", s);
-    const initial = s;
-    console.log(initial);
+    const protocol = location.protocol === "https:" ? "wss" : "ws";
+    const socket = initSocket(`${protocol}://${location.host}/ws`);
 
-    // 6️⃣ history.replaceState({ screen: initial }, '', location.href);
-    //    • Remplace l’entrée courante de l’historique (celle du chargement de la page).
-    //    • Synchronise history.state avec l’écran qu’on va afficher.
-    //    • L’URL n’est pas modifiée (on passe location.href pour être certain).
-    history.replaceState({ screen: initial }, "", location.href);
-    navigate(initial);
+    socket.addEventListener("close", (evt) => {
+      // 서버에서 401로 닫았다면, 화면 전환
+      navigate("login");
+    });
   })();
 });
 
 // Lorsque l’utilisateur clique sur Précédent/Suivant
 window.addEventListener("popstate", async (event) => {
   let screen = (event.state as { screen?: Screen })?.screen;
-  const stillAuth = await checkAuth();
+  //const stillAuth = await checkAuth();
 
   //   Si connecté, on ne veut jamais login/signup
-  if (stillAuth && (screen === "login" || screen === "signup")) {
+  if (screen === "login" || screen === "signup") {
     screen = "menu";
   }
   // 4) Si déconnecté, et qu’on veut aller au menu, on redirige sur login
-  if (!stillAuth && screen === "menu") {
+  if (screen === "menu") {
     screen = "login";
   }
   console.log("popstate", screen);
@@ -113,27 +106,27 @@ function ensureArcadeFrame() {
   }
 }
 
-async function checkAuth(): Promise<{
-  userName: string;
-  email: string;
-  idUser: number;
-} | null> {
-  try {
-    const res = await fetch("/me", {
-      method: "POST",
-      credentials: "include",
-    });
-    if (!res.ok) {
-      console.log("non log");
-      return null;
-    }
-    console.log("log");
-    return await res.json();
-  } catch (err) {
-    console.log("err", err);
-    return null;
-  }
-}
+// async function checkAuth(): Promise<{
+//   userName: string;
+//   email: string;
+//   idUser: number;
+// } | null> {
+//   try {
+//     const res = await fetch("/me", {
+//       method: "POST",
+//       credentials: "include",
+//     });
+//     if (!res.ok) {
+//       console.log("non log");
+//       return null;
+//     }
+//     console.log("log");
+//     return await res.json();
+//   } catch (err) {
+//     console.log("err", err);
+//     return null;
+//   }
+// }
 
 // Export function to initialize the socket
 export function initSocket(url: string) {
