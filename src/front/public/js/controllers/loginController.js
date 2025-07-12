@@ -1,7 +1,27 @@
 import { loginTemplate } from "../templates/loginTemplate.js";
 import { navigate } from "../index.js";
 import { initSocket } from "../index.js";
-export function renderLogin(container, onSuccess) {
+async function checkAuth() {
+    try {
+        const res = await fetch("/me", {
+            method: "POST",
+            credentials: "include",
+        });
+        console.log(">> Front: checking auth status", res.status);
+        return res.ok;
+    }
+    catch {
+        console.error(">> Front: error checking auth status");
+        return false;
+    }
+}
+export async function renderLogin(container, onSuccess) {
+    const isAuth = await checkAuth();
+    if (isAuth) {
+        console.log(">> Front: already authenticated → redirecting to menu");
+        onSuccess();
+        return;
+    }
     container.innerHTML = loginTemplate;
     const el = getElements(container);
     // binding event
