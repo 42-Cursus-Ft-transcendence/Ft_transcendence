@@ -43,7 +43,7 @@ export const loginTemplate = `
     </form>
     <!-- Social login -->
     <div>
-      <button class="w-full flex items-center justify-center gap-x-3
+      <button id="googleBtn" class="w-full flex items-center justify-center gap-x-3
              mt-4 py-2 border border-pink-500
              text-green-400 uppercase tracking-wide
              rounded-lg
