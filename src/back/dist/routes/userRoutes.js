@@ -147,38 +147,38 @@ async function userRoutes(app) {
             if (!accessToken) {
                 throw new Error("No access token received");
             }
-            const response = await fetch(`https://www.googleapis.com/oauth2/v3/userinfo?access_token=${accessToken}`);
-            const userInfo = await response.json();
-            // 여기서 데이터베이스에 해당 사용자가 없다면 회원가입을 진행할 수 있으며,
-            // 이미 등록된 사용자라면 JWT를 발급합니다.
+            const resp = await fetch(`https://www.googleapis.com/oauth2/v3/userinfo?access_token=${accessToken}`);
+            if (!resp.ok)
+                throw new Error("Failed to fetch user info from Google");
+            const profile = (await resp.json());
+            const { sub, email, name: userName } = profile;
+            const existing = (await getAsync(`SELECT idUser FROM User WHERE oauthSub = ?`, [sub]));
+            let userId;
+            if (existing) {
+                // 이미 가입된 Google 유저
+                userId = existing.idUser;
+            }
+            else {
+                const now = new Date().toISOString();
+                const userWallet = ethers_1.Wallet.createRandom();
+                const address = userWallet.address;
+                const privKey = userWallet.privateKey;
+                const lastID = (await runAsync(`INSERT INTO User
+           (oauthSub, userName, email, registrationDate, address, privkey, connectionStatus)
+         VALUES (?, ?, ?, ?, ?, ?, 0)`, [sub, userName, email, now, address, privKey]));
+                userId = lastID;
+            }
             const salt = await bcrypt_1.default.genSalt(10);
-            const { sub, email, name } = userInfo;
             const [hashedSub, hashedEmail] = await Promise.all([
-                bcrypt_1.default.hash(sub, salt),
+                bcrypt_1.default.hash(String(sub), salt),
                 bcrypt_1.default.hash(email, salt),
             ]);
             const token = app.jwt.sign({
                 sub: hashedSub,
                 email: hashedEmail,
-                userName: name,
+                userName,
+                userId,
             });
-            console.log(sub, name);
-            const now = new Date().toString();
-            const userWallet = ethers_1.Wallet.createRandom();
-            const address = userWallet.address;
-            const privKey = userWallet.privateKey;
-            const idUser = await runAsync(`INSERT INTO User(userName, email, password, registrationDate, address, privkey, connectionStatus)
-                VALUES (?, ?, ?, ?, ?, ?, 0)`, [name, email, null, now, address, privKey]);
-            // const existingUser = await User.findOne({
-            //   where: { sub: hashedSub },
-            // });
-            // if (!existingUser) {
-            //   await User.create({
-            //     sub: hashedSub,
-            //     email: hashedEmail,
-            //     username: name,
-            //   });
-            // }
             return reply
                 .setCookie("token", token, {
                 // signed: true,
@@ -192,9 +192,7 @@ async function userRoutes(app) {
         }
         catch (err) {
             app.log.error("Google OAuth error: " + err.message);
-            return reply
-                .status(500)
-                .send({ error: "Google OAuth error", details: err.message });
+            return reply.status(303).redirect("/?screen=login");
         }
     });
 }
