@@ -190,49 +190,54 @@ export default async function userRoutes(app: FastifyInstance) {
       if (!accessToken) {
         throw new Error("No access token received");
       }
-      const response = await fetch(
+      const resp = await fetch(
         `https://www.googleapis.com/oauth2/v3/userinfo?access_token=${accessToken}`
       );
-
-      const { sub, email, name } = await response.json();
-      const userInfo = await response.json();
-      const existing = await runAsync(
-        `SELECT id FROM User WHERE oauthSub = ?`,
+      if (!resp.ok) throw new Error("Failed to fetch user info from Google");
+      const profile = (await resp.json()) as {
+        sub: number;
+        email: string;
+        name: string;
+      };
+      const { sub, email, name: userName } = profile;
+      const existing = (await getAsync(
+        `SELECT idUser FROM User WHERE oauthSub = ?`,
         [sub]
-      );
+      )) as { idUser: number } | undefined;
 
-      // 여기서 데이터베이스에 해당 사용자가 없다면 회원가입을 진행할 수 있으며,
-      // 이미 등록된 사용자라면 JWT를 발급합니다.
+      let userId: number;
+
+      if (existing) {
+        // 이미 가입된 Google 유저
+        userId = existing.idUser;
+      } else {
+        const now = new Date().toISOString();
+        const userWallet = Wallet.createRandom();
+        const address = userWallet.address;
+        const privKey = userWallet.privateKey;
+        interface InsertResult {
+          insertId: number;
+        }
+        const lastID = (await runAsync(
+          `INSERT INTO User
+           (oauthSub, userName, email, registrationDate, address, privkey, connectionStatus)
+         VALUES (?, ?, ?, ?, ?, ?, 0)`,
+          [sub, userName, email, now, address, privKey]
+        )) as number;
+
+        userId = lastID;
+      }
       const salt = await bcrypt.genSalt(10);
       const [hashedSub, hashedEmail] = await Promise.all([
-        bcrypt.hash(sub, salt),
+        bcrypt.hash(String(sub), salt),
         bcrypt.hash(email, salt),
       ]);
       const token = app.jwt.sign({
         sub: hashedSub,
         email: hashedEmail,
-        userName: name,
+        userName,
+        userId,
       });
-      console.log(sub, name);
-      const now = new Date().toString();
-      const userWallet = Wallet.createRandom();
-      const address = userWallet.address;
-      const privKey = userWallet.privateKey;
-      const idUser = await runAsync(
-        `INSERT INTO User(userName, email, password, registrationDate, address, privkey, connectionStatus)
-                VALUES (?, ?, ?, ?, ?, ?, 0)`,
-        [name, email, null, now, address, privKey]
-      );
-      // const existingUser = await User.findOne({
-      //   where: { sub: hashedSub },
-      // });
-      // if (!existingUser) {
-      //   await User.create({
-      //     sub: hashedSub,
-      //     email: hashedEmail,
-      //     username: name,
-      //   });
-      // }
       return reply
         .setCookie("token", token, {
           // signed: true,
@@ -245,9 +250,7 @@ export default async function userRoutes(app: FastifyInstance) {
         .redirect("/?screen=menu");
     } catch (err: any) {
       app.log.error("Google OAuth error: " + err.message);
-      return reply
-        .status(500)
-        .send({ error: "Google OAuth error", details: err.message });
+      return reply.status(303).redirect("/?screen=login");
     }
   });
 }

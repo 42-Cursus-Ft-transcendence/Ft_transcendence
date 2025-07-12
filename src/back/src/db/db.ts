@@ -1,23 +1,24 @@
-import path from 'path';
-import fs from 'fs';
-import sqlite3 from 'sqlite3';
+import path from "path";
+import fs from "fs";
+import sqlite3 from "sqlite3";
 
-const dbPath = path.resolve(__dirname, process.env.DB_PATH || '../../data/db.sqlite');
+const dbPath = path.resolve(
+  __dirname,
+  process.env.DB_PATH || "../../data/db.sqlite"
+);
 fs.mkdirSync(path.dirname(dbPath), { recursive: true });
-export const db = new sqlite3.Database(dbPath, err => {
-    if(err)
-        console.error(err);
-    else
-        console.log('✅ SQLite ready');
+export const db = new sqlite3.Database(dbPath, (err) => {
+  if (err) console.error(err);
+  else console.log("✅ SQLite ready");
 });
 
-db.serialize(() =>
-{
+db.serialize(() => {
   db.run(`PRAGMA foreign_keys = ON;`);
 
   db.run(`
     CREATE TABLE IF NOT EXISTS User (
       idUser            INTEGER PRIMARY KEY,
+      oauthSub          TEXT UNIQUE,
       userName          TEXT UNIQUE,
       email             TEXT,
       password          TEXT,
@@ -48,6 +49,5 @@ db.serialize(() =>
     );
   `);
   db.run(`INSERT OR IGNORE INTO User(userName, email, password, registrationDate, address, privkey, connectionStatus)
-                VALUES ('Jarvis', 'antarctica', 0, 'forever', 0, 0, 0)`)
+                VALUES ('Jarvis', 'antarctica', 0, 'forever', 0, 0, 0)`);
 });
-
