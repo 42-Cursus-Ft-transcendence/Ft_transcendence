@@ -170,9 +170,9 @@ class Game {
         };
     }
 }
-Game.WIDTH = 600;
-Game.HEIGHT = 400;
-Game.PADDLE_SPEED = 4;
-Game.PADDLE_HEIGHT = 80;
-Game.BALL_ACCEL = 0.5;
+Game.WIDTH = 500;
+Game.HEIGHT = 300;
+Game.PADDLE_SPEED = 3;
+Game.PADDLE_HEIGHT = 60;
+Game.BALL_ACCEL = 0.3;
 exports.default = Game;
