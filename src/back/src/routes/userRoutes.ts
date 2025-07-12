@@ -70,6 +70,30 @@ export default async function userRoutes(app: FastifyInstance) {
     }
   });
 
+  app.get(
+    "/me",
+    { preHandler: [(app as any).authenticate] },
+    async (request, reply) => {
+      const idUser = (request.user as any).sub as number;
+      const userName = (request.user as any).userName as string;
+
+      try {
+        const res = await getAsync<{ email: string }>(
+          `SELECT email FROM User WHERE idUser = ?`,
+          [idUser]
+        );
+        if (!res) return reply.status(401).send({ error: "User not found" });
+        reply.status(200).send({
+          idUser,
+          userName,
+          email: res.email,
+        });
+      } catch (err) {
+        return reply.status(500).send({ error: "Internal server error" });
+      }
+    }
+  );
+
   app.post("/login", async (request, reply): Promise<void> => {
     console.log(">> Recu POST /login");
     const { userName, password } = request.body as {
@@ -126,30 +150,6 @@ export default async function userRoutes(app: FastifyInstance) {
       return reply.status(500).send({ error: "Internal server error" });
     }
   });
-
-  app.post(
-    "/me",
-    { preHandler: [(app as any).authenticate] },
-    async (request, reply): Promise<void> => {
-      const idUser = (request.user as any).sub as number;
-      const userName = (request.user as any).userName as string;
-
-      try {
-        const res = await getAsync<{ email: string }>(
-          `SELECT email FROM User WHERE idUser = ?`,
-          [idUser]
-        );
-        if (!res) return reply.status(401).send({ error: "User not found" });
-        reply.status(200).send({
-          idUser,
-          userName,
-          email: res.email,
-        });
-      } catch (err) {
-        return reply.status(500).send({ error: "Internal server error" });
-      }
-    }
-  );
 
   app.post(
     "/logout",

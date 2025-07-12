@@ -1,1 +1,4 @@
 node_modules
+*.sqlite
+src/back/dist
+.DS_Store
