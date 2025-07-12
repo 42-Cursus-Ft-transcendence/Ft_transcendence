@@ -46,7 +46,7 @@ export function renderPong(container, socket, onBack) {
         cleanup();
     });
     function bindGame(initial) {
-        const CW = 600, CH = 400, PW = 10, PH = 80, BR = 8;
+        const CW = 500, CH = 300, PW = 10, PH = 60, BR = 6;
         const canvasEl = container.querySelector('#pongCanvas');
         const scoreEl = container.querySelector('#scoreText');
         const backBtn = container.querySelector('#backBtn');
