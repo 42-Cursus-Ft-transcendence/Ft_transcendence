@@ -5,6 +5,7 @@ import { renderPong } from "./controllers/pongController.js";
 import { renderProfile } from "./controllers/profileController.js";
 import { renderSettings } from "./controllers/settingsController.js";
 import { arcadeTemplate } from "./templates/arcadeTemplate.js";
+import { checkAuth } from "./utils/auth.js";
 
 // Type des écrans disponibles
 export type Screen =
@@ -58,7 +59,15 @@ function doRender(screen: Screen) {
 /**
  * Change d'écran et met à jour l'historique
  */
-export function navigate(screen: Screen) {
+export async function navigate(screen: Screen) {
+  if (screen !== "login" && screen !== "signup") {
+    const isAuth = await checkAuth();
+    if (!isAuth) {
+      console.log(">> SPA Guard: not authenticated → redirecting to login");
+      history.pushState({ screen: "login" }, "", `?screen=login`);
+      return doRender("login");
+    }
+  }
   history.pushState({ screen }, "", `?screen=${screen}`);
   doRender(screen);
 }
@@ -106,28 +115,6 @@ function ensureArcadeFrame() {
   }
 }
 
-// async function checkAuth(): Promise<{
-//   userName: string;
-//   email: string;
-//   idUser: number;
-// } | null> {
-//   try {
-//     const res = await fetch("/me", {
-//       method: "POST",
-//       credentials: "include",
-//     });
-//     if (!res.ok) {
-//       console.log("non log");
-//       return null;
-//     }
-//     console.log("log");
-//     return await res.json();
-//   } catch (err) {
-//     console.log("err", err);
-//     return null;
-//   }
-// }
-
 // Export function to initialize the socket
 export function initSocket(url: string) {
   socket = new WebSocket(url);
@@ -140,16 +127,4 @@ export function initSocket(url: string) {
 // If you need to access the socket elsewhere
 export function getSocket() {
   return socket;
-}
-
-function sendLogout() {
-  if (navigator.sendBeacon) {
-    navigator.sendBeacon("/logout");
-  } else {
-    fetch("/logout", {
-      method: "POST",
-      credentials: "include",
-      keepalive: true,
-    });
-  }
 }

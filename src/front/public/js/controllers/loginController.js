@@ -1,20 +1,6 @@
 import { loginTemplate } from "../templates/loginTemplate.js";
 import { navigate } from "../index.js";
-import { initSocket } from "../index.js";
-async function checkAuth() {
-    try {
-        const res = await fetch("/me", {
-            method: "POST",
-            credentials: "include",
-        });
-        console.log(">> Front: checking auth status", res.status);
-        return res.ok;
-    }
-    catch {
-        console.error(">> Front: error checking auth status");
-        return false;
-    }
-}
+import { initSocket, checkAuth } from "../index.js";
 export async function renderLogin(container, onSuccess) {
     const isAuth = await checkAuth();
     if (isAuth) {

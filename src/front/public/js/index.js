@@ -7,6 +7,20 @@ import { renderSettings } from "./controllers/settingsController.js";
 import { arcadeTemplate } from "./templates/arcadeTemplate.js";
 export let socket;
 const root = document.getElementById("root");
+export async function checkAuth() {
+    try {
+        const res = await fetch("/me", {
+            method: "GET",
+            credentials: "include",
+        });
+        console.log(">> Front: checking auth status", res.status);
+        return res.ok;
+    }
+    catch {
+        console.error(">> Front: error checking auth status");
+        return false;
+    }
+}
 function doRender(screen) {
     if (screen === "signup")
         renderSignup(root, () => navigate("login"));
