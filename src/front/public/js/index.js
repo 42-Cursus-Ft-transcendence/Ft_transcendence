@@ -5,22 +5,9 @@ import { renderPong } from "./controllers/pongController.js";
 import { renderProfile } from "./controllers/profileController.js";
 import { renderSettings } from "./controllers/settingsController.js";
 import { arcadeTemplate } from "./templates/arcadeTemplate.js";
+import { checkAuth } from "./utils/auth.js";
 export let socket;
 const root = document.getElementById("root");
-export async function checkAuth() {
-    try {
-        const res = await fetch("/me", {
-            method: "GET",
-            credentials: "include",
-        });
-        console.log(">> Front: checking auth status", res.status);
-        return res.ok;
-    }
-    catch {
-        console.error(">> Front: error checking auth status");
-        return false;
-    }
-}
 function doRender(screen) {
     if (screen === "signup")
         renderSignup(root, () => navigate("login"));
@@ -59,7 +46,15 @@ function doRender(screen) {
 /**
  * Change d'écran et met à jour l'historique
  */
-export function navigate(screen) {
+export async function navigate(screen) {
+    if (screen !== "login" && screen !== "signup") {
+        const isAuth = await checkAuth();
+        if (!isAuth) {
+            console.log(">> SPA Guard: not authenticated → redirecting to login");
+            history.pushState({ screen: "login" }, "", `?screen=login`);
+            return doRender("login");
+        }
+    }
     history.pushState({ screen }, "", `?screen=${screen}`);
     doRender(screen);
 }
@@ -100,27 +95,6 @@ function ensureArcadeFrame() {
         root.innerHTML = arcadeTemplate;
     }
 }
-// async function checkAuth(): Promise<{
-//   userName: string;
-//   email: string;
-//   idUser: number;
-// } | null> {
-//   try {
-//     const res = await fetch("/me", {
-//       method: "POST",
-//       credentials: "include",
-//     });
-//     if (!res.ok) {
-//       console.log("non log");
-//       return null;
-//     }
-//     console.log("log");
-//     return await res.json();
-//   } catch (err) {
-//     console.log("err", err);
-//     return null;
-//   }
-// }
 // Export function to initialize the socket
 export function initSocket(url) {
     socket = new WebSocket(url);
@@ -132,17 +106,5 @@ export function initSocket(url) {
 // If you need to access the socket elsewhere
 export function getSocket() {
     return socket;
-}
-function sendLogout() {
-    if (navigator.sendBeacon) {
-        navigator.sendBeacon("/logout");
-    }
-    else {
-        fetch("/logout", {
-            method: "POST",
-            credentials: "include",
-            keepalive: true,
-        });
-    }
 }
 //# sourceMappingURL=index.js.map

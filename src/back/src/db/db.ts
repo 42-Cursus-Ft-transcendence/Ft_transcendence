@@ -35,7 +35,7 @@ db.serialize(() => {
       player1Score      INTEGER,
       player2Score      INTEGER,
       winnerId          INTEGER,
-      FOREIGN KEY(winnerId) REFERENCES User(idUSer)
+      FOREIGN KEY(winnerId) REFERENCES User(idUser)
     );
   `);
   db.run(`
@@ -44,7 +44,7 @@ db.serialize(() => {
       matchDate         TEXT,
       matchId           INTEGER,
       PRIMARY KEY (userId, matchId),
-      FOREIGN KEY(userId) REFERENCES User(idUSer),
+      FOREIGN KEY(userId) REFERENCES User(idUser),
       FOREIGN KEY(matchId) REFERENCES Match(idMatch)
     );
   `);

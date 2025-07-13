@@ -1,6 +1,7 @@
 import { loginTemplate } from "../templates/loginTemplate.js";
 import { navigate } from "../index.js";
-import { initSocket, checkAuth } from "../index.js";
+import { initSocket } from "../index.js";
+import { checkAuth } from "../utils/auth.js";
 export async function renderLogin(container, onSuccess) {
     const isAuth = await checkAuth();
     if (isAuth) {

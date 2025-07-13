@@ -168,17 +168,7 @@ async function userRoutes(app) {
          VALUES (?, ?, ?, ?, ?, ?, 0)`, [sub, userName, email, now, address, privKey]));
                 userId = lastID;
             }
-            const salt = await bcrypt_1.default.genSalt(10);
-            const [hashedSub, hashedEmail] = await Promise.all([
-                bcrypt_1.default.hash(String(sub), salt),
-                bcrypt_1.default.hash(email, salt),
-            ]);
-            const token = app.jwt.sign({
-                sub: hashedSub,
-                email: hashedEmail,
-                userName,
-                userId,
-            });
+            const token = app.jwt.sign({ sub: userId, userName, email }, { expiresIn: "2h" });
             return reply
                 .setCookie("token", token, {
                 // signed: true,
