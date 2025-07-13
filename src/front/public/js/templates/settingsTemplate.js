@@ -1,67 +1,60 @@
 export const settingsTemplate = `
-<div class="w-full h-full flex flex-col items-center justify-center p-6  bg-black/70 backdrop-blur-sm rounded-[40px] shadow-neon font-arcade text-green-400 relative">
-  <button
-      id="backBtn"
-      class="absolute top-3 right-6 text-pink-400 hover:text-pink-200 text-2xl"
-    >&times;</button>
+<div class="w-full h-full flex flex-col items-center p-6 bg-black/70 backdrop-blur-sm rounded-[40px] shadow-neon font-arcade text-green-400 relative">
+  <!-- Back Button -->
+  <button id="backBtn" class="absolute top-3 right-6 text-pink-400 hover:text-pink-200 text-2xl">&times;</button>
 
-  <!-- Onglets -->
-  <div class="border-b border-pink-500 mb-6 w-full">
-    <nav class="flex space-x-4 justify-center" aria-label="Tabs">
-      <button data-tab="account" class="tab-btn py-2 px-4 text-blue-300 border-b-2 border-transparent hover:text-blue-200 transition-colors">
+  <!-- Onglets (fixes en haut) -->
+  <div class="sticky top-0 w-full  z-10 border-b border-pink-500">
+    <nav class="flex space-x-4 justify-center py-2" aria-label="Tabs">
+      <button data-tab="account" class="tab-btn py-2 px-4 text-blue-300 border-b-2 border-transparent hover:text-blue-200 transition-colors hover:cursor-pointer">
         Account
       </button>
-      <button data-tab="gameplay" class="tab-btn py-2 px-4 text-blue-300 border-b-2 border-transparent hover:text-blue-200 transition-colors">
+      <button data-tab="gameplay" class="tab-btn py-2 px-4 text-blue-300 border-b-2 border-transparent hover:text-blue-200 transition-colors hover:cursor-pointer">
         Gameplay
       </button>
-      <button data-tab="security" class="tab-btn py-2 px-4 text-blue-300 border-b-2 border-transparent hover:text-blue-200 transition-colors">
+      <button data-tab="security" class="tab-btn py-2 px-4 text-blue-300 border-b-2 border-transparent hover:text-blue-200 transition-colors hover:cursor-pointer">
         Security
       </button>
     </nav>
   </div>
 
-  <div id="settings-content" class="w-full flex-1 flex items-center justify-center">
+  <!-- Contenu scrollable -->
+  <div id="settings-content" class="w-full flex-1 overflow-y-auto py-4 scrollbar-thin scrollbar-thumb-pink-500 scrollbar-track-transparent hover:scrollbar-thumb-pink-600">
     <!-- ACCOUNT -->
-    <div id="tab-account" class="tab-content hidden w-full max-w-lg">
-      <form id="form-account" class="w-3/5 mx-auto space-y-6">
-        <!-- Photo de profil -->
+    <div id="tab-account" class="tab-content hidden w-full max-w-lg mx-auto space-y-6">
+      <form id="form-account" class="w-full space-y-6">
         <div class="flex flex-col items-center">
-          <img id="profile-img" src="./assets/lucian.webp" alt="Avatar" class="w-24 h-24 rounded-full border-2 border-pink-500 mb-2"/>
-          <button type="button" id="change-photo-btn" class="text-sm text-pink-400 underline">Change Photo</button>
+          <!-- Modal Selector -->
+          <div id="avatar-selector" class="hidden fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-20">
+            <div class="p-4 rounded-lg grid grid-cols-4 gap-4">
+              <!-- Loop over assets/icons in build -->
+              <img class="avatar-option w-16 h-16 rounded-full border-2 border-pink-500 cursor-pointer" data-src="assets/icone/Garen_Border.webp" src="/assets/icone/Garen_Border.webp" />
+              <img class="avatar-option w-16 h-16 rounded-full border-2 border-pink-500 cursor-pointer" data-src="assets/icone/Garen.webp" src="assets/icone/Garen.webp" />
+              <img class="avatar-option w-16 h-16 rounded-full border-2 border-pink-500 cursor-pointer" data-src="assets/icone/Lucian_Border.webp" src="assets/icone/Lucian_Border.webp" />
+              <img class="avatar-option w-16 h-16 rounded-full border-2 border-pink-500 cursor-pointer" data-src="assets/icone/Lucian.webp" src="assets/icone/Lucian.webp" />
+              <img class="avatar-option w-16 h-16 rounded-full border-2 border-pink-500 cursor-pointer" data-src="assets/icone/Demacia_Vice.webp" src="assets/icone/Demacia_Vice.webp" />
+              <img class="avatar-option w-16 h-16 rounded-full border-2 border-pink-500 cursor-pointer" data-src="assets/icone/Legendary_Handshake.webp" src="assets/icone/Legendary_Handshake.webp" />
+              <!-- ... other icons ... -->
+              <!-- Import option -->
+              <div id="avatar-import" class="w-16 h-16 flex items-center justify-center border-2 border-dashed border-pink-500 rounded-full cursor-pointer">
+                <img class="avatar-option w-12 h-12 cursor-pointer" data-src="assets/icone/Legendary_Handshake.webp" src="assets/icone/import-arrow.svg" />
+              </div>
+            </div>
+          </div>
+          <img id="profile-img" src="assets/icone/Lucian.webp" alt="Avatar" class="w-24 h-24 rounded-full border-2 border-pink-500 mb-2 cursor-pointer" />
         </div>
-        <!-- Username -->
-        <div>
-          <label class="block mb-1">Username</label>
-          <input type="text" id="username-input" name="username" value="CurrentName" class="w-full  px-4 py-2  bg-black/30 placeholder-green-600
-               text-green-400 outline-none
-               border border-pink-500
-               rounded-lg
-               focus:border-blue-400
-               transition"/>
-        </div>
-        <!-- Email -->
-        <div>
-          <label class="block mb-1">Email</label>
-          <input type="email" id="email-input" name="email" value="user@example.com" class="w-full  px-4 py-2  bg-black/30 placeholder-green-600
-               text-green-400 outline-none
-               border border-pink-500
-               rounded-lg
-               focus:border-blue-400
-               transition"/>
-        </div>
-        <!-- Save -->
-        <div class="text-center">
-          <button type="submit" class="threeD-button-set">Save</button>
-        </div>
+        <div><label class="block mb-1">Username</label><input type="text" id="username-input" name="username" class="w-full px-4 py-2 bg-black/30 placeholder-green-600 text-green-400 outline-none border border-pink-500 rounded-lg focus:border-blue-400 transition" /></div>
+        <div><label class="block mb-1">Email</label><input type="email" id="email-input" name="email" class="w-full px-4 py-2 bg-black/30 placeholder-green-600 text-green-400 outline-none border border-pink-500 rounded-lg focus:border-blue-400 transition" /></div>
+        <div class="text-center"><button type="submit" class="threeD-button-set">Save</button></div>
+        <input id="avatar-file-input" type="file" accept="image/*" class="hidden" />
       </form>
     </div>
 
     <!-- GAMEPLAY -->
-    <div id="tab-gameplay" class="tab-content hidden space-y-4">
-      <h2 class="text-xl text-pink-400">Gameplay Settings</h2>
-      <form id="form-gameplay" class="space-y-4">
+    <div id="tab-gameplay" class="tab-content hidden w-full max-w-lg mx-auto space-y-6">
+      <form id="form-gameplay" class="w-full space-y-4">
         <div class="flex items-center justify-between">
-          <label>Game Difficulty</label>
+          <label>AI Difficulty</label>
           <select name="difficulty" class="bg-black/50 border border-pink-500 rounded p-2">
             <option>Easy</option>
             <option selected>Normal</option>
@@ -78,33 +71,34 @@ export const settingsTemplate = `
         </div>
         <div class="flex items-center justify-between">
           <label>Snap to Target</label>
-          <input type="checkbox" name="snapToTarget" class="h-5 w-5 text-pink-500 focus:ring-pink-400"/>
+          <input type="checkbox" name="snapToTarget" class="h-5 w-5 text-pink-500 focus:ring-pink-400" />
         </div>
-        <button type="submit" class="threeD-button-set">
-          Save Gameplay
-        </button>
+        <div class="text-center">
+          <button type="submit" class="threeD-button-set">Save Gameplay</button>
+        </div>
       </form>
     </div>
 
     <!-- SECURITY -->
-    <div id="tab-security" class="tab-content hidden space-y-4">
-      <h2 class="text-xl text-pink-400">Security Settings</h2>
-      <form id="form-security" class="space-y-4">
+    <div id="tab-security" class="tab-content hidden w-full max-w-lg mx-auto space-y-6">
+      <form id="form-security" class="w-full space-y-4">
         <div>
           <label class="block mb-1">Current Password</label>
           <input type="password" name="currentPassword"
-                 class="w-full bg-black/50 border border-pink-500 rounded p-2"/>
+            class="w-full px-4 py-2 bg-black/30 placeholder-green-600 text-green-400 outline-none border border-pink-500 rounded-lg focus:border-blue-400 transition" />
         </div>
         <div>
           <label class="block mb-1">New Password</label>
           <input type="password" name="newPassword"
-                 class="w-full bg-black/50 border border-pink-500 rounded p-2"/>
+            class="w-full px-4 py-2 bg-black/30 placeholder-green-600 text-green-400 outline-none border border-pink-500 rounded-lg focus:border-blue-400 transition" />
         </div>
         <div class="flex items-center justify-between">
           <label>Two-Factor Auth</label>
-          <input type="checkbox" name="twoFactor" class="h-5 w-5 text-pink-500"/>
+          <input type="checkbox" name="twoFactor" class="h-5 w-5 text-pink-500" />
         </div>
-        <button type="submit" class="threeD-button-set"> Save Security </button>
+        <div class="text-center">
+          <button type="submit" class="threeD-button-set">Save Security</button>
+        </div>
       </form>
     </div>
   </div>
