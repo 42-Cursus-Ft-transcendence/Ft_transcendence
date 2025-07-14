@@ -3,10 +3,6 @@ import { db } from "../db/db";
 import { authenticator } from "otplib";
 import QRCode from "qrcode";
 import bcrypt from "bcrypt";
-import { error } from "console";
-import { resolve } from "path";
-import { rejects } from "assert";
-import { get } from "http";
 import { Wallet } from "ethers";
 
 function runAsync(sql: string, values: any[]): Promise<number> {
@@ -241,7 +237,7 @@ export default async function userRoutes(app: FastifyInstance) {
         .status(303)
         .redirect("/?screen=menu");
     } catch (err: any) {
-      app.log.error("Google OAuth error: " + err.message);
+      app.log.error("Google OAuth error: ", err);
       return reply.status(303).redirect("/?screen=login");
     }
   });
@@ -319,7 +315,7 @@ export default async function userRoutes(app: FastifyInstance) {
         const img = Buffer.from(dataUrl.split(",")[1], "base64");
         reply.header("Content-Type", "image/png").send(img);
       } catch (err) {
-        req.log.error(err);
+        app.log.error(err);
         reply.status(500).send({ error: "Failed to generate QR code" });
       }
     }
