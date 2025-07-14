@@ -596,10 +596,6 @@
     font-size: var(--text-3xl);
     line-height: var(--tw-leading, var(--text-3xl--line-height));
   }
-  .text-lg {
-    font-size: var(--text-lg);
-    line-height: var(--tw-leading, var(--text-lg--line-height));
-  }
   .text-sm {
     font-size: var(--text-sm);
     line-height: var(--tw-leading, var(--text-sm--line-height));
@@ -757,11 +753,6 @@
   .focus\:border-blue-400 {
     &:focus {
       border-color: var(--color-blue-400);
-    }
-  }
-  .focus\:ring-pink-400 {
-    &:focus {
-      --tw-ring-color: var(--color-pink-400);
     }
   }
 }
