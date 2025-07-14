@@ -1,26 +1,25 @@
+import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
+import type { WaitingItem, Session as MatchSession } from "./types/session";
+import type { WebSocket } from "@fastify/websocket";
 import path from "path";
 import fs from "fs";
 import dotenv from "dotenv";
 
 // 1) Load .env before anything else reads process.env
 dotenv.config({ path: path.resolve(__dirname, "../.env.backend") });
-
 import Fastify from "fastify";
 import fastifyWebsocket from "@fastify/websocket";
 import fastifyStatic from "@fastify/static";
-import sqlite3 from "sqlite3";
 import { ethers } from "ethers";
 
 import { postScore, fetchScores } from "./blockchain";
 import Game, { startAI } from "./game";
 
-import type { FastifyRequest, FastifyReply } from "fastify";
 import fastifyJwt from "@fastify/jwt";
 import fastifyCookie from "@fastify/cookie";
 import oauthPlugin from "@fastify/oauth2";
 import userRoutes, { getAsync } from "./routes/userRoutes"; // ← import par défaut
 import "./db/db"; // ← initialise la BD et les tables
-import { createGame } from "./routes/userRoutes";
 import crypto from "crypto";
 // ─────────────────────────────────────────────────────────────────────────────
 // Determine frontend directory
@@ -51,11 +50,8 @@ type Session = {
   };
   loopTimer: NodeJS.Timeout;
 };
-const waiting: Array<{
-  socket: WebSocket;
-  payload: { sub: number; userName: string };
-}> = [];
-const sessions = new Map<string, Session>();
+const waiting: WaitingItem[] = [];
+const sessions = new Map<string, MatchSession>();
 const socketToSession = new Map<WebSocket, Session>();
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -89,8 +85,8 @@ app.register(oauthPlugin, {
   scope: ["profile", "email"],
   credentials: {
     client: {
-      id: process.env.GOOGLE_CLIENT_ID as string,
-      secret: process.env.GOOGLE_CLIENT_SECRET as string,
+      id: process.env.GOOGLE_CLIENT_ID!,
+      secret: process.env.GOOGLE_CLIENT_SECRET!,
     },
     auth: oauthPlugin.GOOGLE_CONFIGURATION,
   },
@@ -133,15 +129,14 @@ console.log("WebSocket plugin registered");
 // ─────────────────────────────────────────────────────────────────────────────
 // WebSocket endpoint: /ws (with online matchmaking + bot + local play)
 // ─────────────────────────────────────────────────────────────────────────────
-app.register(async (fastify) => {
+app.register(async (fastify: FastifyInstance) => {
   fastify.get(
     "/ws",
     {
       websocket: true,
       preHandler: [(fastify as any).authenticate],
     },
-    (socket, request) => {
-      // const { socket } = connection;
+    (socket: WebSocket, request: FastifyRequest) => {
       const payload = request.user as { sub: number; userName: string };
       console.log(`✅ WS client connected: user #${payload.userName}`);
 
@@ -336,24 +331,32 @@ app.register(async (fastify) => {
 // ─────────────────────────────────────────────────────────────────────────────
 // HTTP API: on-chain scores
 // ─────────────────────────────────────────────────────────────────────────────
-app.post("/api/scores", async (req, reply) => {
-  try {
-    const { gameId, player, score } = req.body as {
-      gameId: string;
-      player: string;
-      score: number;
-    };
-    if (!gameId || !ethers.isAddress(player) || typeof score !== "number") {
-      return reply.status(400).send({ error: "Invalid payload" });
+app.post(
+  "/api/scores",
+  async (
+    req: FastifyRequest<{
+      Body: { gameId: string; player: string; score: number };
+    }>,
+    reply: FastifyReply
+  ) => {
+    try {
+      const { gameId, player, score } = req.body as {
+        gameId: string;
+        player: string;
+        score: number;
+      };
+      if (!gameId || !ethers.isAddress(player) || typeof score !== "number") {
+        return reply.status(400).send({ error: "Invalid payload" });
+      }
+      const txHash = await postScore(gameId, player, score);
+      reply.send({ txHash });
+    } catch (err: any) {
+      console.error("POST /api/scores error:", err);
+      const message = err instanceof Error ? err.message : "Internal error";
+      reply.status(500).send({ error: message });
     }
-    const txHash = await postScore(gameId, player, score);
-    reply.send({ txHash });
-  } catch (err: unknown) {
-    console.error("POST /api/scores error:", err);
-    const message = err instanceof Error ? err.message : "Internal error";
-    reply.status(500).send({ error: message });
   }
-});
+);
 
 app.get("/api/scores/:gameId", async (req, reply) => {
   try {
@@ -363,7 +366,12 @@ app.get("/api/scores/:gameId", async (req, reply) => {
     reply.send(scores);
   } catch (err: unknown) {
     console.error("GET /api/scores error:", err);
-    const message = err instanceof Error ? err.message : "Internal error";
+    let message: string;
+    if (err instanceof Error) {
+      message = err.message;
+    } else {
+      message = "Internal error";
+    }
     reply.status(500).send({ error: message });
   }
 });
