@@ -52,27 +52,79 @@ export const settingsTemplate = `
 
     <!-- GAMEPLAY -->
     <div id="tab-gameplay" class="tab-content hidden w-full max-w-lg mx-auto space-y-6">
-      <form id="form-gameplay" class="w-full space-y-4">
-        <div class="flex items-center justify-between">
-          <label>AI Difficulty</label>
-          <select name="difficulty" class="bg-black/50 border border-pink-500 rounded p-2">
-            <option>Easy</option>
-            <option selected>Normal</option>
-            <option>Hard</option>
+  <form id="form-gameplay" class="w-full space-y-4">
+    <!-- AI Difficulty & Assist -->
+    <div class="flex items-center justify-between">
+      <label>AI Difficulty</label>
+      <select name="difficulty" class="bg-black/50 border border-pink-500 rounded p-2">
+        <option>Easy</option>
+        <option selected>Normal</option>
+        <option>Hard</option>
+      </select>
+    </div>
+
+    <!-- VISUAL SETTINGS -->
+    <div class="flex items-center justify-between">
+          <label>Color Theme</label>
+          <select name="colorTheme" class="bg-black/50 border border-pink-500 rounded p-2">
+            <option>Vaporwave</option>
+            <option>Cyberpunk</option>
+            <option>Retro</option>
+            <option>Monochrome</option>
           </select>
         </div>
         <div class="flex items-center justify-between">
-          <label>Aim Assist</label>
-          <select name="aimAssist" class="bg-black/50 border border-pink-500 rounded p-2">
-            <option>Off</option>
-            <option selected>Standard</option>
-            <option>Strong</option>
-          </select>
+          <label>Ball Color</label>
+          <input type="color" name="ballColor" value="#ff00aa" class="h-8 w-12 p-0 border-0 bg-transparent" />
         </div>
         <div class="flex items-center justify-between">
-          <label>Snap to Target</label>
-          <input type="checkbox" name="snapToTarget" class="h-5 w-5 text-pink-500 focus:ring-pink-400" />
+          <label>Paddle Color</label>
+          <input type="color" name="paddleColor" value="#00f0ff" class="h-8 w-12 p-0 border-0 bg-transparent" />
         </div>
+        <div class="flex items-center justify-between">
+          <label>Glow Intensity</label>
+          <input type="range" name="glowIntensity" min="0" max="20" value="10" class="w-1/2" />
+        </div>
+        <div class="flex items-center justify-between">
+          <label>Trail Length</label>
+          <input type="range" name="trailLength" min="0" max="30" value="0" class="w-1/2" />
+        </div>
+        <div class="flex items-center justify-between">
+          <label>Background Color</label>
+          <input type="color" name="bgColor" value="#000000" class="h-8 w-12 p-0 border-0 bg-transparent" />
+        </div>
+        <div class="flex items-center justify-between">
+          <label>Background Opacity</label>
+          <input type="range" name="bgOpacity" min="0" max="100" value="70" class="w-1/2" />
+        </div>
+
+        <!-- CONTROL KEYBINDS -->
+        <div class="flex items-center justify-between">
+          <label>P1 Up Key</label>
+          <input id="p1UpKey" name="p1UpKey" readonly
+                 placeholder="Press a key"
+                 class="w-24 bg-black/50 border border-pink-500 rounded p-2 text-center cursor-pointer" />
+        </div>
+        <div class="flex items-center justify-between">
+          <label>P1 Down Key</label>
+          <input id="p1DownKey" name="p1DownKey" readonly
+                 placeholder="Press a key"
+                 class="w-24 bg-black/50 border border-pink-500 rounded p-2 text-center cursor-pointer" />
+        </div>
+        <div class="flex items-center justify-between">
+          <label>P2 Up Key</label>
+          <input id="p2UpKey" name="p2UpKey" readonly
+                 placeholder="Press a key"
+                 class="w-24 bg-black/50 border border-pink-500 rounded p-2 text-center cursor-pointer" />
+        </div>
+        <div class="flex items-center justify-between">
+          <label>P2 Down Key</label>
+          <input id="p2DownKey" name="p2DownKey" readonly
+                 placeholder="Press a key"
+                 class="w-24 bg-black/50 border border-pink-500 rounded p-2 text-center cursor-pointer" />
+        </div>
+
+        <!-- Save -->
         <div class="text-center">
           <button type="submit" class="threeD-button-set">Save Gameplay</button>
         </div>
