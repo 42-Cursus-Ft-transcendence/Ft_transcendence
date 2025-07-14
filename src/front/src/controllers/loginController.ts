@@ -131,7 +131,7 @@ async function performLogin(
   { nameInput, passInput }: LoginElements,
   onSuccess: () => void
 ) {
-  const res = await fetch("/login", {
+  const res = await fetch("/api/login", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
