@@ -65,7 +65,7 @@ export default async function userRoutes(app: FastifyInstance) {
     }
   );
 
-  app.post("/login", async (request, reply): Promise<void> => {
+  app.post("/api/login", async (request, reply): Promise<void> => {
     console.log(">> Recu POST /login");
     const { userName, password } = request.body as {
       userName?: string;
@@ -144,7 +144,7 @@ export default async function userRoutes(app: FastifyInstance) {
   });
 
   app.post(
-    "/logout",
+    "/api/logout",
     { preHandler: [(app as any).authenticate] },
     async (request, reply) => {
       // Récupère directement l’ID depuis le payload du JWT
