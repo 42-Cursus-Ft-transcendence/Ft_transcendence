@@ -3,10 +3,6 @@ import { db } from "../db/db";
 import { authenticator } from "otplib";
 import QRCode from "qrcode";
 import bcrypt from "bcrypt";
-import { error } from "console";
-import { resolve } from "path";
-import { rejects } from "assert";
-import { get } from "http";
 import { Wallet } from "ethers";
 
 function runAsync(sql: string, values: any[]): Promise<number> {
@@ -241,7 +237,7 @@ export default async function userRoutes(app: FastifyInstance) {
         .status(303)
         .redirect("/?screen=menu");
     } catch (err: any) {
-      app.log.error("Google OAuth error: " + err.message);
+      app.log.error("Google OAuth error: ", err);
       return reply.status(303).redirect("/?screen=login");
     }
   });
@@ -319,7 +315,7 @@ export default async function userRoutes(app: FastifyInstance) {
         const img = Buffer.from(dataUrl.split(",")[1], "base64");
         reply.header("Content-Type", "image/png").send(img);
       } catch (err) {
-        req.log.error(err);
+        app.log.error(err);
         reply.status(500).send({ error: "Failed to generate QR code" });
       }
     }
@@ -364,10 +360,10 @@ export default async function userRoutes(app: FastifyInstance) {
       isTotpEnabled: number;
     }>(`SELECT totpSecret, isTotpEnabled FROM User WHERE idUser = ?`, [userId]);
     if (!row || row.isTotpEnabled === 0) {
-      return reply.code(400).send({ error: "2FA 미설정" });
+      return reply.code(400).send({ error: "2FA not configured" });
     }
     if (!authenticator.check(token, row.totpSecret)) {
-      return reply.code(401).send({ error: "잘못된 2FA 코드" });
+      return reply.code(401).send({ error: "Invalid 2FA code" });
     }
     const jwt = app.jwt.sign({ sub: userId });
     reply.send({ token: jwt });
