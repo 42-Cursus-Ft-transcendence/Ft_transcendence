@@ -1,27 +1,30 @@
+import type {
+  FastifyLoggerOptions,
+  FastifyInstance,
+  FastifyRequest,
+  FastifyReply,
+} from "fastify";
+import type { WaitingItem, Session as MatchSession } from "./types/session";
+import type { WebSocket } from "@fastify/websocket";
 import path from "path";
 import fs from "fs";
 import dotenv from "dotenv";
+import crypto from "crypto";
+import fastifyJwt from "@fastify/jwt";
+import fastifyCookie from "@fastify/cookie";
+import oauthPlugin from "@fastify/oauth2";
 
-// 1) Load .env before anything else reads process.env
 dotenv.config({ path: path.resolve(__dirname, "../.env.backend") });
-
 import Fastify from "fastify";
 import fastifyWebsocket from "@fastify/websocket";
 import fastifyStatic from "@fastify/static";
-import sqlite3 from "sqlite3";
 import { ethers } from "ethers";
 
 import { postScore, fetchScores } from "./blockchain";
 import Game, { startAI } from "./game";
-
-import type { FastifyRequest, FastifyReply } from "fastify";
-import fastifyJwt from "@fastify/jwt";
-import fastifyCookie from "@fastify/cookie";
-import oauthPlugin from "@fastify/oauth2";
-import userRoutes, { getAsync } from "./routes/userRoutes"; // ← import par défaut
-import "./db/db"; // ← initialise la BD et les tables
-import { createGame } from "./routes/userRoutes";
-import crypto from "crypto";
+import userRoutes, { getAsync } from "./routes/userRoutes";
+import loggerPlugin from "./plugins/logger";
+import "./db/db";
 // ─────────────────────────────────────────────────────────────────────────────
 // Determine frontend directory
 // ─────────────────────────────────────────────────────────────────────────────
@@ -39,29 +42,50 @@ if (fs.existsSync(prodDir)) {
 }
 console.log("⛳️ Serving static from:", publicDir);
 
-//creation session pour queue et lobby
-
-type Session = {
-  id: string;
-  game: Game;
-  sockets: { p1: WebSocket; p2: WebSocket };
-  players: {
-    p1: { sub: number; userName: string };
-    p2: { sub: number; userName: string };
-  };
-  loopTimer: NodeJS.Timeout;
-};
-const waiting: Array<{
-  socket: WebSocket;
-  payload: { sub: number; userName: string };
-}> = [];
-const sessions = new Map<string, Session>();
-const socketToSession = new Map<WebSocket, Session>();
+const waiting: WaitingItem[] = [];
+const sessions = new Map<string, MatchSession>();
+const socketToSession = new Map<WebSocket, MatchSession>();
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Create Fastify + register WebSocket plugin
 // ─────────────────────────────────────────────────────────────────────────────
-const app = Fastify();
+
+const environment =
+  (process.env.NODE_ENV as "development" | "production" | "test") ||
+  "development";
+const isDev = environment === "development";
+
+const loggerOptions = {
+  development: {
+    level: "debug",
+    transport: process.env.PINO_PRETTY
+      ? {
+          target: "pino-pretty",
+          options: {
+            colorize: true,
+            levelFirst: true,
+            translateTime: "HH:MM:ss Z",
+            ignore: "pid,hostname",
+          },
+        }
+      : undefined,
+    redact: ["req.headers.authorization", "req.headers.cookie"],
+  },
+  production: {
+    level: "info",
+    // production에서도 JSON인데, 필요시 파일로 뽑아가도록 stream 설정 추가
+  },
+  test: {
+    level: "silent",
+  },
+};
+
+const app = Fastify({
+  logger: loggerOptions[environment] as FastifyLoggerOptions | boolean,
+  disableRequestLogging: true,
+});
+app.register(loggerPlugin);
+
 console.log("Fastify instance created");
 
 // cookie
@@ -89,8 +113,8 @@ app.register(oauthPlugin, {
   scope: ["profile", "email"],
   credentials: {
     client: {
-      id: process.env.GOOGLE_CLIENT_ID as string,
-      secret: process.env.GOOGLE_CLIENT_SECRET as string,
+      id: process.env.GOOGLE_CLIENT_ID!,
+      secret: process.env.GOOGLE_CLIENT_SECRET!,
     },
     auth: oauthPlugin.GOOGLE_CONFIGURATION,
   },
@@ -133,15 +157,14 @@ console.log("WebSocket plugin registered");
 // ─────────────────────────────────────────────────────────────────────────────
 // WebSocket endpoint: /ws (with online matchmaking + bot + local play)
 // ─────────────────────────────────────────────────────────────────────────────
-app.register(async (fastify) => {
+app.register(async (fastify: FastifyInstance) => {
   fastify.get(
     "/ws",
     {
       websocket: true,
       preHandler: [(fastify as any).authenticate],
     },
-    (socket, request) => {
-      // const { socket } = connection;
+    (socket: WebSocket, request: FastifyRequest) => {
       const payload = request.user as { sub: number; userName: string };
       console.log(`✅ WS client connected: user #${payload.userName}`);
 
@@ -179,7 +202,7 @@ app.register(async (fastify) => {
                   socket.send(state);
                 }, 1000 / 60);
 
-                const session: Session = {
+                const session: MatchSession = {
                   id: gameId,
                   game: sessionGame,
                   sockets: { p1: opponent.socket, p2: socket },
@@ -336,24 +359,32 @@ app.register(async (fastify) => {
 // ─────────────────────────────────────────────────────────────────────────────
 // HTTP API: on-chain scores
 // ─────────────────────────────────────────────────────────────────────────────
-app.post("/api/scores", async (req, reply) => {
-  try {
-    const { gameId, player, score } = req.body as {
-      gameId: string;
-      player: string;
-      score: number;
-    };
-    if (!gameId || !ethers.isAddress(player) || typeof score !== "number") {
-      return reply.status(400).send({ error: "Invalid payload" });
+app.post(
+  "/api/scores",
+  async (
+    req: FastifyRequest<{
+      Body: { gameId: string; player: string; score: number };
+    }>,
+    reply: FastifyReply
+  ) => {
+    try {
+      const { gameId, player, score } = req.body as {
+        gameId: string;
+        player: string;
+        score: number;
+      };
+      if (!gameId || !ethers.isAddress(player) || typeof score !== "number") {
+        return reply.status(400).send({ error: "Invalid payload" });
+      }
+      const txHash = await postScore(gameId, player, score);
+      reply.send({ txHash });
+    } catch (err: any) {
+      app.log.error("POST /api/scores error:", err);
+      const message = err instanceof Error ? err.message : "Internal error";
+      reply.status(500).send({ error: message });
     }
-    const txHash = await postScore(gameId, player, score);
-    reply.send({ txHash });
-  } catch (err: unknown) {
-    console.error("POST /api/scores error:", err);
-    const message = err instanceof Error ? err.message : "Internal error";
-    reply.status(500).send({ error: message });
   }
-});
+);
 
 app.get("/api/scores/:gameId", async (req, reply) => {
   try {
@@ -363,7 +394,12 @@ app.get("/api/scores/:gameId", async (req, reply) => {
     reply.send(scores);
   } catch (err: unknown) {
     console.error("GET /api/scores error:", err);
-    const message = err instanceof Error ? err.message : "Internal error";
+    let message: string;
+    if (err instanceof Error) {
+      message = err.message;
+    } else {
+      message = "Internal error";
+    }
     reply.status(500).send({ error: message });
   }
 });
@@ -405,8 +441,16 @@ app.setNotFoundHandler((req, reply) => {
 const PORT = Number(process.env.PORT) || 3000;
 app
   .listen({ port: PORT, host: "0.0.0.0" })
-  .then(() => console.log(`🚀 Server running on http://0.0.0.0:${PORT}`))
+  .then(() => {
+    if (isDev) {
+      console.log(
+        `\x1b[32m🚀 [DEV] Server running at http://localhost:${PORT}\x1b[0m`
+      );
+    } else {
+      console.log(`🚀 Server running at http://0.0.0.0:${PORT}`);
+    }
+  })
   .catch((err) => {
-    console.error(err);
+    app.log.error(err);
     process.exit(1);
   });
