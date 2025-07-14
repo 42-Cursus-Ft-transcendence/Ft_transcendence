@@ -235,7 +235,7 @@ app.register(async (fastify: FastifyInstance) => {
             if (msg.vs === "bot") {
               localGame.mode = "bot";
               const diff = parseFloat(msg.difficulty) || 0;
-              localAI = startAI(localGame, 1);
+              localAI = startAI(localGame, diff);
             }
             return;
 
