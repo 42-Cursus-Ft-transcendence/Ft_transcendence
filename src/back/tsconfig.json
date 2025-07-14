@@ -10,12 +10,17 @@
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
+    "noImplicitAny": false,
+    "strictNullChecks": false,
+    "sourceMap": true,
+    "inlineSources": true,
     "typeRoots": ["./types", "./node_modules/@types"]
   },
   "include": ["src/**/*.ts", "src/**/*.d.ts"],
   "files": [
     "src/types/auth.d.ts",
     "src/types/oauth.d.ts",
-    "src/types/fastify-static.d.ts"
+    "src/types/fastify-static.d.ts",
+    "src/types/session.d.ts"
   ] // types files
 }
