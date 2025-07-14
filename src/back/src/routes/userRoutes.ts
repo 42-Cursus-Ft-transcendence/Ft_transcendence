@@ -296,7 +296,7 @@ export default async function userRoutes(app: FastifyInstance) {
           "UPDATE User SET totpSecret = NULL, isTotpEnabled = 0 WHERE idUser = ?",
           [userId]
         );
-        return reply.redirect("/settings");
+        return reply.redirect("/?screen=settings");
       }
 
       // 3) Enable 2FA: generate new secret (but not activated yet)
@@ -307,7 +307,7 @@ export default async function userRoutes(app: FastifyInstance) {
       );
       const userName = (req.user as any).userName;
       const otpauthUrl = authenticator.keyuri(userName, "YourAppName", secret);
-      return reply.redirect("/?screen=setting");
+      return reply.redirect("/?screen=settings");
     }
   );
   /**
