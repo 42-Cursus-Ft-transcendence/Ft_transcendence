@@ -3,7 +3,7 @@ import fs from "fs";
 import dotenv from "dotenv";
 
 // 1) Load .env before anything else reads process.env
-dotenv.config({ path: path.resolve(__dirname, "../.env") });
+dotenv.config({ path: path.resolve(__dirname, "../.env.backend") });
 
 import Fastify from "fastify";
 import fastifyWebsocket from "@fastify/websocket";
