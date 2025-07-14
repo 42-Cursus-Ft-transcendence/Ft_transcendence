@@ -2,9 +2,11 @@
   "name": "fastify-app",
   "version": "1.0.0",
   "scripts": {
-    "dev": "npm run build && ts-node-dev --respawn --experimental-loader ts-node/esm src/server.ts",
-    "start": "node dist/server.js",
-    "build": "tsc"
+    "dev": "concurrently -k \"npm:watch:ts\" \"npm:watch:dev\"",
+    "watch:ts": "tsc --noEmit --watch",
+    "watch:dev": "ts-node-dev --respawn --transpile-only src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js"
   },
   "dependencies": {
     "@ethersproject/experimental": "^5.8.0",

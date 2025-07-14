@@ -364,10 +364,10 @@ export default async function userRoutes(app: FastifyInstance) {
       isTotpEnabled: number;
     }>(`SELECT totpSecret, isTotpEnabled FROM User WHERE idUser = ?`, [userId]);
     if (!row || row.isTotpEnabled === 0) {
-      return reply.code(400).send({ error: "2FA 미설정" });
+      return reply.code(400).send({ error: "2FA not configured" });
     }
     if (!authenticator.check(token, row.totpSecret)) {
-      return reply.code(401).send({ error: "잘못된 2FA 코드" });
+      return reply.code(401).send({ error: "Invalid 2FA code" });
     }
     const jwt = app.jwt.sign({ sub: userId });
     reply.send({ token: jwt });
