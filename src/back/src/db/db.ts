@@ -25,7 +25,18 @@ db.serialize(() => {
       address           TEXT,
       privkey           TEXT,
       registrationDate  TEXT,
-      connectionStatus  INTEGER
+      connectionStatus  INTEGER,
+      totpSecret         TEXT,
+      isTotpEnabled      INTEGER DEFAULT 0
+    );
+  `);
+  db.run(`
+    CREATE TABLE IF NOT EXISTS RecoveryCode (
+      idCode             INTEGER PRIMARY KEY AUTOINCREMENT,
+      userId             INTEGER NOT NULL,
+      codeHash           TEXT NOT NULL,
+      used               INTEGER DEFAULT 0,
+      FOREIGN KEY(userId) REFERENCES User(idUser)
     );
   `);
   db.run(`
