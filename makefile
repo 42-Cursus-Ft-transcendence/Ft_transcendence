@@ -83,3 +83,6 @@ compose-exec-backend: compose-up
 
 compose-exec-nginx: compose-up
 	docker-compose -f $(COMPOSE_FILE) exec nginx sh
+
+compose-blockahin:
+	do
