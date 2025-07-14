@@ -5,6 +5,7 @@ import { renderPong } from "./controllers/pongController.js";
 import { renderProfile } from "./controllers/profileController.js";
 import { renderSettings } from "./controllers/settingsController.js";
 import { arcadeTemplate } from "./templates/arcadeTemplate.js";
+import { checkAuth } from "./utils/auth.js";
 export let socket;
 const root = document.getElementById("root");
 function doRender(screen) {
@@ -45,45 +46,44 @@ function doRender(screen) {
 /**
  * Change d'écran et met à jour l'historique
  */
-export function navigate(screen) {
+export async function navigate(screen) {
+    if (screen !== "login" && screen !== "signup") {
+        const isAuth = await checkAuth();
+        if (!isAuth) {
+            console.log(">> SPA Guard: not authenticated → redirecting to login");
+            history.pushState({ screen: "login" }, "", `?screen=login`);
+            return doRender("login");
+        }
+    }
     history.pushState({ screen }, "", `?screen=${screen}`);
     doRender(screen);
 }
 // Au chargement initial du document HTML
 window.addEventListener("DOMContentLoaded", () => {
     (async () => {
-        const profile = await checkAuth();
         // Récupère l’écran demandé dans l’URL
         const params = new URLSearchParams(location.search);
-        let s = params.get("screen");
-        if (profile) {
-            s = "menu";
-            const protocol = location.protocol === "https:" ? "wss" : "ws";
-            initSocket(`${protocol}://${location.host}/ws`);
-        }
-        else
-            s = "login";
-        console.log("s ", s);
-        const initial = s;
-        console.log(initial);
-        // 6️⃣ history.replaceState({ screen: initial }, '', location.href);
-        //    • Remplace l’entrée courante de l’historique (celle du chargement de la page).
-        //    • Synchronise history.state avec l’écran qu’on va afficher.
-        //    • L’URL n’est pas modifiée (on passe location.href pour être certain).
-        history.replaceState({ screen: initial }, "", location.href);
-        navigate(initial);
+        const initialScreen = params.get("screen") || "menu";
+        history.replaceState({ screen: initialScreen }, "", location.href);
+        navigate(initialScreen);
+        const protocol = location.protocol === "https:" ? "wss" : "ws";
+        const socket = initSocket(`${protocol}://${location.host}/ws`);
+        socket.addEventListener("close", (evt) => {
+            // 서버에서 401로 닫았다면, 화면 전환
+            navigate("login");
+        });
     })();
 });
 // Lorsque l’utilisateur clique sur Précédent/Suivant
 window.addEventListener("popstate", async (event) => {
     let screen = event.state?.screen;
-    const stillAuth = await checkAuth();
+    //const stillAuth = await checkAuth();
     //   Si connecté, on ne veut jamais login/signup
-    if (stillAuth && (screen === "login" || screen === "signup")) {
+    if (screen === "login" || screen === "signup") {
         screen = "menu";
     }
     // 4) Si déconnecté, et qu’on veut aller au menu, on redirige sur login
-    if (!stillAuth && screen === "menu") {
+    if (screen === "menu") {
         screen = "login";
     }
     console.log("popstate", screen);
@@ -93,24 +93,6 @@ function ensureArcadeFrame() {
     // Si #app n'existe pas encore, on l'injecte dans `root`
     if (!document.getElementById("app")) {
         root.innerHTML = arcadeTemplate;
-    }
-}
-async function checkAuth() {
-    try {
-        const res = await fetch("/me", {
-            method: "POST",
-            credentials: "include",
-        });
-        if (!res.ok) {
-            console.log("non log");
-            return null;
-        }
-        console.log("log");
-        return await res.json();
-    }
-    catch (err) {
-        console.log("err", err);
-        return null;
     }
 }
 // Export function to initialize the socket
@@ -124,17 +106,5 @@ export function initSocket(url) {
 // If you need to access the socket elsewhere
 export function getSocket() {
     return socket;
-}
-function sendLogout() {
-    if (navigator.sendBeacon) {
-        navigator.sendBeacon("/logout");
-    }
-    else {
-        fetch("/logout", {
-            method: "POST",
-            credentials: "include",
-            keepalive: true,
-        });
-    }
 }
 //# sourceMappingURL=index.js.map

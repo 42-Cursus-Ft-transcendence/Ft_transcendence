@@ -6,6 +6,14 @@ import "fastify";
 import type { FastifyRequest, FastifyReply, FastifyInstance } from "fastify";
 import type { FastifyJWT } from "@fastify/jwt";
 
+declare module "qrcode" {
+  function toDataURL(data: string, options?: any): Promise<string>;
+  const qrcode: {
+    toDataURL: typeof toDataURL;
+  };
+  export default qrcode;
+}
+
 declare module "fastify" {
   interface FastifyInstance {
     /** Décorateur ajouté via app.decorate('authenticate', ...) */

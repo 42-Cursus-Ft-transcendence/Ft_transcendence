@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "description": "This project involves undertaking tasks you have never done before. Remember the beginning of your journey in computer science. Look at you now; it’s time to shine! ",
   "scripts": {
-    "install:back": "cd src/back && npm install",
+    "preinstall": "rimraf src/back/dist",
+    "install:back": "rimraf src/back/dist && cd src/back && npm install",
     "install:front": "cd src/front && npm install",
     "build:front": "cd src/front && npm run build:ts && npm run build:css",
     "watch:front": "cd src/front && npm run watch:ts && npm run watch:css",
@@ -29,6 +30,8 @@
     "back"
   ],
   "devDependencies": {
-    "typescript": "^5.8.3"
+    "rimraf": "^5.0.0",
+    "typescript": "^5.8.3",
+    "concurrently": "^9.2.0"
   }
 }

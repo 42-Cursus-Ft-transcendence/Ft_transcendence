@@ -25,7 +25,18 @@ db.serialize(() => {
       address           TEXT,
       privkey           TEXT,
       registrationDate  TEXT,
-      connectionStatus  INTEGER
+      connectionStatus  INTEGER,
+      totpSecret         TEXT,
+      isTotpEnabled      INTEGER DEFAULT 0
+    );
+  `);
+  db.run(`
+    CREATE TABLE IF NOT EXISTS RecoveryCode (
+      idCode             INTEGER PRIMARY KEY AUTOINCREMENT,
+      userId             INTEGER NOT NULL,
+      codeHash           TEXT NOT NULL,
+      used               INTEGER DEFAULT 0,
+      FOREIGN KEY(userId) REFERENCES User(idUser)
     );
   `);
   db.run(`
@@ -35,7 +46,7 @@ db.serialize(() => {
       player1Score      INTEGER,
       player2Score      INTEGER,
       winnerId          INTEGER,
-      FOREIGN KEY(winnerId) REFERENCES User(idUSer)
+      FOREIGN KEY(winnerId) REFERENCES User(idUser)
     );
   `);
   db.run(`
@@ -44,7 +55,7 @@ db.serialize(() => {
       matchDate         TEXT,
       matchId           INTEGER,
       PRIMARY KEY (userId, matchId),
-      FOREIGN KEY(userId) REFERENCES User(idUSer),
+      FOREIGN KEY(userId) REFERENCES User(idUser),
       FOREIGN KEY(matchId) REFERENCES Match(idMatch)
     );
   `);
