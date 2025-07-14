@@ -43,9 +43,21 @@ export const settingsTemplate = `
           </div>
           <img id="profile-img" src="assets/icone/Lucian.webp" alt="Avatar" class="w-24 h-24 rounded-full border-2 border-pink-500 mb-2 cursor-pointer" />
         </div>
-        <div><label class="block mb-1">Username</label><input type="text" id="username-input" name="username" class="w-full px-4 py-2 bg-black/30 placeholder-green-600 text-green-400 outline-none border border-pink-500 rounded-lg focus:border-blue-400 transition" /></div>
-        <div><label class="block mb-1">Email</label><input type="email" id="email-input" name="email" class="w-full px-4 py-2 bg-black/30 placeholder-green-600 text-green-400 outline-none border border-pink-500 rounded-lg focus:border-blue-400 transition" /></div>
-        <div class="text-center"><button type="submit" class="threeD-button-set">Save</button></div>
+        <div>
+          <label class="block mb-1">Username</label>
+          <input type="text" id="username-input" name="username" class="w-full px-4 py-2 bg-black/30 placeholder-green-600 text-green-400 outline-none border border-pink-500 rounded-lg focus:border-blue-400 transition" />
+          <p id="error-username" class="text-red-500 text-sm hidden"></p>
+        </div>
+        <div>
+          <label class="block mb-1">Email</label>
+          <input type="email" id="email-input" name="email" class="w-full px-4 py-2 bg-black/30 placeholder-green-600 text-green-400 outline-none border border-pink-500 rounded-lg focus:border-blue-400 transition" />
+          <p id="error-email" class="text-red-500 text-sm hidden"></p>
+        </div>
+        <div class="text-center">
+          <button type="submit" id="accountSubmitBtn" class="threeD-button-set">
+            <span id="accountSubmitText">Save</span>
+          </button>
+        </div>
         <input id="avatar-file-input" type="file" accept="image/*" class="hidden" />
       </form>
     </div>
@@ -138,18 +150,22 @@ export const settingsTemplate = `
           <label class="block mb-1">Current Password</label>
           <input type="password" name="currentPassword"
             class="w-full px-4 py-2 bg-black/30 placeholder-green-600 text-green-400 outline-none border border-pink-500 rounded-lg focus:border-blue-400 transition" />
+          <p id="error-current" class="text-red-500 text-sm hidden"></p>
         </div>
         <div>
           <label class="block mb-1">New Password</label>
           <input type="password" name="newPassword"
             class="w-full px-4 py-2 bg-black/30 placeholder-green-600 text-green-400 outline-none border border-pink-500 rounded-lg focus:border-blue-400 transition" />
+          <p id="error-new" class="text-red-500 text-sm hidden"></p>
         </div>
         <div class="flex items-center justify-between">
           <label>Two-Factor Auth</label>
           <input type="checkbox" name="twoFactor" class="h-5 w-5 text-pink-500" />
         </div>
         <div class="text-center">
-          <button type="submit" class="threeD-button-set">Save Security</button>
+          <button type="submit" id="securitySubmitBtn" class="threeD-button-set">
+            <span id="securitySubmitText">Save Security</span>
+          </button>
         </div>
       </form>
     </div>
