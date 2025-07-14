@@ -1,7 +1,14 @@
 import { loginTemplate } from "../templates/loginTemplate.js";
 import { navigate } from "../index.js";
 import { initSocket } from "../index.js";
-export function renderLogin(container, onSuccess) {
+import { checkAuth } from "../utils/auth.js";
+export async function renderLogin(container, onSuccess) {
+    const isAuth = await checkAuth();
+    if (isAuth) {
+        console.log(">> Front: already authenticated → redirecting to menu");
+        onSuccess();
+        return;
+    }
     container.innerHTML = loginTemplate;
     const el = getElements(container);
     // binding event
@@ -82,7 +89,7 @@ function toggleUi(el, loading, text) {
 // ——————————————————————————————————————————————
 // 7) Handling normal login + Connect Socket
 async function performLogin({ nameInput, passInput }, onSuccess) {
-    const res = await fetch("/login", {
+    const res = await fetch("/api/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",

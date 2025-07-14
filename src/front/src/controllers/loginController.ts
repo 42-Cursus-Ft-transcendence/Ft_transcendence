@@ -1,6 +1,7 @@
 import { loginTemplate } from "../templates/loginTemplate.js";
 import { navigate } from "../index.js";
 import { initSocket } from "../index.js";
+import { checkAuth } from "../utils/auth.js";
 
 interface LoginElements {
   form: HTMLFormElement;
@@ -14,10 +15,17 @@ interface LoginElements {
   googleBtn: HTMLButtonElement;
 }
 
-export function renderLogin(
+export async function renderLogin(
   container: HTMLElement,
   onSuccess: () => void
-): void {
+): Promise<void> {
+  const isAuth = await checkAuth();
+  if (isAuth) {
+    console.log(">> Front: already authenticated → redirecting to menu");
+    onSuccess();
+    return;
+  }
+
   container.innerHTML = loginTemplate;
   const el = getElements(container);
 
@@ -123,7 +131,7 @@ async function performLogin(
   { nameInput, passInput }: LoginElements,
   onSuccess: () => void
 ) {
-  const res = await fetch("/login", {
+  const res = await fetch("/api/login", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
