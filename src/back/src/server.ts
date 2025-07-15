@@ -1,8 +1,8 @@
 import type {
-  FastifyLoggerOptions,
-  FastifyInstance,
-  FastifyRequest,
-  FastifyReply,
+    FastifyLoggerOptions,
+    FastifyInstance,
+    FastifyRequest,
+    FastifyReply,
 } from "fastify";
 import type { WaitingItem, Session as MatchSession } from "./types/session";
 import type { WebSocket } from "@fastify/websocket";
@@ -22,9 +22,27 @@ import { ethers } from "ethers";
 
 import { postScore, fetchScores } from "./blockchain";
 import Game, { startAI } from "./game";
-import userRoutes, { getAsync } from "./routes/userRoutes";
+import {
+    handleRankedStart,
+    handleRankedInput,
+    handleRankedStop,
+    handleRankedStopLobby,
+    cleanupRankedSocket,
+    getLeaderboard,
+    socketToRankedSession,
+    handleRankedForfeit
+} from "./tournament";
+
+// Import new handlers
+import { handleOnlineStart, cleanupOnlineSocket } from "./online";
+import { handleAIStart, handleLocalStart, cleanupLocalGame } from "./ai";
+import { handleInput } from "./input";
+import { handleStop } from "./stop";
+import { handleStopLobby } from "./stoplobby";
+import { handleForfeit } from "./forfeit";
+import userRoutes, { getAsync } from "./routes/userRoutes"; // ← import par défaut
 import loggerPlugin from "./plugins/logger";
-import "./db/db";
+import "./db/db"; // ← initialise la BD et les tables
 // ─────────────────────────────────────────────────────────────────────────────
 // Determine frontend directory
 // ─────────────────────────────────────────────────────────────────────────────
@@ -33,12 +51,12 @@ const devDir = path.resolve(__dirname, "../../../src/front/public");
 let publicDir: string;
 
 if (fs.existsSync(prodDir)) {
-  publicDir = prodDir;
+    publicDir = prodDir;
 } else if (fs.existsSync(devDir)) {
-  publicDir = devDir;
+    publicDir = devDir;
 } else {
-  console.error("❌ Frontend directory not found");
-  process.exit(1);
+    console.error("❌ Frontend directory not found");
+    process.exit(1);
 }
 console.log("⛳️ Serving static from:", publicDir);
 
@@ -51,38 +69,38 @@ const socketToSession = new Map<WebSocket, MatchSession>();
 // ─────────────────────────────────────────────────────────────────────────────
 
 const environment =
-  (process.env.NODE_ENV as "development" | "production" | "test") ||
-  "development";
+    (process.env.NODE_ENV as "development" | "production" | "test") ||
+    "development";
 const isDev = environment === "development";
 
 const loggerOptions = {
-  development: {
-    level: "debug",
-    transport: process.env.PINO_PRETTY
-      ? {
-          target: "pino-pretty",
-          options: {
-            colorize: true,
-            levelFirst: true,
-            translateTime: "HH:MM:ss Z",
-            ignore: "pid,hostname",
-          },
-        }
-      : undefined,
-    redact: ["req.headers.authorization", "req.headers.cookie"],
-  },
-  production: {
-    level: "info",
-    // production에서도 JSON인데, 필요시 파일로 뽑아가도록 stream 설정 추가
-  },
-  test: {
-    level: "silent",
-  },
+    development: {
+        level: "debug",
+        transport: process.env.PINO_PRETTY
+            ? {
+                target: "pino-pretty",
+                options: {
+                    colorize: true,
+                    levelFirst: true,
+                    translateTime: "HH:MM:ss Z",
+                    ignore: "pid,hostname",
+                },
+            }
+            : undefined,
+        redact: ["req.headers.authorization", "req.headers.cookie"],
+    },
+    production: {
+        level: "info",
+        // production에서도 JSON인데, 필요시 파일로 뽑아가도록 stream 설정 추가
+    },
+    test: {
+        level: "silent",
+    },
 };
 
 const app = Fastify({
-  logger: loggerOptions[environment] as FastifyLoggerOptions | boolean,
-  disableRequestLogging: true,
+    logger: loggerOptions[environment] as FastifyLoggerOptions | boolean,
+    disableRequestLogging: true,
 });
 app.register(loggerPlugin);
 
@@ -91,57 +109,57 @@ console.log("Fastify instance created");
 // cookie
 
 app.register(fastifyCookie, {
-  secret: process.env.COOKIE_SECRET || "une_autre_chaine_complexe", // signe/encrypte les cookies
-  parseOptions: {},
+    secret: process.env.COOKIE_SECRET || "une_autre_chaine_complexe", // signe/encrypte les cookies
+    parseOptions: {},
 });
 
 // JWT
 app.register(fastifyJwt, {
-  secret: process.env.JWT_SECRET || "une_chaine_tres_complexe",
-  cookie: {
-    cookieName: "token", // le nom exact de ton cookie
-    signed: false, // true si tu utilises la signature de fastify-cookie
-  },
-  sign: {
-    expiresIn: "2h",
-  },
+    secret: process.env.JWT_SECRET || "une_chaine_tres_complexe",
+    cookie: {
+        cookieName: "token", // le nom exact de ton cookie
+        signed: false, // true si tu utilises la signature de fastify-cookie
+    },
+    sign: {
+        expiresIn: "2h",
+    },
 });
 
 // OAuth2
 app.register(oauthPlugin, {
-  name: "googleOAuth2",
-  scope: ["profile", "email"],
-  credentials: {
-    client: {
-      id: process.env.GOOGLE_CLIENT_ID!,
-      secret: process.env.GOOGLE_CLIENT_SECRET!,
+    name: "googleOAuth2",
+    scope: ["profile", "email"],
+    credentials: {
+        client: {
+            id: process.env.GOOGLE_CLIENT_ID!,
+            secret: process.env.GOOGLE_CLIENT_SECRET!,
+        },
+        auth: oauthPlugin.GOOGLE_CONFIGURATION,
     },
-    auth: oauthPlugin.GOOGLE_CONFIGURATION,
-  },
-  startRedirectPath: "/api/login/google", // 인증 시작 URL
-  callbackUri: process.env.GOOGLE_CALLBACK_URL!, // 인증 후 callback URL
-  callbackUriParams: {
-    // callbackUri에 추가할 custom query 파라미터
-    access_type: "offline", // refresh token도 받기 위해 'offline' 모드를 요청
-  },
-  pkce: "S256",
+    startRedirectPath: "/api/login/google", // 인증 시작 URL
+    callbackUri: process.env.GOOGLE_CALLBACK_URL!, // 인증 후 callback URL
+    callbackUriParams: {
+        // callbackUri에 추가할 custom query 파라미터
+        access_type: "offline", // refresh token도 받기 위해 'offline' 모드를 요청
+    },
+    pkce: "S256",
 });
 
 app.decorate(
-  "authenticate",
-  async function (request: FastifyRequest, reply: FastifyReply): Promise<void> {
-    console.log("Cookies reçus:", request.cookies);
-    console.log("Authorization header:", request.headers.authorization);
-    try {
-      await request.jwtVerify();
-    } catch (err) {
-      reply.code(401).send({
-        statusCode: 401,
-        error: "Unauthorized",
-        message: (err as Error).message,
-      });
+    "authenticate",
+    async function (request: FastifyRequest, reply: FastifyReply): Promise<void> {
+        console.log("Cookies reçus:", request.cookies);
+        console.log("Authorization header:", request.headers.authorization);
+        try {
+            await request.jwtVerify();
+        } catch (err) {
+            reply.code(401).send({
+                statusCode: 401,
+                error: "Unauthorized",
+                message: (err as Error).message,
+            });
+        }
     }
-  }
 );
 
 // bd routes
@@ -158,278 +176,283 @@ console.log("WebSocket plugin registered");
 // WebSocket endpoint: /ws (with online matchmaking + bot + local play)
 // ─────────────────────────────────────────────────────────────────────────────
 app.register(async (fastify: FastifyInstance) => {
-  fastify.get(
-    "/ws",
-    {
-      websocket: true,
-      preHandler: [(fastify as any).authenticate],
-    },
-    (socket: WebSocket, request: FastifyRequest) => {
-      const payload = request.user as { sub: number; userName: string };
-      console.log(`✅ WS client connected: user #${payload.userName}`);
+    fastify.get(
+        "/ws",
+        {
+            websocket: true,
+            preHandler: [(fastify as any).authenticate],
+        },
+        (socket: WebSocket, request: FastifyRequest) => {
+            const payload = request.user as { sub: number; userName: string };
+            console.log(`✅ WS client connected: user #${payload.userName}`);
 
-      let localGame = new Game();
-      let localLoop: NodeJS.Timeout | undefined;
-      let localAI: NodeJS.Timeout | undefined;
-
-      socket.on("message", async (raw: Buffer) => {
-        let msg: any;
-        try {
-          msg = JSON.parse(raw.toString());
-          console.log(msg);
-        } catch {
-          return socket.send(
-            JSON.stringify({ type: "error", message: "Invalid JSON" })
-          );
-        }
-
-        switch (msg.type) {
-          // 1) START: decide online vs bot vs local
-          case "start":
-            if (msg.vs === "online") {
-              if (waiting.length > 0) {
-                const opponent = waiting.shift()!;
-                const p1 = opponent.payload;
-                const p2 = payload;
-                const gameId = crypto.randomUUID();
-                const sessionGame = new Game();
-                sessionGame.mode = "online";
-
-                const loopTimer = setInterval(() => {
-                  sessionGame.update();
-                  const state = JSON.stringify(sessionGame.getState());
-                  opponent.socket.send(state);
-                  socket.send(state);
-                }, 1000 / 60);
-
-                const session: MatchSession = {
-                  id: gameId,
-                  game: sessionGame,
-                  sockets: { p1: opponent.socket, p2: socket },
-                  players: { p1, p2 },
-                  loopTimer,
-                };
-                sessions.set(gameId, session);
-                socketToSession.set(opponent.socket, session);
-                socketToSession.set(socket, session);
-
-                opponent.socket.send(
-                  JSON.stringify({ type: "matchFound", gameId, youAre: "p1" })
-                );
-                socket.send(
-                  JSON.stringify({ type: "matchFound", gameId, youAre: "p2" })
-                );
-              } else {
-                waiting.push({ socket, payload });
-                socket.send(JSON.stringify({ type: "waiting" }));
-              }
-              return;
-            }
-            // BOT or LOCAL PLAYER
-            localGame = new Game();
-            localLoop = setInterval(() => {
-              localGame.update();
-              socket.send(JSON.stringify(localGame.getState()));
-            }, 1000 / 60);
-
-            if (msg.vs === "bot") {
-              localGame.mode = "bot";
-              const diff = parseFloat(msg.difficulty) || 0;
-              localAI = startAI(localGame, diff);
-            }
-            return;
-
-          // 2) INPUT: route to the correct game instance
-          case "input": {
-            const sess = socketToSession.get(socket);
-            if (sess) {
-              const who = socket === sess.sockets.p1 ? "p1" : "p2";
-              sess.game.applyInput(who, msg.dir);
-              return;
-            }
-            const ply = msg.player === "p2" ? "p2" : "p1";
-            if (ply === "p2" && localGame.mode !== "player") return;
-            localGame.applyInput(ply, msg.dir);
-            return;
-          }
-          // 3) STOP: tear down the correct session and save scores
-          case "stop": {
-            const sess = socketToSession.get(socket);
-            if (sess) {
-              clearInterval(sess.loopTimer);
-              sess.sockets.p1.send(
-                JSON.stringify({
-                  type: "STOP",
-                  score1: sess.game.score[0],
-                  score2: sess.game.score[1],
-                })
-              );
-              sess.sockets.p2.send(JSON.stringify({ type: "STOP" }));
-              sessions.delete(sess.id);
-              socketToSession.delete(sess.sockets.p1);
-              socketToSession.delete(sess.sockets.p2);
-              const row1 = await getAsync<{ address: string }>(
-                `SELECT address FROM User WHERE idUser = ?`,
-                [sess.players.p1.sub]
-              );
-              const row2 = await getAsync<{ address: string }>(
-                `SELECT address FROM User WHERE idUser = ?`,
-                [sess.players.p2.sub]
-              );
-              if (!row1 || !row2) {
-                console.error(
-                  "Missing on-chain address for one of the players"
-                );
-              } else {
-                // 3) Post both scores on-chain
-                console.log("blockchain posting");
+            socket.on("message", async (raw: Buffer) => {
+                let msg: any;
                 try {
-                  const tx1 = await postScore(
-                    sess.id,
-                    row1.address,
-                    sess.game.score[0]
-                  );
-                  const tx2 = await postScore(
-                    sess.id,
-                    row2.address,
-                    sess.game.score[1]
-                  );
-                  console.log("Scores posted:", tx1, tx2);
-                } catch (err) {
-                  console.error("postScore failed:", err);
+                    msg = JSON.parse(raw.toString());
+                    console.log(msg);
+                } catch {
+                    return socket.send(
+                        JSON.stringify({ type: "error", message: "Invalid JSON" })
+                    );
                 }
-              }
-              const result = JSON.stringify({
-                type: "matchOver",
-                gameId: sess.id,
-                score: sess.game.score,
-              });
-              // sess.sockets.p1.send(result);
-              // sess.sockets.p2.send(result);
-              return;
-            }
-            console.log("Game over, saving local scores");
-            if (localLoop) {
-              clearInterval(localLoop);
-              localLoop = undefined;
-            }
-            if (localAI) {
-              clearInterval(localAI);
-              localAI = undefined;
-            }
 
-            // TODO: post localGame.score on–chain here…
-            return;
-          }
-          case "stoplobby":
-            {
-              // Rebuild the array without the one you want to drop
-              let item = waiting.findIndex((w) => w.socket === socket);
-              if (item >= 0) waiting.splice(item, 1);
-            }
-            return;
-          default:
-            return socket.send(
-              JSON.stringify({ type: "error", message: "Unknown message type" })
-            );
+                switch (msg.type) {
+                    // 1) START: decide online vs bot vs local vs ranked
+                    case "start":
+                        if (msg.vs === "ranked") {
+                            await handleRankedStart(socket, payload);
+                            return;
+                        }
+                        if (msg.vs === "online") {
+                            handleOnlineStart(socket, payload);
+                            return;
+                        }
+                        if (msg.vs === "bot") {
+                            handleAIStart(socket, msg.difficulty);
+                            return;
+                        }
+                        // Default to local player mode
+                        handleLocalStart(socket);
+                        return;
+
+                    // 2) INPUT: route to the correct game instance
+                    case "input":
+                        handleInput(socket, msg);
+                        return;
+
+                    // 3) STOP: tear down the correct session and save scores
+                    case "stop":
+                        await handleStop(socket);
+                        return;
+
+                    case "stoplobby":
+                        handleStopLobby(socket, msg);
+                        return;
+
+                    case "forfeit":
+                        await handleForfeit(socket);
+                        return;
+
+                    default:
+                        return socket.send(
+                            JSON.stringify({ type: "error", message: "Unknown message type" })
+                        );
+                }
+            });
+
+            socket.on("close", async () => {
+                // Clean up all types of sessions/games
+                cleanupOnlineSocket(socket);
+                cleanupLocalGame(socket);
+                await cleanupRankedSocket(socket);
+
+                console.log("⚠️ WS client disconnected");
+            });
         }
-      });
-
-      socket.on("close", () => {
-        const idx = waiting.findIndex((w) => w.socket === socket);
-        if (idx >= 0) waiting.splice(idx, 1);
-
-        const sess = socketToSession.get(socket);
-        if (sess) {
-          clearInterval(sess.loopTimer);
-          sessions.delete(sess.id);
-          socketToSession.delete(sess.sockets.p1);
-          socketToSession.delete(sess.sockets.p2);
-        }
-
-        if (localLoop) clearInterval(localLoop);
-        if (localAI) clearInterval(localAI);
-
-        console.log("⚠️ WS client disconnected");
-      });
-    }
-  );
+    );
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HTTP API: on-chain scores
 // ─────────────────────────────────────────────────────────────────────────────
 app.post(
-  "/api/scores",
-  async (
-    req: FastifyRequest<{
-      Body: { gameId: string; player: string; score: number };
-    }>,
-    reply: FastifyReply
-  ) => {
-    try {
-      const { gameId, player, score } = req.body as {
-        gameId: string;
-        player: string;
-        score: number;
-      };
-      if (!gameId || !ethers.isAddress(player) || typeof score !== "number") {
-        return reply.status(400).send({ error: "Invalid payload" });
-      }
-      const txHash = await postScore(gameId, player, score);
-      reply.send({ txHash });
-    } catch (err: any) {
-      app.log.error("POST /api/scores error:", err);
-      const message = err instanceof Error ? err.message : "Internal error";
-      reply.status(500).send({ error: message });
+    "/api/scores",
+    {
+        preHandler: [(app as any).authenticate], // Add authentication
+    },
+    async (
+        req: FastifyRequest<{
+            Body: { gameId: string; player: string; score: number };
+        }>,
+        reply: FastifyReply
+    ) => {
+        try {
+            // Now you can access authenticated user info
+            const user = req.user as { sub: number; userName: string };
+            console.log(`Authenticated user: ${user.userName} (ID: ${user.sub}) posting score`);
+
+            const { gameId, player, score } = req.body as {
+                gameId: string;
+                player: string;
+                score: number;
+            };
+
+            // Validate and normalize Ethereum address
+            const validateAndNormalizeAddress = (addr: string): string | null => {
+                if (typeof addr !== 'string' || !/^0x[a-fA-F0-9]{40}$/.test(addr)) {
+                    return null;
+                }
+                try {
+                    // Convert to lowercase first to bypass strict checksum validation, then normalize
+                    const lowercaseAddr = addr.toLowerCase();
+                    return ethers.getAddress(lowercaseAddr);
+                } catch {
+                    return null;
+                }
+            };
+
+            const normalizedAddress = validateAndNormalizeAddress(player);
+
+            if (!gameId || !normalizedAddress || typeof score !== "number") {
+                return reply.status(400).send({
+                    error: "Invalid payload",
+                    details: {
+                        gameId: !gameId ? "missing" : "ok",
+                        player: !normalizedAddress ? "invalid address format or checksum" : "ok",
+                        score: typeof score !== "number" ? "must be number" : "ok"
+                    }
+                });
+            }
+
+            const txHash = await postScore(gameId, normalizedAddress, score);
+            reply.send({ txHash });
+        } catch (err: any) {
+            console.error("POST /api/scores error:", err);
+            const message = err instanceof Error ? err.message : "Internal error";
+            reply.status(500).send({ error: message });
+        }
     }
-  }
 );
 
-app.get("/api/scores/:gameId", async (req, reply) => {
-  try {
-    const gameId = (req.params as any).gameId;
-    console.log(gameId);
-    const scores = await fetchScores(gameId);
-    reply.send(scores);
-  } catch (err: unknown) {
-    console.error("GET /api/scores error:", err);
-    let message: string;
-    if (err instanceof Error) {
-      message = err.message;
-    } else {
-      message = "Internal error";
+app.get(
+    "/api/scores/:gameId",
+    {
+        preHandler: [(app as any).authenticate], // Add authentication
+    },
+    async (req, reply) => {
+        try {
+            const user = req.user as { sub: number; userName: string };
+            console.log(`Authenticated user: ${user.userName} requesting scores for game`);
+            const gameId = (req.params as any).gameId;
+            console.log(gameId);
+            const scores = await fetchScores(gameId);
+            reply.send(scores);
+        } catch (err: unknown) {
+            console.error("GET /api/scores error:", err);
+            let message: string;
+            if (err instanceof Error) {
+                message = err.message;
+            } else {
+                message = "Internal error";
+            }
+            reply.status(500).send({ error: message });
+        }
     }
-    reply.status(500).send({ error: message });
-  }
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Tournament/Ranked API endpoints
+// ─────────────────────────────────────────────────────────────────────────────
+app.get(
+    "/api/leaderboard",
+    {
+        preHandler: [(app as any).authenticate], // Add authentication
+    },
+    async (req, reply) => {
+        try {
+            // Now you can access authenticated user info
+            const user = req.user as { sub: number; userName: string };
+            console.log(`Authenticated user: ${user.userName} requesting leaderboard`);
+
+            const limit = parseInt((req.query as any).limit) || 10;
+            const leaderboard = await getLeaderboard(limit);
+            reply.send(leaderboard);
+        } catch (err: unknown) {
+            console.error("GET /api/leaderboard error:", err);
+            const message = err instanceof Error ? err.message : "Internal error";
+            reply.status(500).send({ error: message });
+        }
+    }
+);
+
+// Add this TEMPORARY test endpoint right after your existing API routes
+app.get("/api/test-token", async (req, reply) => {
+    try {
+        // Create a test JWT token for user ID 1
+        const testUser = { sub: 1, userName: "testUser" };
+        const token = app.jwt.sign(testUser);
+
+        // Set the cookie like your OAuth does
+        reply.setCookie("token", token, {
+            httpOnly: true,
+            secure: false, // set to true in production with HTTPS
+            sameSite: "lax",
+            maxAge: 7200 // 2 hours
+        });
+
+        reply.send({
+            message: "Test token set in cookie",
+            token: token,
+            user: testUser
+        });
+    } catch (err) {
+        reply.status(500).send({ error: "Failed to create test token" });
+    }
 });
 
+// Add a test endpoint with better error reporting
+app.post("/api/test-scores-working", async (req, reply) => {
+    try {
+        console.log("Raw request body:", req.body);
+
+        const { gameId, player, score } = req.body as any;
+
+        // Manual address validation instead of ethers.isAddress()
+        const isValidEthAddress = (addr: string): boolean => {
+            return typeof addr === 'string' && /^0x[a-fA-F0-9]{40}$/.test(addr);
+        };
+
+        console.log("Manual address validation:", isValidEthAddress(player));
+        console.log("ethers.isAddress test:", ethers.isAddress(player));
+
+        // Validation with manual check
+        if (!gameId) {
+            return reply.status(400).send({ error: "gameId is required" });
+        }
+        if (!isValidEthAddress(player)) {
+            return reply.status(400).send({ error: "player must be a valid Ethereum address (manual check)" });
+        }
+        if (typeof score !== "number") {
+            return reply.status(400).send({ error: "score must be a number" });
+        }
+
+        reply.send({
+            message: "✅ All validation passed!",
+            received: { gameId, player, score },
+            note: "Using manual address validation instead of ethers.isAddress()"
+        });
+    } catch (err: any) {
+        console.error("Test endpoint error:", err);
+        reply.status(500).send({ error: err.message });
+    }
+});
 // ─────────────────────────────────────────────────────────────────────────────
 // Serve static frontend & SPA fallback (excluding /ws & /api)
 // ─────────────────────────────────────────────────────────────────────────────
 app.register(fastifyStatic, {
-  root: publicDir,
-  prefix: "/",
-  index: ["index.html"],
-  wildcard: false,
+    root: publicDir,
+    prefix: "/",
+    index: ["index.html"],
+    wildcard: false,
 });
 
 app.get("/favicon.ico", (_req, reply) => {
-  const ico = path.join(publicDir, "favicon.ico");
-  if (fs.existsSync(ico)) {
-    reply.header("Content-Type", "image/x-icon").send(fs.readFileSync(ico));
-  } else {
-    reply.code(204).send();
-  }
+    const ico = path.join(publicDir, "favicon.ico");
+    if (fs.existsSync(ico)) {
+        reply.header("Content-Type", "image/x-icon").send(fs.readFileSync(ico));
+    } else {
+        reply.code(204).send();
+    }
 });
 
 app.setNotFoundHandler((req, reply) => {
-  const url = req.raw.url || "";
-  // let /ws handshake and /api pass through
-  if (url.startsWith("/ws") || url.startsWith("/api")) {
-    return reply.callNotFound();
-  }
-  reply.sendFile("index.html");
+    const url = req.raw.url || "";
+    // let /ws handshake and /api pass through
+    if (url.startsWith("/ws") || url.startsWith("/api")) {
+        return reply.callNotFound();
+    }
+    reply.sendFile("index.html");
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -440,17 +463,17 @@ app.setNotFoundHandler((req, reply) => {
 // ─────────────────────────────────────────────────────────────────────────────
 const PORT = Number(process.env.PORT) || 3000;
 app
-  .listen({ port: PORT, host: "0.0.0.0" })
-  .then(() => {
-    if (isDev) {
-      console.log(
-        `\x1b[32m🚀 [DEV] Server running at http://localhost:${PORT}\x1b[0m`
-      );
-    } else {
-      console.log(`🚀 Server running at http://0.0.0.0:${PORT}`);
-    }
-  })
-  .catch((err) => {
-    app.log.error(err);
-    process.exit(1);
-  });
+    .listen({ port: PORT, host: "0.0.0.0" })
+    .then(() => {
+        if (isDev) {
+            console.log(
+                `\x1b[32m🚀 [DEV] Server running at http://localhost:${PORT}\x1b[0m`
+            );
+        } else {
+            console.log(`🚀 Server running at http://0.0.0.0:${PORT}`);
+        }
+    })
+    .catch((err) => {
+        app.log.error(err);
+        process.exit(1);
+    });
