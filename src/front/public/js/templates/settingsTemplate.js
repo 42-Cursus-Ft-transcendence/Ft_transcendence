@@ -145,26 +145,50 @@ export const settingsTemplate = `
 
     <!-- SECURITY -->
     <div id="tab-security" class="tab-content hidden w-full max-w-lg mx-auto space-y-6">
-      <form id="form-security" class="w-full space-y-4">
+      <!-- Boutons de choix -->
+      <div class="flex justify-center space-x-4 mb-4">
+        <button id="btn-change-password" class="threeD-button-set">Change Password</button>
+        <button id="btn-change-2fa" class="threeD-button-set">Toggle 2FA</button>
+      </div>
+
+      <!-- Formulaire mot de passe -->
+      <form id="form-password" class="space-y-4 hidden">
         <div>
           <label class="block mb-1">Current Password</label>
-          <input type="password" name="currentPassword"
-            class="w-full px-4 py-2 bg-black/30 placeholder-green-600 text-green-400 outline-none border border-pink-500 rounded-lg focus:border-blue-400 transition" />
-          <p id="error-current" class="text-red-500 text-sm hidden"></p>
+          <input type="password" name="currentPassword" class="w-full px-4 py-2 bg-black/30 placeholder-green-600 text-green-400 outline-none border border-pink-500 rounded-lg focus:border-blue-400 transition" />
+          <p id="error-current-pw" class="text-red-500 text-sm hidden"></p>
         </div>
         <div>
           <label class="block mb-1">New Password</label>
-          <input type="password" name="newPassword"
-            class="w-full px-4 py-2 bg-black/30 placeholder-green-600 text-green-400 outline-none border border-pink-500 rounded-lg focus:border-blue-400 transition" />
-          <p id="error-new" class="text-red-500 text-sm hidden"></p>
+          <input type="password" name="newPassword" class="w-full px-4 py-2 bg-black/30 placeholder-green-600 text-green-400 outline-none border border-pink-500 rounded-lg focus:border-blue-400 transition" />
+          <p id="error-new-pw" class="text-red-500 text-sm hidden"></p>
         </div>
-        <div class="flex items-center justify-between">
-          <label>Two-Factor Auth</label>
-          <input type="checkbox" name="twoFactor" class="h-5 w-5 text-pink-500" />
+        <div>
+          <label class="block mb-1">Confirm New Password</label>
+          <input type="password" name="confirmPassword" class="w-full px-4 py-2 bg-black/30 placeholder-green-600 text-green-400 outline-none border border-pink-500 rounded-lg focus:border-blue-400 transition" />
+          <p id="error-confirm-pw" class="text-red-500 text-sm hidden"></p>
         </div>
         <div class="text-center">
-          <button type="submit" id="securitySubmitBtn" class="threeD-button-set">
-            <span id="securitySubmitText">Save Security</span>
+          <button type="submit" id="passwordSubmitBtn" class="threeD-button-set">
+            <span id="passwordSubmitText">Save Password</span>
+          </button>
+        </div>
+      </form>
+
+      <!-- Formulaire 2FA -->
+      <form id="form-2fa" class="space-y-4 hidden">
+        <div>
+          <label class="block mb-1">Current Password</label>
+          <input type="password" name="currentPassword" class="w-full px-4 py-2 bg-black/30 placeholder-green-600 text-green-400 outline-none border border-pink-500 rounded-lg focus:border-blue-400 transition" />
+          <p id="error-current-2fa" class="text-red-500 text-sm hidden"></p>
+        </div>
+        <div class="flex items-center space-x-2">
+          <input type="checkbox" name="twoFactor" id="twoFactorCheckbox" class="h-5 w-5" />
+          <label for="twoFactorCheckbox">Enable Two‑Factor Auth</label>
+        </div>
+        <div class="text-center">
+          <button type="submit" id="twoSubmitBtn" class="threeD-button-set">
+            <span id="twofaSubmitText">Save 2FA</span>
           </button>
         </div>
       </form>

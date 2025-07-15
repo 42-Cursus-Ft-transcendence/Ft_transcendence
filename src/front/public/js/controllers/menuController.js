@@ -43,6 +43,7 @@ export function renderMenu(container, socket, onSelect) {
         localStorage.removeItem("userId");
         localStorage.removeItem("userName");
         localStorage.removeItem("email");
+        localStorage.removeItem("avatarURL");
         onSelect("login");
     });
 }

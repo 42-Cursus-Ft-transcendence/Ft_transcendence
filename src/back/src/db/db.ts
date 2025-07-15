@@ -27,7 +27,8 @@ db.serialize(() => {
       registrationDate  TEXT,
       connectionStatus  INTEGER,
       totpSecret         TEXT,
-      isTotpEnabled      INTEGER DEFAULT 0
+      isTotpEnabled      INTEGER DEFAULT 0,
+      avatarURL          TEXT
     );
   `);
   db.run(`

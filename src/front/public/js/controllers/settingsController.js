@@ -97,14 +97,21 @@ function bindAccountSection(container) {
     // Import custom avatar
     container.querySelector('#avatar-import')
         .addEventListener('click', () => fileInput.click());
-    fileInput.addEventListener('change', () => {
+    fileInput.addEventListener('change', async () => {
         const file = fileInput.files?.[0];
         if (!file)
             return;
-        const url = URL.createObjectURL(file);
-        profile.avatarURL = url;
-        profileImg.src = url;
-        modal.classList.add('hidden');
+        try {
+            // Convert file to Base64 for database storage
+            const base64URL = await handleFileUpload(file);
+            profile.avatarURL = base64URL;
+            profileImg.src = base64URL;
+            modal.classList.add('hidden');
+        }
+        catch (error) {
+            console.error('Error uploading file:', error);
+            alert('Error uploading avatar');
+        }
     });
     // Account form submission (PUT /api/settings/account)
     formAccount.addEventListener('submit', async (e) => {
@@ -114,33 +121,48 @@ function bindAccountSection(container) {
         const payload = {};
         const newName = usernameInput.value.trim();
         const newEmail = emailInput.value.trim();
+        // Handle username changes
         if (newName !== profile.userName) {
-            if (newName)
-                payload.userName = newName;
-            if (!usernameInput.value.trim()) {
+            if (!newName) {
                 showError(errName, 'Username is required');
                 valid = false;
             }
+            else {
+                payload.userName = newName;
+            }
         }
-        if (newEmail && newEmail !== profile.email) {
-            payload.email = newEmail;
-            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)) {
+        // Handle email changes
+        if (newEmail !== profile.email) {
+            if (!newEmail) {
+                // Allow empty email (optional field)
+                payload.email = '';
+            }
+            else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)) {
                 showError(errEmail, 'Invalid email address');
                 valid = false;
             }
+            else {
+                payload.email = newEmail;
+            }
         }
-        if (profile.avatarURL && profile.avatarURL !== originalAvatarURL)
+        // Handle avatar changes
+        if (profile.avatarURL && profile.avatarURL !== originalAvatarURL) {
             payload.avatarURL = profile.avatarURL;
-        if (Object.keys(payload).length === 0 && valid)
-            return alert('No changes');
-        if (!valid)
+        }
+        // Check if there are changes and validation passed
+        if (Object.keys(payload).length === 0 && valid) {
+            return alert('No changes to save');
+        }
+        if (!valid) {
             return;
+        }
         // Disable + feedback
         btnAcct.disabled = true;
         txtAcct.textContent = 'Saving…';
         try {
             const res = await fetch('/api/settings/account', {
-                method: 'PUT', credentials: 'include',
+                method: 'PUT',
+                credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
@@ -148,34 +170,42 @@ function bindAccountSection(container) {
                 const err = await res.json();
                 showError(errName, err.error || 'Invalid data');
             }
+            else if (res.status === 409) {
+                const err = await res.json();
+                showError(errName, err.error || 'Username or email already in use');
+            }
             else if (!res.ok) {
                 const err = await res.json();
                 alert(err.error || 'Unexpected error');
             }
             else {
                 const updated = await res.json();
-                // Update localStorage and UI
+                // Update localStorage and UI with fresh data from server
                 if (updated.userName) {
                     localStorage.setItem('userName', updated.userName);
                     usernameInput.value = updated.userName;
+                    profile.userName = updated.userName; // Update local profile
                 }
-                if (updated.email) {
+                if (updated.email !== undefined) {
                     localStorage.setItem('email', updated.email);
                     emailInput.value = updated.email;
+                    profile.email = updated.email; // Update local profile
                 }
                 if (updated.avatarURL) {
                     localStorage.setItem('avatarURL', updated.avatarURL);
                     profileImg.src = updated.avatarURL;
+                    profile.avatarURL = updated.avatarURL; // Update local profile
                 }
-                alert('Account settings saved');
+                alert('Account settings saved successfully');
             }
         }
         catch (err) {
-            alert(err.message);
+            console.error('Error saving account settings:', err);
+            alert('Unable to contact server. Please try again.');
         }
         finally {
             btnAcct.disabled = false;
-            btnAcct.textContent = 'Save';
+            txtAcct.textContent = 'Save';
         }
     });
 }
@@ -271,63 +301,142 @@ function bindKeyCapture(input, prop, settings) {
  * Bind the security form to perform a PUT with passwords and 2FA toggle.
  */
 function bindSecuritySection(container) {
-    const form = container.querySelector('#form-security');
-    const errCurr = container.querySelector('#error-current');
-    const errNew = container.querySelector('#error-new');
-    const btnSec = container.querySelector('#securitySubmitBtn');
-    const txtSec = container.querySelector('#securitySubmitText');
-    form.addEventListener('submit', async (e) => {
+    // Buttons to toggle between password and 2FA forms
+    const btnPw = container.querySelector('#btn-change-password');
+    const btn2F = container.querySelector('#btn-change-2fa');
+    const formPw = container.querySelector('#form-password');
+    const form2F = container.querySelector('#form-2fa');
+    // Password form elements
+    const errCurrPw = container.querySelector('#error-current-pw');
+    const errNewPw = container.querySelector('#error-new-pw');
+    const errConfirmPw = container.querySelector('#error-confirm-pw');
+    const btnPwSubmit = container.querySelector('#passwordSubmitBtn');
+    const txtPw = container.querySelector('#passwordSubmitText');
+    // 2FA form elements
+    const errCurr2FA = container.querySelector('#error-current-2fa');
+    const btn2FSubmit = container.querySelector('#twofaSubmitBtn');
+    const txt2F = container.querySelector('#twofaSubmitText');
+    // Track initial 2FA state
+    const twoFactorInput = form2F.querySelector('#twoFactorCheckbox');
+    const initialTwoFactor = twoFactorInput.checked;
+    // Toggle forms
+    btnPw.addEventListener('click', () => {
+        form2F.classList.add('hidden');
+        formPw.classList.remove('hidden');
+    });
+    btn2F.addEventListener('click', () => {
+        formPw.classList.add('hidden');
+        form2F.classList.remove('hidden');
+    });
+    // Password form submission
+    formPw.addEventListener('submit', async (e) => {
         e.preventDefault();
-        resetErrors(errCurr, errNew);
-        const fm = form.elements;
+        resetErrors(errCurrPw, errNewPw, errConfirmPw);
+        const fm = formPw.elements;
         const currentPassword = fm.currentPassword.value.trim();
         const newPassword = fm.newPassword.value;
-        const twoFactor = fm.twoFactor.checked;
-        // Front-end validation
+        const confirmPassword = fm.confirmPassword.value;
         let valid = true;
         if (!currentPassword) {
-            showError(errCurr, 'Current password is required');
+            showError(errCurrPw, 'Current password is required');
             valid = false;
         }
-        // Only validate new password if user wants to change it
-        if (newPassword && newPassword.length < 8) {
-            showError(errNew, 'New password must be at least 8 characters');
+        if (!newPassword || newPassword.length < 8) {
+            showError(errNewPw, 'New password must be at least 8 characters');
+            valid = false;
+        }
+        if (newPassword !== confirmPassword) {
+            showError(errConfirmPw, 'Passwords do not match');
             valid = false;
         }
         if (!valid)
             return;
-        //  Disable button and show feedback
-        btnSec.disabled = true;
-        txtSec.textContent = 'Saving…';
-        //  Build payload: always include twoFactor, newPassword only if set
-        const payload = { currentPassword, twoFactor };
-        if (newPassword)
-            payload.newPassword = newPassword;
+        btnPwSubmit.disabled = true;
+        txtPw.textContent = 'Saving…';
         try {
             const res = await fetch('/api/settings/security', {
-                method: 'PUT',
-                credentials: 'include',
+                method: 'PUT', credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+                body: JSON.stringify({ currentPassword, newPassword })
             });
             if (res.status === 400) {
                 const err = await res.json();
-                showError(errCurr, err.error || 'Invalid current password');
+                const errorMessage = err.error || 'Invalid request';
+                // Detect which field the error is about based on the error message
+                if (errorMessage.toLowerCase().includes('current password')) {
+                    showError(errCurrPw, errorMessage);
+                }
+                else if (errorMessage.toLowerCase().includes('new password')) {
+                    showError(errNewPw, errorMessage);
+                }
+                else {
+                    // Default to current password field for unknown errors
+                    showError(errCurrPw, errorMessage);
+                }
             }
             else if (!res.ok) {
                 const err = await res.json();
                 alert(err.error || 'Unexpected error');
             }
             else {
-                alert('Security settings updated');
+                alert('Password updated');
+                formPw.reset();
             }
         }
-        catch (err) {
-            alert(err.message || 'Unable to contact server');
+        catch {
+            alert('Unable to contact server');
         }
         finally {
-            btnSec.disabled = false;
-            txtSec.textContent = 'Save Security';
+            btnPwSubmit.disabled = false;
+            txtPw.textContent = 'Save Password';
+        }
+    });
+    // 2FA form submission
+    form2F.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        resetErrors(errCurr2FA);
+        const fm = form2F.elements;
+        const currentPassword = fm.currentPassword.value.trim();
+        const twoFactor = fm.twoFactor.checked;
+        if (!currentPassword) {
+            showError(errCurr2FA, 'Current password is required');
+            return;
+        }
+        const change2FA = twoFactor !== initialTwoFactor;
+        if (!change2FA) {
+            showError(errCurr2FA, 'No change in 2FA state');
+            return;
+        }
+        btn2FSubmit.disabled = true;
+        txt2F.textContent = 'Saving…';
+        try {
+            const res = await fetch('/api/settings/2fa', {
+                method: 'POST', credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    password: currentPassword,
+                    enable2fa: twoFactor
+                })
+            });
+            if (res.status === 401) {
+                const err = await res.json();
+                showError(errCurr2FA, err.error || 'Invalid current password');
+            }
+            else if (!res.ok) {
+                const err = await res.json();
+                alert(err.error || 'Unexpected error');
+            }
+            else {
+                alert('Two-factor settings updated');
+                form2F.reset();
+            }
+        }
+        catch {
+            alert('Unable to contact server');
+        }
+        finally {
+            btn2FSubmit.disabled = false;
+            txt2F.textContent = 'Save 2FA';
         }
     });
 }
@@ -365,5 +474,33 @@ function resetErrors(...els) {
 function showError(el, message) {
     el.textContent = message;
     el.classList.remove("hidden");
+}
+// Helper function to handle file upload
+async function handleFileUpload(file) {
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+        throw new Error('Only JPEG, PNG and WebP images are allowed');
+    }
+    // Validate file size (max 2MB)
+    const maxSize = 2 * 1024 * 1024; // 2MB
+    if (file.size > maxSize) {
+        throw new Error('Image must be smaller than 2MB');
+    }
+    // Convert to Base64 for database storage (current approach)
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+            const result = reader.result;
+            // Check final Base64 size (should be ~33% larger than original)
+            if (result.length > maxSize * 1.5) {
+                reject(new Error('Processed image is too large'));
+                return;
+            }
+            resolve(result);
+        };
+        reader.onerror = () => reject(new Error('Failed to read file'));
+        reader.readAsDataURL(file);
+    });
 }
 //# sourceMappingURL=settingsController.js.map

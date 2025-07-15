@@ -1,9 +1,59 @@
+<<<<<<< HEAD
 import { FastifyInstance } from "fastify";
+=======
+import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
+import { db } from "../db/db";
+import { authenticator } from "otplib";
+import QRCode from "qrcode";
+>>>>>>> 913f2ac (feat: Complete user settings system with avatar management and 2FA)
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { Wallet } from "ethers";
 
+<<<<<<< HEAD
 import { runAsync, getAsync } from "../db";
+=======
+function runAsync(sql: string, values: any[]): Promise<number> {
+  return new Promise((resolve, reject) => {
+    db.run(
+      sql,
+      values,
+      function (this: { lastID: number; changes: number }, error) {
+        if (error) {
+          reject(error);
+        } else {
+          resolve(this.lastID);
+        }
+      }
+    );
+  });
+}
+
+// Function to get random default avatar
+function getRandomDefaultAvatar(): string {
+  const defaultAvatars = [
+    "/assets/icone/Demacia_Vice.webp",
+    "/assets/icone/Garen.webp",
+    "/assets/icone/Garen_Border.webp",
+    "/assets/icone/Legendary_Handshake.webp",
+    "/assets/icone/Lucian.webp",
+    "/assets/icone/Lucian_Border.webp",
+  ];
+  return defaultAvatars[Math.floor(Math.random() * defaultAvatars.length)];
+}
+
+export function getAsync<T = any>(
+  sql: string,
+  params: any[]
+): Promise<T | null> {
+  return new Promise((resolve, rejects) => {
+    db.get(sql, params, (err, row) => {
+      if (err) rejects(err);
+      else resolve((row as T) ?? null);
+    });
+  });
+}
+>>>>>>> 913f2ac (feat: Complete user settings system with avatar management and 2FA)
 
 export default async function userRoutes(app: FastifyInstance) {
   app.post("/signup", async (request, reply): Promise<void> => {
@@ -25,10 +75,12 @@ export default async function userRoutes(app: FastifyInstance) {
       const userWallet = Wallet.createRandom();
       const address = userWallet.address;
       const privKey = userWallet.privateKey;
+      const defaultAvatar = getRandomDefaultAvatar();
+
       const idUser = await runAsync(
-        `INSERT INTO User(userName, email, password, registrationDate, address, privkey, connectionStatus)
-                VALUES (?, ?, ?, ?, ?, ?, 0)`,
-        [userName, email, hashPass, now, address, privKey]
+        `INSERT INTO User(userName, email, password, registrationDate, address, privkey, connectionStatus, avatarURL)
+                VALUES (?, ?, ?, ?, ?, ?, 0, ?)`,
+        [userName, email, hashPass, now, address, privKey, defaultAvatar]
       );
       return reply.status(201).send({ idUser });
     } catch (err: any) {
@@ -80,10 +132,16 @@ export default async function userRoutes(app: FastifyInstance) {
         email: string;
         password: string;
         connectionStatus: number;
+<<<<<<< HEAD
         isTotpEnabled: number;
       }>(
         `SELECT idUser, email, password, connectionStatus, isTotpEnabled
           FROM User WHERE userName = ?`,
+=======
+        avatarURL?: string;
+      }>(
+        `SELECT idUser, email, password, connectionStatus, avatarURL FROM User WHERE userName = ?`,
+>>>>>>> 913f2ac (feat: Complete user settings system with avatar management and 2FA)
         [userName]
       );
 
@@ -127,6 +185,7 @@ export default async function userRoutes(app: FastifyInstance) {
           userName,
           email: user.email,
           idUser: user.idUser,
+          avatarURL: user.avatarURL,
         });
     } catch (err) {
       return reply.status(500).send({ error: "Internal server error" });
@@ -163,6 +222,283 @@ export default async function userRoutes(app: FastifyInstance) {
       }
     }
   );
+<<<<<<< HEAD
+=======
+
+  app.get("/api/login/google/callback", async (request, reply) => {
+    try {
+      const tokenResult =
+        await app.googleOAuth2.getAccessTokenFromAuthorizationCodeFlow(request);
+      const accessToken = tokenResult.token.access_token;
+      if (!accessToken) {
+        throw new Error("No access token received");
+      }
+      const resp = await fetch(
+        `https://www.googleapis.com/oauth2/v3/userinfo?access_token=${accessToken}`
+      );
+      if (!resp.ok) throw new Error("Failed to fetch user info from Google");
+      const profile = (await resp.json()) as {
+        sub: number;
+        email: string;
+        name: string;
+      };
+      const { sub, email, name: userName } = profile;
+      const existing = (await getAsync(
+        `SELECT idUser FROM User WHERE oauthSub = ?`,
+        [sub]
+      )) as { idUser: number } | undefined;
+
+      let userId: number;
+
+      if (existing) {
+        // 이미 가입된 Google 유저
+        userId = existing.idUser;
+      } else {
+        const now = new Date().toISOString();
+        const userWallet = Wallet.createRandom();
+        const address = userWallet.address;
+        const privKey = userWallet.privateKey;
+        const defaultAvatar = getRandomDefaultAvatar();
+
+        const lastID = (await runAsync(
+          `INSERT INTO User
+           (oauthSub, userName, email, registrationDate, address, privkey, connectionStatus, avatarURL)
+         VALUES (?, ?, ?, ?, ?, ?, 0, ?)`,
+          [sub, userName, email, now, address, privKey, defaultAvatar]
+        )) as number;
+
+        userId = lastID;
+      }
+      const token = app.jwt.sign(
+        { sub: userId, userName, email },
+        { expiresIn: "2h" }
+      );
+      return reply
+        .setCookie("token", token, {
+          // signed: true,
+          httpOnly: true,
+          path: "/",
+          sameSite: "strict",
+          // secure:   true
+        })
+        .status(303)
+        .redirect("/?screen=menu");
+    } catch (err: any) {
+      app.log.error("Google OAuth error: ", err);
+      return reply.status(303).redirect("/?screen=login");
+    }
+  });
+  /**
+   * POST /api/settings/2fa
+   *
+   * - Verifies the user’s current password.
+   * - Enables or disables TOTP-based 2FA.
+   * - On disable: clears secret and redirects back to /settings.
+   * - On enable: generates new secret, saves it (not yet activated),
+   *   then redirects back to /settings with otpauthUrl query.
+   */
+  app.post(
+    "/api/settings/2fa",
+    { preHandler: [app.authenticate] },
+    async (req, reply) => {
+      const userId = (req.user as any).sub;
+      const { password, enable2fa } = req.body as {
+        password: string;
+        enable2fa: boolean;
+      };
+
+      // 1) Verify password
+      const row = await getAsync<{ password: string }>(
+        "SELECT password FROM User WHERE idUser = ?",
+        [userId]
+      );
+      if (!row || !(await bcrypt.compare(password, row.password))) {
+        return reply.status(401).send({
+          error: "Password is incorrect. Please try again.",
+        });
+      }
+
+      if (!enable2fa) {
+        // 2) Disable 2FA
+        await db.run(
+          "UPDATE User SET totpSecret = NULL, isTotpEnabled = 0 WHERE idUser = ?",
+          [userId]
+        );
+        return reply.redirect("/settings");
+      }
+
+      // 3) Enable 2FA: generate new secret (but not activated yet)
+      const secret = authenticator.generateSecret();
+      await db.run(
+        "UPDATE User SET totpSecret = ?, isTotpEnabled = 0 WHERE idUser = ?",
+        [secret, userId]
+      );
+      const userName = (req.user as any).userName;
+      const otpauthUrl = authenticator.keyuri(userName, "YourAppName", secret);
+      return reply.redirect("/?screen=setting");
+    }
+  );
+  /**
+   * GET /api/2fa/qrcode
+   *
+   * - Expects otpauthUrl as a query parameter.
+   * - Generates a PNG QR code from the otpauthUrl.
+   * - Returns the image/png directly.
+   */
+  app.get(
+    "/api/2fa/qrcode",
+    { preHandler: [app.authenticate] },
+    async (req, reply) => {
+      const { otpauthUrl } = req.query as { otpauthUrl: string };
+      if (!otpauthUrl) {
+        return reply
+          .status(400)
+          .send({ error: "Missing otpauthUrl query parameter" });
+      }
+      try {
+        // Convert otpauthUrl into a Data URL containing PNG image
+        const dataUrl = await QRCode.toDataURL(otpauthUrl);
+        const img = Buffer.from(dataUrl.split(",")[1], "base64");
+        reply.header("Content-Type", "image/png").send(img);
+      } catch (err) {
+        app.log.error(err);
+        reply.status(500).send({ error: "Failed to generate QR code" });
+      }
+    }
+  );
+
+  /**
+   * POST /api/2fa/verify-setup
+   *
+   * - Verifies the TOTP token against the stored secret.
+   * - On success: sets isTotpEnabled = 1 to activate 2FA.
+   * - On failure: returns 401 error.
+   */
+  app.post(
+    "/api/2fa/verify-setup",
+    { preHandler: [app.authenticate] },
+    async (req, reply) => {
+      const userId = (req.user as any).sub;
+      const { token } = req.body as { token: string };
+
+      // Retrieve the secret from database
+      const row = await getAsync<{ totpSecret: string }>(
+        "SELECT totpSecret FROM User WHERE idUser = ?",
+        [userId]
+      );
+      // Check token validity
+      if (!row || !authenticator.check(token, row.totpSecret)) {
+        return reply.status(401).send({ error: "Invalid 2FA code" });
+      }
+
+      // Activate 2FA
+      await db.run("UPDATE User SET isTotpEnabled = 1 WHERE idUser = ?", [
+        userId,
+      ]);
+      reply.send({ ok: true });
+    }
+  );
+
+  app.post("/2fa/verify-login", async (req, reply) => {
+    const { userId, token } = req.body as { userId: number; token: string };
+    const row = await getAsync<{
+      totpSecret: string;
+      isTotpEnabled: number;
+    }>(`SELECT totpSecret, isTotpEnabled FROM User WHERE idUser = ?`, [userId]);
+    if (!row || row.isTotpEnabled === 0) {
+      return reply.code(400).send({ error: "2FA not configured" });
+    }
+    if (!authenticator.check(token, row.totpSecret)) {
+      return reply.code(401).send({ error: "Invalid 2FA code" });
+    }
+    const jwt = app.jwt.sign({ sub: userId });
+    reply.send({ token: jwt });
+  });
+
+  app.put(
+    "/api/settings/account",
+    { preHandler: [(app as any).authenticate] },
+    async (request, reply): Promise<void> => {
+      console.log(">> Received PUT /api/settings/account");
+
+      // Get user ID from JWT payload
+      const idUser = (request.user as any).sub as number;
+
+      // Get and validate body
+      const { userName, email, avatarURL } = request.body as {
+        userName?: string;
+        email?: string;
+        avatarURL?: string;
+      };
+
+      // Validate that at least one field is provided
+      if (!userName && email === undefined && !avatarURL) {
+        return reply
+          .status(400)
+          .send({ error: "At least one field (userName, email, avatarURL) is required" });
+      }
+
+      // Validate username if provided
+      if (userName !== undefined && (!userName || userName.trim().length === 0)) {
+        return reply
+          .status(400)
+          .send({ error: "Username cannot be empty" });
+      }
+
+      // Validate email format if provided and not empty
+      if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        return reply
+          .status(400)
+          .send({ error: "Invalid email format" });
+      }
+
+      try {
+        // Update each field individually if present
+        if (userName !== undefined) {
+          await runAsync("UPDATE User SET userName = ? WHERE idUser = ?", [
+            userName.trim(),
+            idUser,
+          ]);
+        }
+        if (email !== undefined) {
+          await runAsync("UPDATE User SET email = ? WHERE idUser = ?", [
+            email,
+            idUser,
+          ]);
+        }
+        if (avatarURL !== undefined) {
+          await runAsync("UPDATE User SET avatarURL = ? WHERE idUser = ?", [
+            avatarURL,
+            idUser,
+          ]);
+        }
+
+        // Get updated profile from database
+        const updated = await getAsync<{
+          userName: string;
+          email: string;
+          avatarURL?: string;
+        }>(
+          "SELECT userName, email, avatarURL FROM User WHERE idUser = ?",
+          [idUser]
+        );
+
+        if (!updated) {
+          return reply.status(404).send({ error: "User not found" });
+        }
+
+        return reply.status(200).send(updated);
+      } catch (err: any) {
+        if (err.code === "SQLITE_CONSTRAINT") {
+          return reply
+            .status(409)
+            .send({ error: "Username or email already in use" });
+        }
+        return reply.status(500).send({ error: "Internal server error" });
+      }
+    }
+  );
+>>>>>>> 913f2ac (feat: Complete user settings system with avatar management and 2FA)
 }
 export async function createGame(
   idp1: number,
