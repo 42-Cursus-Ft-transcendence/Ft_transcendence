@@ -40,7 +40,10 @@ import { handleInput } from "./input";
 import { handleStop } from "./stop";
 import { handleStopLobby } from "./stoplobby";
 import { handleForfeit } from "./forfeit";
-import userRoutes, { getAsync } from "./routes/userRoutes"; // ← import par défaut
+import { getAsync } from "./db";
+import userRoutes from "./routes/userRoutes";
+import oauthRoutes from "./routes/oauthRoute";
+import twofaRoutes from "./routes/twofaRoutes";
 import loggerPlugin from "./plugins/logger";
 import "./db/db"; // ← initialise la BD et les tables
 // ─────────────────────────────────────────────────────────────────────────────
@@ -59,10 +62,6 @@ if (fs.existsSync(prodDir)) {
   process.exit(1);
 }
 console.log("⛳️ Serving static from:", publicDir);
-
-const waiting: WaitingItem[] = [];
-const sessions = new Map<string, MatchSession>();
-const socketToSession = new Map<WebSocket, MatchSession>();
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Create Fastify + register WebSocket plugin
@@ -163,7 +162,9 @@ app.decorate(
 );
 
 // bd routes
-app.register(userRoutes);
+app.register(userRoutes, { prefix: "/api" });
+app.register(oauthRoutes, { prefix: "/api" });
+app.register(twofaRoutes, { prefix: "/api" });
 
 // Register WebSocket plugin without any options
 app.register(fastifyWebsocket);
@@ -419,11 +420,9 @@ app.post("/api/test-scores-working", async (req, reply) => {
       return reply.status(400).send({ error: "gameId is required" });
     }
     if (!isValidEthAddress(player)) {
-      return reply
-        .status(400)
-        .send({
-          error: "player must be a valid Ethereum address (manual check)",
-        });
+      return reply.status(400).send({
+        error: "player must be a valid Ethereum address (manual check)",
+      });
     }
     if (typeof score !== "number") {
       return reply.status(400).send({ error: "score must be a number" });
