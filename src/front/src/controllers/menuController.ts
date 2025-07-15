@@ -7,6 +7,7 @@ export type ScreenChoise =
   | "online"
   | "profile"
   | "settings"
+  | "blockexplorer"
   | "login";
 
 export function renderMenu(
@@ -47,6 +48,10 @@ export function renderMenu(
   container.querySelector("#btnSettings")!.addEventListener("click", () => {
     zoomIn();
     onSelect("settings");
+  });
+  container.querySelector("#btnBlockExplorer")!.addEventListener("click", () => {
+    zoomIn();
+    onSelect("blockexplorer");
   });
   container
     .querySelector<HTMLButtonElement>("#btnLogout")!
