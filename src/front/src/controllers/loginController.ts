@@ -168,58 +168,8 @@ async function performLogin(
 
 // ——————————————————————————————————————————————
 // 8) Google Login
-async function handleGoogleLogin(e: Event) {
+export function handleGoogleLogin(e: Event) {
   e.preventDefault();
-  window.location.href = `/api/login/google`;
-}
 
-// 9) handling google callback
-export async function handleOAuthCallback(
-  el: Partial<LoginElements> = {},
-  onSuccess: () => void
-) {
-  const qp = new URLSearchParams(window.location.search);
-  const code = qp.get("code")!;
-  const state = qp.get("state")!;
-  if (!code || !state) {
-    alert("Authorization code or state is missing.");
-    return;
-  }
-  const { googleBtn, errName } = el;
-  googleBtn?.setAttribute("disabled", "true");
-  if (googleBtn) googleBtn.textContent = "Logging in …";
-  try {
-    const res = await fetch(
-      `/api/login/google/callback?state=${encodeURIComponent(
-        state
-      )}&code=${encodeURIComponent(code)}`,
-      {
-        credentials: "include",
-        headers: { Accept: "application/json" },
-      }
-    );
-    console.log(code, state);
-    const data = await res.json();
-    if (!data.ok) {
-      alert(data.error || "OAuth login failed");
-      return;
-    }
-    const { token, userInfo } = data;
-
-    localStorage.setItem("token", token);
-    localStorage.setItem("userInfo", JSON.stringify(userInfo));
-    onSuccess();
-    const protocol = location.protocol === "https:" ? "wss" : "ws";
-    const socket = initSocket(`${protocol}://${location.host}/ws`);
-    socket.onerror = (error) => {
-      console.error("WebSocket error:", error);
-      alert("Failed to establish real-time connection");
-    };
-  } catch (err: any) {
-    // 7) 실패 시: 콘솔·알럿으로만 표시
-    console.error("OAuth error:", err);
-    alert(err.message || "Unexpected error during OAuth login");
-  } finally {
-    // 8) 더 이상 UI 리셋할 요소가 없으므로 비워 둠
-  }
+  window.location.href = "/api/login/google";
 }

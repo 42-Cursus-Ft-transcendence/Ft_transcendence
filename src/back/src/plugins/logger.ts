@@ -1,5 +1,29 @@
 import fp from "fastify-plugin";
-import { FastifyInstance, FastifyPluginAsync } from "fastify";
+import {
+  FastifyInstance,
+  FastifyPluginAsync,
+  FastifyLoggerOptions,
+} from "fastify";
+
+const devOpts = {
+  level: "debug",
+  transport: {
+    target: "pino-pretty",
+    options: {
+      colorize: true,
+      levelFirst: true,
+      translateTime: "HH:MM:ss Z",
+      ignore: "pid,hostname",
+    },
+  },
+  redact: ["req.headers.authorization", "req.headers.cookie"],
+};
+
+export const loggerOptions = {
+  development: devOpts as FastifyLoggerOptions,
+  production: { level: "info" },
+  test: { level: "silent" },
+};
 
 const loggerPlugin: FastifyPluginAsync = async (app: FastifyInstance) => {
   app.addHook("onRequest", async (request) => {

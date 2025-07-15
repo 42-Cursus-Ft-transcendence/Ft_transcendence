@@ -1,14 +1,11 @@
 import { FastifyInstance } from "fastify";
-import { authenticator } from "otplib";
-import QRCode from "qrcode";
 import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
 import { Wallet } from "ethers";
 
 import { runAsync, getAsync } from "../db";
-import { db } from "../db/db";
 
 export default async function userRoutes(app: FastifyInstance) {
-  console.log("🛠️  userRoutes mounted");
   app.post("/signup", async (request, reply): Promise<void> => {
     console.log(">> Reçu POST /user");
     // Récupère et valide le body
@@ -103,9 +100,14 @@ export default async function userRoutes(app: FastifyInstance) {
         user.idUser,
       ]);
       if (user.isTotpEnabled === 1) {
+        const pre2faToken = jwt.sign(
+          { sub: user.idUser, pre2fa: true },
+          process.env.PRE2FA_SECRET || "une_chaine_tres_complexe",
+          { expiresIn: "5m" } // Short-lived token for pre-2FA login
+        );
         return reply.status(200).send({
           require2fa: true,
-          userId: user.idUser,
+          pre2faToken,
         });
       }
       const token = app.jwt.sign(
