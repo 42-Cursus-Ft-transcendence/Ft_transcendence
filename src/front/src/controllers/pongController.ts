@@ -1,9 +1,11 @@
 import { pongTemplate } from '../templates/pongTemplate.js';
 import { waitingTemplate } from '../templates/loadingTemplate.js';
+import { loadGameplaySettings, GameplaySettings } from './settingsController.js';
 
 export function renderPong(container: HTMLElement, socket: WebSocket, onBack: () => void): void {
   container.innerHTML = waitingTemplate;
 
+  const settings: GameplaySettings = loadGameplaySettings();
   let isGameActive = false;
   let keyHandlersAdded = false;
 
@@ -47,7 +49,7 @@ export function renderPong(container: HTMLElement, socket: WebSocket, onBack: ()
       });
     }
   }
-    window.addEventListener('popstate', (event) => {
+  window.addEventListener('popstate', (event) => {
     cleanup();
   });
   function bindGame(initial: any) {
@@ -58,14 +60,39 @@ export function renderPong(container: HTMLElement, socket: WebSocket, onBack: ()
     const backBtn = container.querySelector<HTMLButtonElement>('#backBtn')!;
     const quitBtn = container.querySelector<HTMLButtonElement>('#quit')!;
     const ctx = canvasEl.getContext('2d', { alpha: true })!;
+    const ballHistory: { x: number; y: number }[] = [];
 
+
+    const { r, g, b } = hexToRgb(settings.bgColor);
+    const a = settings.bgOpacity / 100;
+    canvasEl.style.backgroundColor = `rgba(${r}, ${g}, ${b}, ${a})`;
+    if (settings.glowIntensity) {
+      ctx.shadowBlur = settings.glowIntensity;
+      ctx.shadowColor = settings.ballColor;
+    }
     render = (msg: any) => {
+      ballHistory.unshift({ x: msg.ball.x, y: msg.ball.y });
+      if (ballHistory.length > settings.trailLength) {
+        ballHistory.pop();
+      }
       ctx.clearRect(0, 0, CW, CH);
-      ctx.fillStyle = '#00F0FF';
+      ctx.fillStyle = settings.paddleColor;
       ctx.fillRect(msg.p1.x, msg.p1.y, PW, PH);
       ctx.fillRect(msg.p2.x, msg.p2.y, PW, PH);
+      // ball trail
+      if (settings.trailLength > 0) {
+        ballHistory.forEach((pos, idx) => {
+          const alpha = 1 - idx / settings.trailLength;
+          ctx.globalAlpha = alpha;
+          ctx.beginPath();
+          ctx.arc(pos.x, pos.y, BR, 0, Math.PI * 2);
+          ctx.fillStyle = settings.ballColor;
+          ctx.fill();
+        });
+        ctx.globalAlpha = 1;
+      }
       ctx.beginPath();
-      ctx.fillStyle = '#FF00AA';
+      ctx.fillStyle = settings.ballColor;
       ctx.arc(msg.ball.x, msg.ball.y, BR, 0, Math.PI * 2);
       ctx.fill();
       scoreEl.textContent = `${msg.score[0]} - ${msg.score[1]}`;
@@ -77,16 +104,16 @@ export function renderPong(container: HTMLElement, socket: WebSocket, onBack: ()
     if (!keyHandlersAdded) {
       onDown = (e: KeyboardEvent) => {
         if (!isGameActive) return;
-        
+
         let ply: string | null = null, dir: string | null = null;
         const k = e.key.toLowerCase();
-        
-        if (k === 'w') { ply = 'p1'; dir = 'up'; }
-        else if (k === 's') { ply = 'p1'; dir = 'down'; }
-        else if (k === 'arrowup') { ply = 'p2'; dir = 'up'; }
-        else if (k === 'arrowdown') { ply = 'p2'; dir = 'down'; }
+
+        if (k === settings.p1UpKey) { ply = 'p1'; dir = 'up'; }
+        else if (k === settings.p1DownKey) { ply = 'p1'; dir = 'down'; }
+        else if (k === settings.p2UpKey) { ply = 'p2'; dir = 'up'; }
+        else if (k === settings.p2DownKey) { ply = 'p2'; dir = 'down'; }
         else if (k === 'escape') { cleanup(); onBack(); return; }
-        
+
         if (ply && dir) {
           socket.send(JSON.stringify({ type: 'input', player: ply, dir }));
         }
@@ -94,13 +121,13 @@ export function renderPong(container: HTMLElement, socket: WebSocket, onBack: ()
 
       onUp = (e: KeyboardEvent) => {
         if (!isGameActive) return;
-        
+
         let ply: string | null = null;
         const k = e.key.toLowerCase();
-        
-        if (['w', 's'].includes(k)) ply = 'p1';
-        else if (['arrowup', 'arrowdown'].includes(k)) ply = 'p2';
-        
+
+        if (k === settings.p1UpKey || k === settings.p1DownKey) ply = 'p1';
+        else if (k === settings.p2UpKey || k === settings.p2DownKey) ply = 'p2';
+
         if (ply) {
           socket.send(JSON.stringify({ type: 'input', player: ply, dir: 'stop' }));
         }
@@ -118,23 +145,33 @@ export function renderPong(container: HTMLElement, socket: WebSocket, onBack: ()
 
   function cleanup() {
     console.log('🧹 Cleaning up pong controller...');
-    
+
     isGameActive = false;
-    
+
     // Remove message handler
     socket.removeEventListener('message', messageHandler);
-    
+
     // Remove key handlers
     if (keyHandlersAdded) {
       window.removeEventListener('keydown', onDown);
       window.removeEventListener('keyup', onUp);
       keyHandlersAdded = false;
     }
-    
+
     // Send stop message
     socket.send(JSON.stringify({ type: 'stop' }));
   }
 
   // Expose cleanup for external use
   (renderPong as any).cleanup = cleanup;
+}
+
+function hexToRgb(hex: string) {
+  const parsed = hex.replace(/^#/, '');
+  const bigint = parseInt(parsed, 16);
+  return {
+    r: (bigint >> 16) & 255,
+    g: (bigint >> 8) & 255,
+    b: bigint & 255
+  };
 }

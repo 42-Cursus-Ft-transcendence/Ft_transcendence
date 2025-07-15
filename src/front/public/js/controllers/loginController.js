@@ -2,6 +2,7 @@ import { loginTemplate } from "../templates/loginTemplate.js";
 import { navigate } from "../index.js";
 import { initSocket } from "../index.js";
 import { checkAuth } from "../utils/auth.js";
+import { defaultGameplaySettings, saveGameplaySettings, loadGameplaySettings } from "./settingsController.js";
 export async function renderLogin(container, onSuccess) {
     const isAuth = await checkAuth();
     if (isAuth) {
@@ -99,13 +100,18 @@ async function performLogin({ nameInput, passInput }, onSuccess) {
         }),
     });
     if (res.ok) {
-        const { userName, email, idUser } = await res.json();
+        const { userName, email, idUser, avatarURL } = await res.json();
         const protocol = location.protocol === "https:" ? "wss" : "ws";
         const socket = initSocket(`${protocol}://${location.host}/ws`);
         socket.onopen = () => {
+            const prevId = localStorage.getItem("userId");
             localStorage.setItem("userId", idUser.toString());
             localStorage.setItem("userName", userName);
             localStorage.setItem("email", email);
+            localStorage.setItem("avatarURL", avatarURL);
+            if (prevId !== idUser.toString())
+                saveGameplaySettings(defaultGameplaySettings);
+            loadGameplaySettings();
             onSuccess();
         };
         socket.onerror = (error) => {
@@ -154,8 +160,14 @@ export async function handleOAuthCallback(el = {}, onSuccess) {
             return;
         }
         const { token, userInfo } = data;
+        const prevUserId = localStorage.getItem("userId");
         localStorage.setItem("token", token);
         localStorage.setItem("userInfo", JSON.stringify(userInfo));
+        const newUserId = String(userInfo.idUser);
+        if (prevUserId !== newUserId) {
+            saveGameplaySettings(defaultGameplaySettings);
+        }
+        loadGameplaySettings();
         onSuccess();
         const protocol = location.protocol === "https:" ? "wss" : "ws";
         const socket = initSocket(`${protocol}://${location.host}/ws`);
