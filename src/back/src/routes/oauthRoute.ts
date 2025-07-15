@@ -1,7 +1,6 @@
 import { FastifyInstance } from "fastify";
 import { Wallet } from "ethers";
 import { runAsync, getAsync } from "../db";
-import { ok } from "assert";
 
 export default async function oauthRoutes(app: FastifyInstance) {
   app.get("/login/google/callback", async (request, reply) => {
