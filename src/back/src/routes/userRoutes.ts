@@ -1,4 +1,4 @@
-import { FastifyInstance } from "fastify";
+import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { db } from "../db/db";
 import { authenticator } from "otplib";
 import QRCode from "qrcode";
@@ -19,6 +19,19 @@ function runAsync(sql: string, values: any[]): Promise<number> {
       }
     );
   });
+}
+
+// Function to get random default avatar
+function getRandomDefaultAvatar(): string {
+  const defaultAvatars = [
+    "/assets/icone/Demacia_Vice.webp",
+    "/assets/icone/Garen.webp",
+    "/assets/icone/Garen_Border.webp",
+    "/assets/icone/Legendary_Handshake.webp",
+    "/assets/icone/Lucian.webp",
+    "/assets/icone/Lucian_Border.webp",
+  ];
+  return defaultAvatars[Math.floor(Math.random() * defaultAvatars.length)];
 }
 
 export function getAsync<T = any>(
@@ -54,10 +67,12 @@ export default async function userRoutes(app: FastifyInstance) {
       const userWallet = Wallet.createRandom();
       const address = userWallet.address;
       const privKey = userWallet.privateKey;
+      const defaultAvatar = getRandomDefaultAvatar();
+
       const idUser = await runAsync(
-        `INSERT INTO User(userName, email, password, registrationDate, address, privkey, connectionStatus)
-                VALUES (?, ?, ?, ?, ?, ?, 0)`,
-        [userName, email, hashPass, now, address, privKey]
+        `INSERT INTO User(userName, email, password, registrationDate, address, privkey, connectionStatus, avatarURL)
+                VALUES (?, ?, ?, ?, ?, ?, 0, ?)`,
+        [userName, email, hashPass, now, address, privKey, defaultAvatar]
       );
       return reply.status(201).send({ idUser });
     } catch (err: any) {
@@ -109,8 +124,9 @@ export default async function userRoutes(app: FastifyInstance) {
         email: string;
         password: string;
         connectionStatus: number;
+        avatarURL?: string;
       }>(
-        `SELECT idUser, email, password, connectionStatus FROM User WHERE userName = ?`,
+        `SELECT idUser, email, password, connectionStatus, avatarURL FROM User WHERE userName = ?`,
         [userName]
       );
 
@@ -143,6 +159,7 @@ export default async function userRoutes(app: FastifyInstance) {
           userName,
           email: user.email,
           idUser: user.idUser,
+          avatarURL: user.avatarURL,
         });
     } catch (err) {
       return reply.status(500).send({ error: "Internal server error" });
@@ -213,11 +230,13 @@ export default async function userRoutes(app: FastifyInstance) {
         const userWallet = Wallet.createRandom();
         const address = userWallet.address;
         const privKey = userWallet.privateKey;
+        const defaultAvatar = getRandomDefaultAvatar();
+
         const lastID = (await runAsync(
           `INSERT INTO User
-           (oauthSub, userName, email, registrationDate, address, privkey, connectionStatus)
-         VALUES (?, ?, ?, ?, ?, ?, 0)`,
-          [sub, userName, email, now, address, privKey]
+           (oauthSub, userName, email, registrationDate, address, privkey, connectionStatus, avatarURL)
+         VALUES (?, ?, ?, ?, ?, ?, 0, ?)`,
+          [sub, userName, email, now, address, privKey, defaultAvatar]
         )) as number;
 
         userId = lastID;
@@ -291,7 +310,6 @@ export default async function userRoutes(app: FastifyInstance) {
       return reply.redirect("/?screen=setting");
     }
   );
-
   /**
    * GET /api/2fa/qrcode
    *
@@ -368,6 +386,90 @@ export default async function userRoutes(app: FastifyInstance) {
     const jwt = app.jwt.sign({ sub: userId });
     reply.send({ token: jwt });
   });
+
+  app.put(
+    "/api/settings/account",
+    { preHandler: [(app as any).authenticate] },
+    async (request, reply): Promise<void> => {
+      console.log(">> Received PUT /api/settings/account");
+
+      // Get user ID from JWT payload
+      const idUser = (request.user as any).sub as number;
+
+      // Get and validate body
+      const { userName, email, avatarURL } = request.body as {
+        userName?: string;
+        email?: string;
+        avatarURL?: string;
+      };
+
+      // Validate that at least one field is provided
+      if (!userName && email === undefined && !avatarURL) {
+        return reply
+          .status(400)
+          .send({ error: "At least one field (userName, email, avatarURL) is required" });
+      }
+
+      // Validate username if provided
+      if (userName !== undefined && (!userName || userName.trim().length === 0)) {
+        return reply
+          .status(400)
+          .send({ error: "Username cannot be empty" });
+      }
+
+      // Validate email format if provided and not empty
+      if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        return reply
+          .status(400)
+          .send({ error: "Invalid email format" });
+      }
+
+      try {
+        // Update each field individually if present
+        if (userName !== undefined) {
+          await runAsync("UPDATE User SET userName = ? WHERE idUser = ?", [
+            userName.trim(),
+            idUser,
+          ]);
+        }
+        if (email !== undefined) {
+          await runAsync("UPDATE User SET email = ? WHERE idUser = ?", [
+            email,
+            idUser,
+          ]);
+        }
+        if (avatarURL !== undefined) {
+          await runAsync("UPDATE User SET avatarURL = ? WHERE idUser = ?", [
+            avatarURL,
+            idUser,
+          ]);
+        }
+
+        // Get updated profile from database
+        const updated = await getAsync<{
+          userName: string;
+          email: string;
+          avatarURL?: string;
+        }>(
+          "SELECT userName, email, avatarURL FROM User WHERE idUser = ?",
+          [idUser]
+        );
+
+        if (!updated) {
+          return reply.status(404).send({ error: "User not found" });
+        }
+
+        return reply.status(200).send(updated);
+      } catch (err: any) {
+        if (err.code === "SQLITE_CONSTRAINT") {
+          return reply
+            .status(409)
+            .send({ error: "Username or email already in use" });
+        }
+        return reply.status(500).send({ error: "Internal server error" });
+      }
+    }
+  );
 }
 
 export async function createGame(

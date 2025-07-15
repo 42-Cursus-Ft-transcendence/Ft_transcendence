@@ -100,7 +100,7 @@ async function performLogin({ nameInput, passInput }, onSuccess) {
         }),
     });
     if (res.ok) {
-        const { userName, email, idUser } = await res.json();
+        const { userName, email, idUser, avatarURL } = await res.json();
         const protocol = location.protocol === "https:" ? "wss" : "ws";
         const socket = initSocket(`${protocol}://${location.host}/ws`);
         socket.onopen = () => {
@@ -108,6 +108,7 @@ async function performLogin({ nameInput, passInput }, onSuccess) {
             localStorage.setItem("userId", idUser.toString());
             localStorage.setItem("userName", userName);
             localStorage.setItem("email", email);
+            localStorage.setItem("avatarURL", avatarURL);
             if (prevId !== idUser.toString())
                 saveGameplaySettings(defaultGameplaySettings);
             loadGameplaySettings();
