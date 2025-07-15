@@ -9,10 +9,13 @@
   },
   "dependencies": {
     "@tailwindcss/postcss": "^4.1.10",
-    "postcss": "^8.5.6",
-    "tailwindcss": "^4.1.10",
     "concurrently": "^9.2.0",
+    "postcss": "^8.5.6",
     "postcss-cli": "^11.0.1",
+    "tailwindcss": "^4.1.10",
     "typescript": "^5.8.3"
+  },
+  "devDependencies": {
+    "tailwind-scrollbar": "^4.0.2"
   }
 }
