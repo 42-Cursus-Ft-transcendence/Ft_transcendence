@@ -2,6 +2,8 @@ import { FastifyInstance } from "fastify";
 import { Wallet } from "ethers";
 import { runAsync, getAsync } from "../db";
 
+import { getRandomDefaultAvatar } from "../utils/avatar";
+
 export default async function oauthRoutes(app: FastifyInstance) {
   app.get("/login/google/callback", async (request, reply) => {
     try {
@@ -36,11 +38,21 @@ export default async function oauthRoutes(app: FastifyInstance) {
         const userWallet = Wallet.createRandom();
         const address = userWallet.address;
         const privKey = userWallet.privateKey;
+        const defaultAvatar = getRandomDefaultAvatar();
         const lastID = (await runAsync(
-          `INSERT INTO User
-           (oauthSub, userName, email, registrationDate, address, privkey, connectionStatus)
-         VALUES (?, ?, ?, ?, ?, ?, 0)`,
-          [sub, userName, email, now, address, privKey]
+          `INSERT INTO User (
+           oauthSub,
+           userName,
+           email,
+           registrationDate,
+           address,
+           privkey,
+           connectionStatus,
+           avatarURL,
+           totpSecret,
+           isTotpEnabled
+         ) VALUES (?, ?, ?, ?, ?, ?, 0, ?, NULL, 0)`,
+          [sub, userName, email, now, address, privKey, defaultAvatar]
         )) as number;
 
         userId = lastID;
