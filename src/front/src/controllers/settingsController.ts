@@ -366,9 +366,14 @@ function bindSecuritySection(container: HTMLElement) {
     const btn2FSubmit = container.querySelector<HTMLButtonElement>('#twofaSubmitBtn')!;
     const txt2F = container.querySelector<HTMLSpanElement>('#twofaSubmitText')!;
 
-    // Track initial 2FA state
+    // Track initial 2FA state from localStorage
     const twoFactorInput = form2F.querySelector<HTMLInputElement>('#twoFactorCheckbox')!;
-    const initialTwoFactor = twoFactorInput.checked;
+    // Check if 2FA info is stored in localStorage - if present, 2FA is enabled
+    const stored2FA = localStorage.getItem('twoFactorEnabled');
+    const initialTwoFactor = stored2FA !== null; // true if key exists, false if not
+
+    // Set checkbox to match the stored state
+    twoFactorInput.checked = initialTwoFactor;
 
     // Toggle forms
     btnPw.addEventListener('click', () => {
@@ -473,8 +478,20 @@ function bindSecuritySection(container: HTMLElement) {
                 const err = await res.json();
                 alert(err.error || 'Unexpected error');
             } else {
+                // Success - update localStorage to reflect new 2FA state
+                if (twoFactor) {
+                    // 2FA enabled - store in localStorage
+                    localStorage.setItem('twoFactorEnabled', 'true');
+                } else {
+                    // 2FA disabled - remove from localStorage
+                    localStorage.setItem('twoFactorEnabled', 'false');
+                }
+
                 alert('Two-factor settings updated');
                 form2F.reset();
+
+                // Update the checkbox to reflect new state
+                twoFactorInput.checked = twoFactor;
             }
         } catch {
             alert('Unable to contact server');
