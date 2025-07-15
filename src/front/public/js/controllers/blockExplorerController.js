@@ -76,17 +76,17 @@ export function renderBlockExplorer(container, onBack) {
     function renderLatestBlocks() {
         const blocks = generateMockBlocks();
         latestBlocksContainer.innerHTML = blocks.map(block => `
-      <div class="bg-black/30 border border-accent/20 hover:border-accent/40 rounded-lg p-4 cursor-pointer block-item transition-colors" data-block='${JSON.stringify(block)}'>
-        <div class="flex justify-between items-center mb-2">
-          <div class="text-accent font-bold text-sm">#${block.number}</div>
-          <div class="text-white/70 text-xs">${formatTimestamp(block.timestamp)}</div>
+      <div class="bg-black/30 border border-pink-400 hover:border-pink-500 rounded p-2 cursor-pointer block-item transition" data-block='${JSON.stringify(block)}'>
+        <div class="flex justify-between items-center mb-1">
+          <div class="text-accent font-arcade text-xs">#${block.number}</div>
+          <div class="text-green-300 text-xs">${formatTimestamp(block.timestamp)}</div>
         </div>
-        <div class="text-white/80 text-xs mb-2">
+        <div class="text-white text-xs mb-1 font-mono">
           ${formatHash(block.hash)}
         </div>
         <div class="flex justify-between text-xs">
-          <span class="text-white/60">${block.transactions} txns</span>
-          <span class="text-white/60">${parseInt(block.gasUsed).toLocaleString()} gas</span>
+          <span class="text-green-400">${block.transactions} txns</span>
+          <span class="text-blue-300">${parseInt(block.gasUsed).toLocaleString()} gas</span>
         </div>
       </div>
     `).join('');
@@ -101,18 +101,18 @@ export function renderBlockExplorer(container, onBack) {
     function renderTournamentScores() {
         const tournaments = generateMockTournaments();
         tournamentScoresContainer.innerHTML = tournaments.map(tournament => `
-      <div class="bg-black/30 border border-accent/20 rounded-lg p-4 hover:border-accent/40 transition-colors">
-        <div class="flex justify-between items-center mb-2">
-          <div class="text-accent font-bold text-sm">Tournament #${tournament.id.split('_')[1]}</div>
-          <div class="text-white/70 text-xs">${formatTimestamp(tournament.timestamp)}</div>
+      <div class="bg-black/30 border border-pink-400 hover:border-pink-500 rounded p-2 transition">
+        <div class="flex justify-between items-center mb-1">
+          <div class="text-accent font-arcade text-xs">Tournament #${tournament.id.split('_')[1]}</div>
+          <div class="text-green-300 text-xs">${formatTimestamp(tournament.timestamp)}</div>
         </div>
-        <div class="mb-2">
-          <span class="text-white/80 text-sm">🏆 Winner: </span>
-          <span class="text-accent font-bold">${tournament.winner}</span>
-          <span class="text-white/60 ml-2">${tournament.score}</span>
+        <div class="mb-1">
+          <span class="text-white text-xs">🏆 Winner: </span>
+          <span class="text-accent font-bold text-xs">${tournament.winner}</span>
+          <span class="text-green-400 text-xs"> ${tournament.score}</span>
         </div>
-        <div class="text-white/60 text-xs">
-          Block: ${formatHash(tournament.blockHash)}
+        <div class="text-blue-300 text-xs font-mono">
+          ${formatHash(tournament.blockHash)}
         </div>
       </div>
     `).join('');
