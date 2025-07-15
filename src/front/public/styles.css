@@ -553,9 +553,6 @@
       background-color: color-mix(in oklab, var(--color-black) 70%, transparent);
     }
   }
-  .bg-pink-500 {
-    background-color: var(--color-pink-500);
-  }
   .bg-transparent {
     background-color: transparent;
   }
