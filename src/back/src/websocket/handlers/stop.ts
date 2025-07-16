@@ -6,8 +6,8 @@ import {
 } from "./online";
 import { localGames } from "./ai";
 import { socketToRankedSession, handleRankedStop } from "./tournament";
-import { postScore } from "./blockchain";
-import { getAsync } from "./db";
+import { postScore } from "../../blockchain";
+import { getAsync } from "../../db";
 
 export async function handleStop(socket: WebSocket): Promise<void> {
   // Check if socket belongs to a ranked session first

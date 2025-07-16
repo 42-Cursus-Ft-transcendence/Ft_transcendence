@@ -49,6 +49,8 @@ export default async function userRoutes(app: FastifyInstance) {
       const userName = (request.user as any).userName as string;
 
       try {
+        const res = await getAsync<{ email: string; isTotpEnabled: number }>(
+          `SELECT email, isTotpEnabled FROM User WHERE idUser = ?`,
         const res = await getAsync<{
           email: string;
           isTotpEnabled: number;
@@ -120,10 +122,18 @@ export default async function userRoutes(app: FastifyInstance) {
           { sub: user.idUser, pre2fa: true },
           { expiresIn: "5m" } // Short-lived token for pre-2FA login
         );
-        return reply.status(200).send({
-          require2fa: true,
-          pre2faToken,
-        });
+        return reply
+          .setCookie("pre2faToken", pre2faToken, {
+            // signed: true,
+            httpOnly: true,
+            path: "/",
+            sameSite: "strict",
+            // secure:   true
+          })
+          .status(200)
+          .send({
+            require2fa: true,
+          });
       }
       const token = app.jwt.sign(
         { sub: user.idUser, userName },

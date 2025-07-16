@@ -1,8 +1,7 @@
 import type { WebSocket } from "@fastify/websocket";
-import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
-import { db } from "./db/db";
-import { getAsync } from "./db";
-import { postScore } from "./blockchain";
+import { db } from "../../db/db";
+import { getAsync } from "../../db";
+import { postScore } from "../../blockchain";
 import Game from "./game";
 import crypto from "crypto";
 

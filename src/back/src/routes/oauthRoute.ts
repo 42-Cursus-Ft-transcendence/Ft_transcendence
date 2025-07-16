@@ -31,7 +31,6 @@ export default async function oauthRoutes(app: FastifyInstance) {
       let userId: number;
 
       if (existing) {
-        // 이미 가입된 Google 유저
         userId = existing.idUser;
       } else {
         const now = new Date().toISOString();
