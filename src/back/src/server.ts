@@ -30,6 +30,7 @@ import {
   handleRankedForfeit,
 } from "./tournament";
 import "./db/db"; // ← initialise la BD et les tables
+import { db } from "./db/db";
 
 // Import new handlers
 import { handleOnlineStart, cleanupOnlineSocket } from "./online";
@@ -302,6 +303,126 @@ import authPlugin from "./plugins/auth";
         } else {
           message = "Internal error";
         }
+        reply.status(500).send({ error: message });
+      }
+    }
+  );
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Blockchain Explorer API endpoints
+  // ─────────────────────────────────────────────────────────────────────────────
+  app.get(
+    "/api/transactions",
+    {
+      preHandler: [(app as any).authenticate],
+    },
+    async (req, reply) => {
+      try {
+        const user = req.user as { sub: number; userName: string };
+        const { page = 1, limit = 20 } = req.query as { page?: number; limit?: number };
+        const offset = (page - 1) * limit;
+        
+        // Get transactions with pagination
+        const transactions = await new Promise<any[]>((resolve, reject) => {
+          db.all(
+            `SELECT * FROM Transaction 
+             ORDER BY timestamp DESC 
+             LIMIT ? OFFSET ?`,
+            [limit, offset],
+            (err, rows) => {
+              if (err) reject(err);
+              else resolve(rows);
+            }
+          );
+        });
+        
+        // Get total count for pagination
+        const totalCount = await new Promise<number>((resolve, reject) => {
+          db.get(
+            "SELECT COUNT(*) as count FROM Transaction",
+            (err, row: any) => {
+              if (err) reject(err);
+              else resolve(row.count);
+            }
+          );
+        });
+        
+        reply.send({
+          transactions,
+          pagination: {
+            page,
+            limit,
+            total: totalCount,
+            totalPages: Math.ceil(totalCount / limit)
+          }
+        });
+      } catch (err: unknown) {
+        console.error("GET /api/transactions error:", err);
+        const message = err instanceof Error ? err.message : "Internal error";
+        reply.status(500).send({ error: message });
+      }
+    }
+  );
+
+  app.get(
+    "/api/transactions/:hash",
+    {
+      preHandler: [(app as any).authenticate],
+    },
+    async (req, reply) => {
+      try {
+        const user = req.user as { sub: number; userName: string };
+        const hash = (req.params as any).hash;
+        
+        const transaction = await new Promise<any>((resolve, reject) => {
+          db.get(
+            "SELECT * FROM Transaction WHERE hash = ?",
+            [hash],
+            (err, row) => {
+              if (err) reject(err);
+              else resolve(row);
+            }
+          );
+        });
+        
+        if (!transaction) {
+          return reply.status(404).send({ error: "Transaction not found" });
+        }
+        
+        reply.send(transaction);
+      } catch (err: unknown) {
+        console.error("GET /api/transactions/:hash error:", err);
+        const message = err instanceof Error ? err.message : "Internal error";
+        reply.status(500).send({ error: message });
+      }
+    }
+  );
+
+  app.get(
+    "/api/transactions/game/:gameId",
+    {
+      preHandler: [(app as any).authenticate],
+    },
+    async (req, reply) => {
+      try {
+        const user = req.user as { sub: number; userName: string };
+        const gameId = (req.params as any).gameId;
+        
+        const transactions = await new Promise<any[]>((resolve, reject) => {
+          db.all(
+            "SELECT * FROM Transaction WHERE game_id = ? ORDER BY timestamp DESC",
+            [gameId],
+            (err, rows) => {
+              if (err) reject(err);
+              else resolve(rows);
+            }
+          );
+        });
+        
+        reply.send(transactions);
+      } catch (err: unknown) {
+        console.error("GET /api/transactions/game/:gameId error:", err);
+        const message = err instanceof Error ? err.message : "Internal error";
         reply.status(500).send({ error: message });
       }
     }

@@ -88,6 +88,21 @@ db.serialize(() => {
       FOREIGN KEY(winnerId) REFERENCES User(idUser)
     );
   `);
+  db.run(`
+    CREATE TABLE IF NOT EXISTS \`Transaction\` (
+      idTransaction     INTEGER PRIMARY KEY AUTOINCREMENT,
+      hash              TEXT UNIQUE NOT NULL,
+      block_number      INTEGER,
+      game_id           TEXT NOT NULL,
+      player_address    TEXT NOT NULL,
+      score             INTEGER NOT NULL,
+      timestamp         TEXT NOT NULL,
+      status            TEXT NOT NULL DEFAULT 'pending',
+      gas_used          INTEGER,
+      gas_price         TEXT,
+      FOREIGN KEY(player_address) REFERENCES User(address)
+    );
+  `);
   db.run(`INSERT OR IGNORE INTO User(userName, email, password, registrationDate, address, privkey, connectionStatus)
                 VALUES ('Jarvis', 'antarctica', 0, 'forever', 0, 0, 0)`);
 });
