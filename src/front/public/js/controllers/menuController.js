@@ -64,10 +64,6 @@ export function renderMenu(container, socket, onSelect) {
             });
         }
         catch (err) { }
-        localStorage.removeItem("userId");
-        localStorage.removeItem("userName");
-        localStorage.removeItem("email");
-        localStorage.removeItem("avatarURL");
         onSelect("login");
     });
 }
