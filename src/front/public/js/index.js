@@ -4,6 +4,7 @@ import { renderMenu } from "./controllers/menuController.js";
 import { renderPong } from "./controllers/pongController.js";
 import { renderProfile } from "./controllers/profileController.js";
 import { renderSettings } from "./controllers/settingsController.js";
+import { renderBlockExplorer } from "./controllers/blockExplorerController.js";
 import { arcadeTemplate } from "./templates/arcadeTemplate.js";
 import { checkAuth } from "./utils/auth.js";
 export let socket;
@@ -13,6 +14,10 @@ function doRender(screen) {
         renderSignup(root, () => navigate("login"));
     else if (screen === "login")
         renderLogin(root, () => navigate("menu"));
+    else if (screen === "blockexplorer") {
+        // Block explorer renders fullscreen without arcade frame
+        renderBlockExplorer(root, () => navigate("menu"));
+    }
     else {
         ensureArcadeFrame();
         const app = document.getElementById("app");

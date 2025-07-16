@@ -43,6 +43,10 @@ export function renderMenu(container, socket, onSelect) {
         zoomIn();
         onSelect("settings");
     });
+    container.querySelector("#btnBlockExplorer").addEventListener("click", () => {
+        zoomIn();
+        onSelect("blockexplorer");
+    });
     container
         .querySelector("#btnLogout")
         .addEventListener("click", async () => {

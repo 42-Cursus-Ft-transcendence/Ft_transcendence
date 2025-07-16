@@ -44,6 +44,9 @@ RUN apk add --no-cache sqlite-libs
 COPY --from=builder /app/back/dist   ./dist
 COPY --from=builder /app/front/public ./public
 
+# Copier les contrats compilés pour le blockchain module
+COPY contracts ./contracts
+
 # Installer uniquement les dépendances de prod du backend
 COPY src/back/package.json src/back/package-lock.json ./
 RUN npm install --omit=dev
