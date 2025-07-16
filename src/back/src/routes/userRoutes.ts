@@ -42,6 +42,8 @@ export default async function userRoutes(app: FastifyInstance) {
          isTotpEnabled,
          totpSecret
        ) VALUES (?, ?, ?, ?, ?, ?, 0, ?, 0, NULL)`,
+        `INSERT INTO User(userName, email, password, registrationDate, address, privkey, connectionStatus, avatarURL)
+                VALUES (?, ?, ?, ?, ?, ?, 0, ?)`,
         [userName, email, hashPass, now, address, privKey, defaultAvatar]
       );
       return reply.status(201).send({ idUser });
@@ -100,7 +102,8 @@ export default async function userRoutes(app: FastifyInstance) {
         `SELECT idUser, email, password, connectionStatus, isTotpEnabled, avatarURL
          FROM User
         WHERE userName = ?`,
-        [userName] // 2) 여기만 남깁니다
+        [userName]
+        avatarURL?: string;
       );
       if (!user)
         return reply

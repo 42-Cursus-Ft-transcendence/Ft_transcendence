@@ -3,6 +3,7 @@ import { navigate } from "../index.js";
 import { initSocket } from "../index.js";
 import { checkAuth } from "../utils/auth.js";
 import { defaultGameplaySettings, saveGameplaySettings, loadGameplaySettings, } from "./settingsController.js";
+
 export async function renderLogin(container, onSuccess) {
     const isAuth = await checkAuth();
     if (isAuth) {
