@@ -51,14 +51,45 @@ const palettes = {
     Monochrome: { ballColor: '#ffffff', paddleColor: '#888888', bgColor: '#000000', glowIntensity: 0, trailLength: 2, bgOpacity: 100 },
 } as const;
 
+/**
+ * Fetch user profile data from API
+ */
+async function fetchUserProfile(): Promise<{
+    userName: string;
+    email: string;
+    avatarURL?: string;
+    isTotpEnabled: boolean;
+} | null> {
+    try {
+        const res = await fetch('/api/me', {
+            method: 'GET',
+            credentials: 'include'
+        });
 
+        if (res.ok) {
+            const userData = await res.json();
+            return {
+                userName: userData.userName,
+                email: userData.email,
+                avatarURL: userData.avatarURL,
+                isTotpEnabled: userData.isTotpEnabled || false
+            };
+        } else {
+            console.error('Failed to fetch user profile');
+            return null;
+        }
+    } catch (error) {
+        console.error('Error fetching user profile:', error);
+        return null;
+    }
+}
 
-export function renderSettings(container: HTMLElement, onBack: () => void) {
+export async function renderSettings(container: HTMLElement, onBack: () => void) {
     container.innerHTML = settingsTemplate;
     bindBackButton(container, onBack);
-    bindAccountSection(container);
+    await bindAccountSection(container);
     bindGameplaySection(container);
-    bindSecuritySection(container);
+    await bindSecuritySection(container);
     bindTabNavigation(container);
 }
 
@@ -73,19 +104,23 @@ function bindBackButton(container: HTMLElement, onBack: () => void) {
 /**
  * Setup Account settings: profile info, avatar picker, form submission.
  */
-function bindAccountSection(container: HTMLElement) {
-    interface UserProfile { userName: string; email: string; avatarURL?: string; }
+async function bindAccountSection(container: HTMLElement) {
+    interface UserProfile { userName: string; email: string; avatarURL?: string; isTotpEnabled?: boolean; }
 
-    // Load stored profile from localStorage
-    const storedName = localStorage.getItem('userName');
-    const storedEmail = localStorage.getItem('email');
-    const storedAvatar = localStorage.getItem('avatarURL');
-    const profile: Partial<UserProfile> = {};
-    if (storedName) profile.userName = storedName;
-    if (storedEmail) profile.email = storedEmail;
-    if (storedAvatar) profile.avatarURL = storedAvatar;
-    // Keep track of the original avatar to detect changes
-    const originalAvatarURL = storedAvatar;
+    // Fetch user profile from API
+    const userData = await fetchUserProfile();
+    if (!userData) {
+        alert('Unable to load user profile');
+        return;
+    }
+
+    const profile: Partial<UserProfile> = {
+        userName: userData.userName,
+        email: userData.email,
+        avatarURL: userData.avatarURL,
+        isTotpEnabled: userData.isTotpEnabled
+    };
+    const originalAvatarURL = userData.avatarURL;
 
     // Selectors
     const profileImg = container.querySelector<HTMLImageElement>('#profile-img')!;
@@ -204,21 +239,18 @@ function bindAccountSection(container: HTMLElement) {
             } else {
                 const updated = await res.json() as UserProfile;
 
-                // Update localStorage and UI with fresh data from server
+                // Update profile object and UI with fresh data from server
                 if (updated.userName) {
-                    localStorage.setItem('userName', updated.userName);
+                    profile.userName = updated.userName;
                     usernameInput.value = updated.userName;
-                    profile.userName = updated.userName; // Update local profile
                 }
                 if (updated.email !== undefined) {
-                    localStorage.setItem('email', updated.email);
+                    profile.email = updated.email;
                     emailInput.value = updated.email;
-                    profile.email = updated.email; // Update local profile
                 }
                 if (updated.avatarURL) {
-                    localStorage.setItem('avatarURL', updated.avatarURL);
+                    profile.avatarURL = updated.avatarURL;
                     profileImg.src = updated.avatarURL;
-                    profile.avatarURL = updated.avatarURL; // Update local profile
                 }
 
                 alert('Account settings saved successfully');
@@ -347,7 +379,10 @@ function bindKeyCapture(
 /**
  * Bind the security form to perform a PUT with passwords and 2FA toggle.
  */
-function bindSecuritySection(container: HTMLElement) {
+async function bindSecuritySection(container: HTMLElement) {
+    // Fetch current 2FA status from API
+    const userData = await fetchUserProfile();
+    let initialTwoFactor = userData?.isTotpEnabled || false;
     // Buttons to toggle between password and 2FA forms
     const btnPw = container.querySelector<HTMLButtonElement>('#btn-change-password')!;
     const btn2F = container.querySelector<HTMLButtonElement>('#btn-change-2fa')!;
@@ -366,13 +401,10 @@ function bindSecuritySection(container: HTMLElement) {
     const btn2FSubmit = container.querySelector<HTMLButtonElement>('#twofaSubmitBtn')!;
     const txt2F = container.querySelector<HTMLSpanElement>('#twofaSubmitText')!;
 
-    // Track initial 2FA state from localStorage
+    // Track initial 2FA state from API
     const twoFactorInput = form2F.querySelector<HTMLInputElement>('#twoFactorCheckbox')!;
-    // Check if 2FA info is stored in localStorage - if present, 2FA is enabled
-    const stored2FA = localStorage.getItem('twoFactorEnabled');
-    const initialTwoFactor = stored2FA !== null; // true if key exists, false if not
 
-    // Set checkbox to match the stored state
+    // Set checkbox to match the fetched state
     twoFactorInput.checked = initialTwoFactor;
 
     // Toggle forms
@@ -478,14 +510,8 @@ function bindSecuritySection(container: HTMLElement) {
                 const err = await res.json();
                 alert(err.error || 'Unexpected error');
             } else {
-                // Success - update localStorage to reflect new 2FA state
-                if (twoFactor) {
-                    // 2FA enabled - store in localStorage
-                    localStorage.setItem('twoFactorEnabled', 'true');
-                } else {
-                    // 2FA disabled - remove from localStorage
-                    localStorage.setItem('twoFactorEnabled', 'false');
-                }
+                // Success - update the initial state for future comparisons
+                initialTwoFactor = twoFactor;
 
                 alert('Two-factor settings updated');
                 form2F.reset();
