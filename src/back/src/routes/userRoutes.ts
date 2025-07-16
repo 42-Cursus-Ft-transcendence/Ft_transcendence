@@ -49,8 +49,6 @@ export default async function userRoutes(app: FastifyInstance) {
       const userName = (request.user as any).userName as string;
 
       try {
-        const res = await getAsync<{ email: string; isTotpEnabled: number }>(
-          `SELECT email, isTotpEnabled FROM User WHERE idUser = ?`,
         const res = await getAsync<{
           email: string;
           isTotpEnabled: number;
