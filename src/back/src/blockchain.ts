@@ -3,6 +3,7 @@ import path from "path"
 import fs from "fs"
 import dotenv from "dotenv"
 import { ethers } from "ethers"
+import { db } from "./db/db"
 
 // 1) Load .env
 dotenv.config({ path: path.resolve(__dirname, "../.env") })
@@ -77,7 +78,26 @@ export async function postScore(
     const key = ethers.id(gameId)          // keccak256 of UTF-8 bytes
     const nonce = await getNextNonce()      // unique, incremental
     const tx = await scoreboard.submitScore(key, player, score, { nonce })
-    await tx.wait()
+
+    // Store transaction in database immediately after submission
+    const timestamp = new Date().toISOString()
+    db.run(
+        `INSERT INTO \`Transaction\` (hash, game_id, player_address, score, timestamp, status) 
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [tx.hash, gameId, player, score, timestamp, 'pending']
+    )
+
+    // Wait for confirmation and update status
+    const receipt = await tx.wait()
+    if (receipt) {
+        db.run(
+            `UPDATE \`Transaction\` 
+             SET status = ?, block_number = ?, gas_used = ?, gas_price = ? 
+             WHERE hash = ?`,
+            ['confirmed', receipt.blockNumber, receipt.gasUsed?.toString(), receipt.gasPrice?.toString(), tx.hash]
+        )
+    }
+
     return tx.hash
 }
 
