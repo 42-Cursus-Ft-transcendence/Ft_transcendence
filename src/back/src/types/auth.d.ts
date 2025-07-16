@@ -18,6 +18,10 @@ declare module "fastify" {
   interface FastifyInstance {
     /** Décorateur ajouté via app.decorate('authenticate', ...) */
     authenticate(request: FastifyRequest, reply: FastifyReply): Promise<void>;
+    pre2faAuthenticate(
+      request: FastifyRequest,
+      reply: FastifyReply
+    ): Promise<void>;
     jwt: FastifyJWT;
   }
 
