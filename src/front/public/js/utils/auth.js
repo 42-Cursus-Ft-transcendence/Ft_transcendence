@@ -1,6 +1,6 @@
 export async function checkAuth() {
     try {
-        const res = await fetch("/me", {
+        const res = await fetch("/api/me", {
             method: "GET",
             credentials: "include",
         });
