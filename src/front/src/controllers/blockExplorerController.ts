@@ -122,7 +122,7 @@ export function renderBlockExplorer(container: HTMLElement, onBack: () => void):
     const blocks: Block[] = [];
     const currentTime = Date.now();
     
-    for (let i = 0; i < 25; i++) {
+    for (let i = 0; i < 5; i++) {
       blocks.push({
         number: 150000 - i,
         hash: `0x${Math.random().toString(16).slice(2, 18)}...${Math.random().toString(16).slice(2, 10)}`,
@@ -141,7 +141,7 @@ export function renderBlockExplorer(container: HTMLElement, onBack: () => void):
     const tournaments: Tournament[] = [];
     const players = ['Alice', 'Bob', 'Charlie', 'Diana', 'Eve', 'Frank'];
     
-    for (let i = 0; i < 15; i++) {
+    for (let i = 0; i < 3; i++) {
       const winner = players[Math.floor(Math.random() * players.length)];
       const loser = players[Math.floor(Math.random() * players.length)];
       
