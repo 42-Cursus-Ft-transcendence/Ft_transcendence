@@ -179,7 +179,7 @@ export default async function userRoutes(app: FastifyInstance) {
       }
     }
   );
-  app.put("/settings/account",
+  app.put("/account",
     { preHandler: [(app as any).authenticate] },
     async (request, reply): Promise<void> => {
 
@@ -256,6 +256,67 @@ export default async function userRoutes(app: FastifyInstance) {
             .status(409)
             .send({ error: "Username or email already in use" });
         }
+        return reply.status(500).send({ error: "Internal server error" });
+      }
+    }
+  );
+  app.put("/security",
+    { preHandler: [(app as any).authenticate] },
+    async (request, reply): Promise<void> => {
+      // Get user ID from JWT payload
+      const idUser = (request.user as any).sub as number;
+
+      // Get and validate body
+      const { currentPassword, newPassword } = request.body as {
+        currentPassword?: string;
+        newPassword?: string;
+      };
+
+      // Validate required fields
+      if (!currentPassword || !newPassword) {
+        return reply
+          .status(400)
+          .send({ error: "Current password and new password are required" });
+      }
+
+      // Validate new password length
+      if (newPassword.length < 8) {
+        return reply
+          .status(400)
+          .send({ error: "New password must be at least 8 characters long" });
+      }
+
+      try {
+        // Get current user password hash
+        const user = await getAsync<{ password: string }>(
+          "SELECT password FROM User WHERE idUser = ?",
+          [idUser]
+        );
+
+        if (!user) {
+          return reply.status(404).send({ error: "User not found" });
+        }
+
+        // Verify current password
+        const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.password);
+        if (!isCurrentPasswordValid) {
+          return reply
+            .status(400)
+            .send({ error: "Current password is incorrect" });
+        }
+
+        // Hash new password
+        const newHashedPassword = await bcrypt.hash(newPassword, 10);
+
+        // Update password in database
+        await runAsync(
+          "UPDATE User SET password = ? WHERE idUser = ?",
+          [newHashedPassword, idUser]
+        );
+
+        return reply.status(200).send({ message: "Password updated successfully" });
+      } catch (err: any) {
+        console.error("Error updating password:", err);
         return reply.status(500).send({ error: "Internal server error" });
       }
     }

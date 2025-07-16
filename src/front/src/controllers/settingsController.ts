@@ -170,7 +170,7 @@ async function bindAccountSection(container: HTMLElement) {
         }
     });
 
-    // Account form submission (PUT /api/settings/account)
+    // Account form submission (PUT /api/account)
     formAccount.addEventListener('submit', async e => {
         e.preventDefault();
         resetErrors(errName, errEmail);
@@ -220,7 +220,7 @@ async function bindAccountSection(container: HTMLElement) {
         btnAcct.disabled = true;
         txtAcct.textContent = 'Saving…';
         try {
-            const res = await fetch('/api/settings/account', {
+            const res = await fetch('/api/account', {
                 method: 'PUT',
                 credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
@@ -441,7 +441,7 @@ async function bindSecuritySection(container: HTMLElement) {
         btnPwSubmit.disabled = true;
         txtPw.textContent = 'Saving…';
         try {
-            const res = await fetch('/api/settings/security', {
+            const res = await fetch('/api/security', {
                 method: 'PUT', credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ currentPassword, newPassword })
@@ -495,7 +495,7 @@ async function bindSecuritySection(container: HTMLElement) {
         btn2FSubmit.disabled = true;
         txt2F.textContent = 'Saving…';
         try {
-            const res = await fetch('/api/settings/2fa', {
+            const res = await fetch('/api/2fa', {
                 method: 'POST', credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
