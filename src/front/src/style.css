@@ -51,6 +51,25 @@
     background-color: #f97316;
   }
   
+  /* Hide scrollbar specifically for menu */
+  .scrollable-menu::-webkit-scrollbar {
+    width: 0px;
+    background: transparent;
+  }
+  
+  .scrollable-menu::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  .scrollable-menu::-webkit-scrollbar-thumb {
+    background: transparent;
+  }
+  
+  .scrollable-menu {
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE and Edge */
+  }
+  
   /* Scroll position indicators */
   .scroll-top::before {
     content: "▲";
