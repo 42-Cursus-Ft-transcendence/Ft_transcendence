@@ -322,7 +322,7 @@ import authPlugin from "./plugins/auth";
                 // Get transactions with pagination
                 const transactions = await new Promise<any[]>((resolve, reject) => {
                     db.all(
-                        `SELECT * FROM Transaction 
+                        `SELECT * FROM \`Transaction\` 
              ORDER BY timestamp DESC 
              LIMIT ? OFFSET ?`,
                         [limit, offset],
@@ -336,7 +336,7 @@ import authPlugin from "./plugins/auth";
                 // Get total count for pagination
                 const totalCount = await new Promise<number>((resolve, reject) => {
                     db.get(
-                        "SELECT COUNT(*) as count FROM Transaction",
+                        "SELECT COUNT(*) as count FROM `Transaction`",
                         (err, row: any) => {
                             if (err) reject(err);
                             else resolve(row.count);
@@ -373,7 +373,7 @@ import authPlugin from "./plugins/auth";
 
                 const transaction = await new Promise<any>((resolve, reject) => {
                     db.get(
-                        "SELECT * FROM Transaction WHERE hash = ?",
+                        "SELECT * FROM `Transaction` WHERE hash = ?",
                         [hash],
                         (err, row) => {
                             if (err) reject(err);
@@ -407,7 +407,7 @@ import authPlugin from "./plugins/auth";
 
                 const transactions = await new Promise<any[]>((resolve, reject) => {
                     db.all(
-                        "SELECT * FROM Transaction WHERE game_id = ? ORDER BY timestamp DESC",
+                        "SELECT * FROM `Transaction` WHERE game_id = ? ORDER BY timestamp DESC",
                         [gameId],
                         (err, rows) => {
                             if (err) reject(err);

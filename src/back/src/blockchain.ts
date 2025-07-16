@@ -78,7 +78,7 @@ export async function postScore(
     const key = ethers.id(gameId)          // keccak256 of UTF-8 bytes
     const nonce = await getNextNonce()      // unique, incremental
     const tx = await scoreboard.submitScore(key, player, score, { nonce })
-    
+
     // Store transaction in database immediately after submission
     const timestamp = new Date().toISOString()
     db.run(
@@ -86,7 +86,7 @@ export async function postScore(
          VALUES (?, ?, ?, ?, ?, ?)`,
         [tx.hash, gameId, player, score, timestamp, 'pending']
     )
-    
+
     // Wait for confirmation and update status
     const receipt = await tx.wait()
     if (receipt) {
@@ -97,7 +97,7 @@ export async function postScore(
             ['confirmed', receipt.blockNumber, receipt.gasUsed?.toString(), receipt.gasPrice?.toString(), tx.hash]
         )
     }
-    
+
     return tx.hash
 }
 
