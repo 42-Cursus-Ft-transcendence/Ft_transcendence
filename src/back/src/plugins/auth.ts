@@ -27,9 +27,7 @@ export default fp(async function (app: FastifyInstance) {
   app.decorate(
     "pre2faAuthenticate",
     async (request: FastifyRequest, reply: FastifyReply) => {
-      const token =
-        request.headers["x-pre2fa-token"] ||
-        (request.cookies as any).pre2faToken;
+      const token = (request.cookies as any).pre2faToken;
 
       if (!token) {
         return reply.code(401).send({

@@ -125,6 +125,11 @@ export default async function twofaRoutes(app: FastifyInstance) {
       if (!userRow) {
         return reply.status(500).send({ error: "User lookup failed" });
       }
+      reply.clearCookie("pre2faToken", {
+        httpOnly: true,
+        path: "/",
+        sameSite: "strict",
+      });
       const jwt = app.jwt.sign({ sub: userId });
       return reply
         .setCookie("token", jwt, {
