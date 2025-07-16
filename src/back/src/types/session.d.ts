@@ -5,7 +5,7 @@ export interface WaitingItem {
 
 export interface Session {
   id: string;
-  game: import("../game").default;
+  game: import("../websocket/handlers/game").default;
   sockets: {
     p1: WebSocket;
     p2: WebSocket;

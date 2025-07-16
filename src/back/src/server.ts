@@ -1,10 +1,3 @@
-import type {
-  FastifyLoggerOptions,
-  FastifyInstance,
-  FastifyRequest,
-  FastifyReply,
-} from "fastify";
-import type { WebSocket } from "@fastify/websocket";
 import path from "path";
 import fs from "fs";
 import dotenv from "dotenv";
@@ -14,37 +7,20 @@ import oauthPlugin from "@fastify/oauth2";
 
 dotenv.config({ path: path.resolve(__dirname, "../.env.backend") });
 import Fastify from "fastify";
-import fastifyWebsocket from "@fastify/websocket";
 import fastifyStatic from "@fastify/static";
-import { ethers } from "ethers";
 
-import { postScore, fetchScores } from "./blockchain";
-import {
-  handleRankedStart,
-  handleRankedInput,
-  handleRankedStop,
-  handleRankedStopLobby,
-  cleanupRankedSocket,
-  getLeaderboard,
-  socketToRankedSession,
-  handleRankedForfeit,
-} from "./tournament";
 import "./db/db"; // ← initialise la BD et les tables
 
 // Import new handlers
-import { handleOnlineStart, cleanupOnlineSocket } from "./online";
-import { handleAIStart, handleLocalStart, cleanupLocalGame } from "./ai";
-import { handleInput } from "./input";
-import { handleStop } from "./stop";
-import { handleStopLobby } from "./stoplobby";
-import { handleForfeit } from "./forfeit";
 import userRoutes from "./routes/userRoutes";
 import oauthRoutes from "./routes/oauthRoute";
 import twofaRoutes from "./routes/twofaRoutes";
+import scoresRoutes from "./routes/scoresRoutes";
 
 // Import plugins
 import loggerPlugin, { loggerOptions } from "./plugins/logger";
 import authPlugin from "./plugins/auth";
+import registerWebsocketRoutes from "./websocket";
 //import { verifyPre2fa } from "./plugins/verifyPre2fa";
 
 (async () => {
@@ -109,294 +85,29 @@ import authPlugin from "./plugins/auth";
       },
       auth: oauthPlugin.GOOGLE_CONFIGURATION,
     },
-    startRedirectPath: "/api/login/google", // 인증 시작 URL
-    callbackUri: process.env.GOOGLE_CALLBACK_URL!, // 인증 후 callback URL
+    startRedirectPath: process.env.GOOGLE_REDIRECT_URL!, // The URL to initiate authentication
+    callbackUri: process.env.GOOGLE_CALLBACK_URL!, // The callback URL after authentication
     callbackUriParams: {
-      // callbackUri에 추가할 custom query 파라미터
-      access_type: "offline", // refresh token도 받기 위해 'offline' 모드를 요청
+      // Custom query parameters to append to the callback URL
+      access_type: "offline", // Request offline mode to receive a refresh token
     },
     pkce: "S256",
   });
 
   await app.register(authPlugin);
 
-  // bd routes
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Router Registration
+  // ─────────────────────────────────────────────────────────────────────────────// bd routes
   app.register(userRoutes, { prefix: "/api" });
   app.register(oauthRoutes, { prefix: "/api" });
   app.register(twofaRoutes, { prefix: "/api" });
+  app.register(scoresRoutes, { prefix: "/api" });
 
   // Register WebSocket plugin without any options
-  app.register(fastifyWebsocket);
+  await app.register(registerWebsocketRoutes);
   console.log("WebSocket plugin registered");
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // WebSocket endpoint: /ws (with online matchmaking + bot + local play)
-  // ─────────────────────────────────────────────────────────────────────────────
-  app.register(async (fastify: FastifyInstance) => {
-    fastify.get(
-      "/ws",
-      {
-        websocket: true,
-        preHandler: [(fastify as any).authenticate],
-      },
-      (socket: WebSocket, request: FastifyRequest) => {
-        const payload = request.user as { sub: number; userName: string };
-        console.log(`✅ WS client connected: user #${payload.userName}`);
-
-        socket.on("message", async (raw: Buffer) => {
-          let msg: any;
-          try {
-            msg = JSON.parse(raw.toString());
-            console.log(msg);
-          } catch {
-            return socket.send(
-              JSON.stringify({ type: "error", message: "Invalid JSON" })
-            );
-          }
-
-          switch (msg.type) {
-            // 1) START: decide online vs bot vs local vs ranked
-            case "start":
-              if (msg.vs === "ranked") {
-                await handleRankedStart(socket, payload);
-                return;
-              }
-              if (msg.vs === "online") {
-                handleOnlineStart(socket, payload);
-                return;
-              }
-              if (msg.vs === "bot") {
-                handleAIStart(socket, msg.difficulty);
-                return;
-              }
-              // Default to local player mode
-              handleLocalStart(socket);
-              return;
-
-            // 2) INPUT: route to the correct game instance
-            case "input":
-              handleInput(socket, msg);
-              return;
-
-            // 3) STOP: tear down the correct session and save scores
-            case "stop":
-              await handleStop(socket);
-              return;
-
-            case "stoplobby":
-              handleStopLobby(socket, msg);
-              return;
-
-            case "forfeit":
-              await handleForfeit(socket);
-              return;
-
-            default:
-              return socket.send(
-                JSON.stringify({
-                  type: "error",
-                  message: "Unknown message type",
-                })
-              );
-          }
-        });
-
-        socket.on("close", async () => {
-          // Clean up all types of sessions/games
-          cleanupOnlineSocket(socket);
-          cleanupLocalGame(socket);
-          await cleanupRankedSocket(socket);
-
-          console.log("⚠️ WS client disconnected");
-        });
-      }
-    );
-  });
-
-  // ─────────────────────────────────────────────────────────────────────────────
-  // HTTP API: on-chain scores
-  // ─────────────────────────────────────────────────────────────────────────────
-  app.post(
-    "/api/scores",
-    {
-      preHandler: [(app as any).authenticate], // Add authentication
-    },
-    async (
-      req: FastifyRequest<{
-        Body: { gameId: string; player: string; score: number };
-      }>,
-      reply: FastifyReply
-    ) => {
-      try {
-        // Now you can access authenticated user info
-        const user = req.user as { sub: number; userName: string };
-        console.log(
-          `Authenticated user: ${user.userName} (ID: ${user.sub}) posting score`
-        );
-
-        const { gameId, player, score } = req.body as {
-          gameId: string;
-          player: string;
-          score: number;
-        };
-
-        // Validate and normalize Ethereum address
-        const validateAndNormalizeAddress = (addr: string): string | null => {
-          if (typeof addr !== "string" || !/^0x[a-fA-F0-9]{40}$/.test(addr)) {
-            return null;
-          }
-          try {
-            // Convert to lowercase first to bypass strict checksum validation, then normalize
-            const lowercaseAddr = addr.toLowerCase();
-            return ethers.getAddress(lowercaseAddr);
-          } catch {
-            return null;
-          }
-        };
-
-        const normalizedAddress = validateAndNormalizeAddress(player);
-
-        if (!gameId || !normalizedAddress || typeof score !== "number") {
-          return reply.status(400).send({
-            error: "Invalid payload",
-            details: {
-              gameId: !gameId ? "missing" : "ok",
-              player: !normalizedAddress
-                ? "invalid address format or checksum"
-                : "ok",
-              score: typeof score !== "number" ? "must be number" : "ok",
-            },
-          });
-        }
-
-        const txHash = await postScore(gameId, normalizedAddress, score);
-        reply.send({ txHash });
-      } catch (err: any) {
-        console.error("POST /api/scores error:", err);
-        const message = err instanceof Error ? err.message : "Internal error";
-        reply.status(500).send({ error: message });
-      }
-    }
-  );
-
-  app.get(
-    "/api/scores/:gameId",
-    {
-      preHandler: [(app as any).authenticate], // Add authentication
-    },
-    async (req, reply) => {
-      try {
-        const user = req.user as { sub: number; userName: string };
-        console.log(
-          `Authenticated user: ${user.userName} requesting scores for game`
-        );
-        const gameId = (req.params as any).gameId;
-        console.log(gameId);
-        const scores = await fetchScores(gameId);
-        reply.send(scores);
-      } catch (err: unknown) {
-        console.error("GET /api/scores error:", err);
-        let message: string;
-        if (err instanceof Error) {
-          message = err.message;
-        } else {
-          message = "Internal error";
-        }
-        reply.status(500).send({ error: message });
-      }
-    }
-  );
-
-  // ─────────────────────────────────────────────────────────────────────────────
-  // Tournament/Ranked API endpoints
-  // ─────────────────────────────────────────────────────────────────────────────
-  app.get(
-    "/api/leaderboard",
-    {
-      preHandler: [(app as any).authenticate], // Add authentication
-    },
-    async (req, reply) => {
-      try {
-        // Now you can access authenticated user info
-        const user = req.user as { sub: number; userName: string };
-        console.log(
-          `Authenticated user: ${user.userName} requesting leaderboard`
-        );
-
-        const limit = parseInt((req.query as any).limit) || 10;
-        const leaderboard = await getLeaderboard(limit);
-        reply.send(leaderboard);
-      } catch (err: unknown) {
-        console.error("GET /api/leaderboard error:", err);
-        const message = err instanceof Error ? err.message : "Internal error";
-        reply.status(500).send({ error: message });
-      }
-    }
-  );
-
-  // Add this TEMPORARY test endpoint right after your existing API routes
-  app.get("/api/test-token", async (req, reply) => {
-    try {
-      // Create a test JWT token for user ID 1
-      const testUser = { sub: 1, userName: "testUser" };
-      const token = app.jwt.sign(testUser);
-
-      // Set the cookie like your OAuth does
-      reply.setCookie("token", token, {
-        httpOnly: true,
-        secure: false, // set to true in production with HTTPS
-        sameSite: "lax",
-        maxAge: 7200, // 2 hours
-      });
-
-      reply.send({
-        message: "Test token set in cookie",
-        token: token,
-        user: testUser,
-      });
-    } catch (err) {
-      reply.status(500).send({ error: "Failed to create test token" });
-    }
-  });
-
-  // Add a test endpoint with better error reporting
-  app.post("/api/test-scores-working", async (req, reply) => {
-    try {
-      console.log("Raw request body:", req.body);
-
-      const { gameId, player, score } = req.body as any;
-
-      // Manual address validation instead of ethers.isAddress()
-      const isValidEthAddress = (addr: string): boolean => {
-        return typeof addr === "string" && /^0x[a-fA-F0-9]{40}$/.test(addr);
-      };
-
-      console.log("Manual address validation:", isValidEthAddress(player));
-      console.log("ethers.isAddress test:", ethers.isAddress(player));
-
-      // Validation with manual check
-      if (!gameId) {
-        return reply.status(400).send({ error: "gameId is required" });
-      }
-      if (!isValidEthAddress(player)) {
-        return reply.status(400).send({
-          error: "player must be a valid Ethereum address (manual check)",
-        });
-      }
-      if (typeof score !== "number") {
-        return reply.status(400).send({ error: "score must be a number" });
-      }
-
-      reply.send({
-        message: "✅ All validation passed!",
-        received: { gameId, player, score },
-        note: "Using manual address validation instead of ethers.isAddress()",
-      });
-    } catch (err: any) {
-      console.error("Test endpoint error:", err);
-      reply.status(500).send({ error: err.message });
-    }
-  });
   // ─────────────────────────────────────────────────────────────────────────────
   // Serve static frontend & SPA fallback (excluding /ws & /api)
   // ─────────────────────────────────────────────────────────────────────────────
