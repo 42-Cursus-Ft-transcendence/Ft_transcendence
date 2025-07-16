@@ -83,39 +83,94 @@ export function renderBlockExplorer(container, onBack) {
     };
     addScrollIndicators(latestBlocksContainer);
     addScrollIndicators(tournamentScoresContainer);
-    // Mock data - In real implementation, this would come from Avalanche blockchain API
-    function generateMockBlocks() {
-        const blocks = [];
-        const currentTime = Date.now();
-        for (let i = 0; i < 5; i++) {
-            blocks.push({
-                number: 150000 - i,
-                hash: `0x${Math.random().toString(16).slice(2, 18)}...${Math.random().toString(16).slice(2, 10)}`,
-                timestamp: currentTime - (i * 60000), // 1 minute intervals
-                transactions: Math.floor(Math.random() * 100) + 1,
-                gasUsed: (Math.random() * 8000000).toFixed(0),
-                gasLimit: "8000000",
-                miner: `0x${Math.random().toString(16).slice(2, 12)}...${Math.random().toString(16).slice(2, 6)}`
-            });
+    // API functions to fetch real blockchain data from local database
+    async function fetchTransactions(page = 1, limit = 20) {
+        try {
+            const response = await fetch(`/api/transactions?page=${page}&limit=${limit}`);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return await response.json();
         }
-        return blocks;
+        catch (error) {
+            console.error('Error fetching transactions:', error);
+            return { transactions: [], pagination: { page: 1, limit: 20, total: 0, totalPages: 0 } };
+        }
     }
-    function generateMockTournaments() {
-        const tournaments = [];
-        const players = ['Alice', 'Bob', 'Charlie', 'Diana', 'Eve', 'Frank'];
-        for (let i = 0; i < 3; i++) {
-            const winner = players[Math.floor(Math.random() * players.length)];
-            const loser = players[Math.floor(Math.random() * players.length)];
-            tournaments.push({
-                id: `tournament_${Date.now() - i * 3600000}`,
-                winner,
-                score: `${Math.floor(Math.random() * 5) + 5}-${Math.floor(Math.random() * 4)}`,
-                participants: [winner, loser],
-                timestamp: Date.now() - (i * 3600000), // 1 hour intervals
-                blockHash: `0x${Math.random().toString(16).slice(2, 18)}...${Math.random().toString(16).slice(2, 10)}`
-            });
+    async function fetchTransactionByHash(hash) {
+        try {
+            const response = await fetch(`/api/transactions/${hash}`);
+            if (!response.ok) {
+                if (response.status === 404) {
+                    return null;
+                }
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return await response.json();
         }
-        return tournaments;
+        catch (error) {
+            console.error('Error fetching transaction by hash:', error);
+            return null;
+        }
+    }
+    // Convert database transactions to blocks format for display
+    function transactionsToBlocks(transactions) {
+        // Group transactions by block number
+        const blockGroups = {};
+        transactions.forEach(tx => {
+            if (tx.block_number) {
+                if (!blockGroups[tx.block_number]) {
+                    blockGroups[tx.block_number] = [];
+                }
+                blockGroups[tx.block_number].push(tx);
+            }
+        });
+        // Convert to Block format using real blockchain data
+        return Object.entries(blockGroups)
+            .map(([blockNumber, txs]) => ({
+            number: parseInt(blockNumber),
+            hash: txs[0]?.hash || 'N/A',
+            timestamp: new Date(txs[0]?.timestamp || Date.now()).getTime(),
+            transactions: txs.length,
+            gasUsed: txs.reduce((sum, tx) => sum + (tx.gas_used || 0), 0).toString(),
+            gasLimit: "8000000",
+            miner: "Local Testnet"
+        }))
+            .sort((a, b) => b.number - a.number);
+    }
+    // Convert database transactions to tournament format for display
+    function transactionsToTournaments(transactions) {
+        return transactions
+            .filter(tx => tx.status === 'confirmed')
+            .map(tx => ({
+            id: tx.game_id,
+            winner: tx.player_address.slice(0, 6) + '...' + tx.player_address.slice(-4),
+            score: tx.score.toString(),
+            participants: [tx.player_address],
+            timestamp: new Date(tx.timestamp).getTime(),
+            blockHash: tx.hash
+        }))
+            .sort((a, b) => b.timestamp - a.timestamp);
+    }
+    // Store current transaction data
+    let currentTransactions = [];
+    let currentBlocks = [];
+    let currentTournaments = [];
+    // Fetch real data from local blockchain database
+    async function loadBlockchainData() {
+        try {
+            const data = await fetchTransactions(1, 100); // Get more transactions for better block grouping
+            currentTransactions = data.transactions;
+            currentBlocks = transactionsToBlocks(currentTransactions);
+            currentTournaments = transactionsToTournaments(currentTransactions);
+        }
+        catch (error) {
+            console.error('Error loading blockchain data:', error);
+            // Fallback to empty arrays if API fails
+            currentTransactions = [];
+            currentBlocks = [];
+            currentTournaments = [];
+        }
     }
     function formatTimestamp(timestamp) {
         return new Date(timestamp).toLocaleString();
@@ -127,8 +182,11 @@ export function renderBlockExplorer(container, onBack) {
         return hash;
     }
     function renderLatestBlocks() {
-        const blocks = generateMockBlocks();
-        latestBlocksContainer.innerHTML = blocks.map(block => `
+        if (currentBlocks.length === 0) {
+            latestBlocksContainer.innerHTML = '<div class="text-center text-gray-400 py-4">No blockchain data available</div>';
+            return;
+        }
+        latestBlocksContainer.innerHTML = currentBlocks.slice(0, 10).map(block => `
       <div class="bg-black/30 border border-pink-400 hover:border-pink-500 rounded p-2 cursor-pointer block-item transition" data-block='${JSON.stringify(block)}'>
         <div class="flex justify-between items-center mb-1">
           <div class="text-accent font-arcade text-xs">#${block.number}</div>
@@ -139,7 +197,7 @@ export function renderBlockExplorer(container, onBack) {
         </div>
         <div class="flex justify-between text-xs">
           <span class="text-green-400">${block.transactions} txns</span>
-          <span class="text-blue-300">${parseInt(block.gasUsed).toLocaleString()} gas</span>
+          <span class="text-blue-300">${parseInt(block.gasUsed || '0').toLocaleString()} gas</span>
         </div>
       </div>
     `).join('');
@@ -152,17 +210,20 @@ export function renderBlockExplorer(container, onBack) {
         });
     }
     function renderTournamentScores() {
-        const tournaments = generateMockTournaments();
-        tournamentScoresContainer.innerHTML = tournaments.map(tournament => `
+        if (currentTournaments.length === 0) {
+            tournamentScoresContainer.innerHTML = '<div class="text-center text-gray-400 py-4">No tournament data available</div>';
+            return;
+        }
+        tournamentScoresContainer.innerHTML = currentTournaments.slice(0, 10).map(tournament => `
       <div class="bg-black/30 border border-pink-400 hover:border-pink-500 rounded p-2 transition">
         <div class="flex justify-between items-center mb-1">
-          <div class="text-accent font-arcade text-xs">Tournament #${tournament.id.split('_')[1]}</div>
+          <div class="text-accent font-arcade text-xs">Game ${tournament.id}</div>
           <div class="text-green-300 text-xs">${formatTimestamp(tournament.timestamp)}</div>
         </div>
         <div class="mb-1">
-          <span class="text-white text-xs">🏆 Winner: </span>
+          <span class="text-white text-xs">🏆 Player: </span>
           <span class="text-accent font-bold text-xs">${tournament.winner}</span>
-          <span class="text-green-400 text-xs"> ${tournament.score}</span>
+          <span class="text-green-400 text-xs"> Score: ${tournament.score}</span>
         </div>
         <div class="text-blue-300 text-xs font-mono">
           ${formatHash(tournament.blockHash)}
@@ -190,60 +251,67 @@ export function renderBlockExplorer(container, onBack) {
     `;
         blockModal.classList.remove('hidden');
     }
-    function handleSearch() {
+    async function handleSearch() {
         const query = searchInput.value.trim();
         if (!query) {
             return;
         }
-        // Mock search functionality - in real implementation would query blockchain
         if (query.startsWith('0x')) {
-            // Searching for hash
-            const mockBlock = {
-                number: Math.floor(Math.random() * 150000),
-                hash: query.length > 20 ? query : `${query}${'0'.repeat(66 - query.length)}`,
-                timestamp: Date.now() - Math.random() * 86400000,
-                transactions: Math.floor(Math.random() * 100) + 1,
-                gasUsed: (Math.random() * 8000000).toFixed(0),
-                gasLimit: "8000000",
-                miner: `0x${Math.random().toString(16).slice(2, 12)}...${Math.random().toString(16).slice(2, 6)}`
-            };
-            showBlockDetails(mockBlock);
+            // Searching for transaction hash
+            const transaction = await fetchTransactionByHash(query);
+            if (transaction) {
+                const block = {
+                    number: transaction.block_number || 0,
+                    hash: transaction.hash,
+                    timestamp: new Date(transaction.timestamp).getTime(),
+                    transactions: 1,
+                    gasUsed: transaction.gas_used?.toString() || '0',
+                    gasLimit: "8000000",
+                    miner: "Local Testnet"
+                };
+                showBlockDetails(block);
+            }
+            else {
+                alert('Transaction not found in local blockchain database.');
+            }
         }
         else if (!isNaN(parseInt(query))) {
             // Searching for block number
-            const mockBlock = {
-                number: parseInt(query),
-                hash: `0x${Math.random().toString(16).slice(2, 18)}...${Math.random().toString(16).slice(2, 10)}`,
-                timestamp: Date.now() - Math.random() * 86400000,
-                transactions: Math.floor(Math.random() * 100) + 1,
-                gasUsed: (Math.random() * 8000000).toFixed(0),
-                gasLimit: "8000000",
-                miner: `0x${Math.random().toString(16).slice(2, 12)}...${Math.random().toString(16).slice(2, 6)}`
-            };
-            showBlockDetails(mockBlock);
+            const blockNumber = parseInt(query);
+            const block = currentBlocks.find(b => b.number === blockNumber);
+            if (block) {
+                showBlockDetails(block);
+            }
+            else {
+                alert('Block not found in local blockchain database.');
+            }
         }
         else {
-            alert('Invalid search query. Please enter a block hash (0x...) or block number.');
+            alert('Invalid search query. Please enter a transaction hash (0x...) or block number.');
         }
         searchInput.value = '';
     }
     // Update stats
     function updateStats() {
-        const blocks = generateMockBlocks();
-        const tournaments = generateMockTournaments();
-        latestBlockNumberEl.textContent = blocks[0]?.number.toString() || 'N/A';
-        totalTournamentsEl.textContent = tournaments.length.toString();
+        latestBlockNumberEl.textContent = currentBlocks[0]?.number.toString() || 'N/A';
+        totalTournamentsEl.textContent = currentTournaments.length.toString();
     }
     // Initialize the component
-    updateStats();
-    renderLatestBlocks();
-    renderTournamentScores();
-    // Auto-refresh every 30 seconds (simulating real blockchain updates)
-    const refreshInterval = setInterval(() => {
+    async function initializeBlockExplorer() {
+        await loadBlockchainData();
+        updateStats();
+        renderLatestBlocks();
+        renderTournamentScores();
+    }
+    // Auto-refresh every 30 seconds to get latest blockchain data
+    const refreshInterval = setInterval(async () => {
+        await loadBlockchainData();
         updateStats();
         renderLatestBlocks();
         renderTournamentScores();
     }, 30000);
+    // Initialize with real data
+    initializeBlockExplorer();
     // Cleanup function (would be called when component unmounts)
     // In this case, we'll store it on the container for potential cleanup
     container.cleanup = () => {
