@@ -1,12 +1,16 @@
 import { menuTemplate } from "../templates/menuTemplate.js";
-import { loadGameplaySettings } from './settingsController.js';
+import { loadGameplaySettings } from "./settingsController.js";
 // Convert difficulty setting to numeric value
 function getDifficultyValue(difficulty) {
     switch (difficulty) {
-        case 'Easy': return 0.2;
-        case 'Normal': return 0.5;
-        case 'Hard': return 1;
-        default: return 0.5; // fallback to Normal
+        case "Easy":
+            return 0.2;
+        case "Normal":
+            return 0.5;
+        case "Hard":
+            return 1;
+        default:
+            return 0.5; // fallback to Normal
     }
 }
 export function renderMenu(container, socket, onSelect) {
@@ -43,7 +47,9 @@ export function renderMenu(container, socket, onSelect) {
         zoomIn();
         onSelect("settings");
     });
-    container.querySelector("#btnBlockExplorer").addEventListener("click", () => {
+    container
+        .querySelector("#btnBlockExplorer")
+        .addEventListener("click", () => {
         zoomIn();
         onSelect("blockexplorer");
     });
