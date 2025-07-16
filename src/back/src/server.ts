@@ -11,16 +11,17 @@ import fastifyStatic from "@fastify/static";
 
 import "./db/db"; // ← initialise la BD et les tables
 
-// Import new handlers
+// Import Routes
 import userRoutes from "./routes/userRoutes";
 import oauthRoutes from "./routes/oauthRoute";
 import twofaRoutes from "./routes/twofaRoutes";
 import scoresRoutes from "./routes/scoresRoutes";
+import registerWebsocketRoutes from "./websocket";
 
 // Import plugins
 import loggerPlugin, { loggerOptions } from "./plugins/logger";
 import authPlugin from "./plugins/auth";
-import registerWebsocketRoutes from "./websocket";
+import swaggerPlugin from "./plugins/swagger";
 //import { verifyPre2fa } from "./plugins/verifyPre2fa";
 
 (async () => {
@@ -97,6 +98,12 @@ import registerWebsocketRoutes from "./websocket";
   // Register authentication
   await app.register(authPlugin);
 
+  // ─────────────────────────────────────────
+  // Swagger documentation configuration
+  // ─────────────────────────────────────────
+  if (process.env.NODE_ENV === "development") {
+    await app.register(swaggerPlugin);
+  }
   // ─────────────────────────────────────────────────────────────────────────────
   // Router Registration
   // ─────────────────────────────────────────────────────────────────────────────// bd routes
