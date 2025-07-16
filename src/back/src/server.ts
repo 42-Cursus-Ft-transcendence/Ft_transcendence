@@ -123,9 +123,31 @@ import registerWebsocketRoutes from "./websocket";
     if (fs.existsSync(ico)) {
       reply.header("Content-Type", "image/x-icon").send(fs.readFileSync(ico));
     } else {
-        console.log(`🚀 Server running at http://0.0.0.0:${PORT}`);
+      reply.code(204).send();
     }
+  });
+
+  app.setNotFoundHandler((req, reply) => {
+    const url = req.raw.url || "";
+    // let /ws handshake and /api pass through
+    if (url.startsWith("/ws") || url.startsWith("/api")) {
+      return reply.callNotFound();
+    }
+    reply.sendFile("index.html");
+  });
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Start server
+  // ─────────────────────────────────────────────────────────────────────────────
+  const PORT = Number(process.env.PORT) || 3000;
+  await app.listen({ port: PORT, host: "0.0.0.0" });
+  if (isDev) {
+    console.log(
+      `\x1b[32m🚀 [DEV] Server running at http://localhost:${PORT}\x1b[0m`
+    );
+  } else {
+    console.log(`🚀 Server running at http://0.0.0.0:${PORT}`);
+  }
 })().catch((err) => {
-    console.error(err);
-    process.exit(1);
+  console.error(err);
+  process.exit(1);
 });
