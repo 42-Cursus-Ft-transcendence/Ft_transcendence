@@ -85,7 +85,7 @@ import registerWebsocketRoutes from "./websocket";
       },
       auth: oauthPlugin.GOOGLE_CONFIGURATION,
     },
-    startRedirectPath: process.env.GOOGLE_REDIRECT_URL!, // The URL to initiate authentication
+    startRedirectPath: process.env.GOOGLE_REDIRECT_PATH!, // The URL to initiate authentication
     callbackUri: process.env.GOOGLE_CALLBACK_URL!, // The callback URL after authentication
     callbackUriParams: {
       // Custom query parameters to append to the callback URL
@@ -94,6 +94,7 @@ import registerWebsocketRoutes from "./websocket";
     pkce: "S256",
   });
 
+  // Register authentication
   await app.register(authPlugin);
 
   // ─────────────────────────────────────────────────────────────────────────────
