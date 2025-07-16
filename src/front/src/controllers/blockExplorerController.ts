@@ -58,12 +58,71 @@ export function renderBlockExplorer(container: HTMLElement, onBack: () => void):
     }
   });
 
+  // Add keyboard navigation for containers
+  const addKeyboardNavigation = (container: HTMLElement) => {
+    container.addEventListener('keydown', (e) => {
+      const scrollAmount = 100;
+      
+      switch (e.key) {
+        case 'ArrowUp':
+          e.preventDefault();
+          container.scrollBy({ top: -scrollAmount, behavior: 'smooth' });
+          break;
+        case 'ArrowDown':
+          e.preventDefault();
+          container.scrollBy({ top: scrollAmount, behavior: 'smooth' });
+          break;
+        case 'Home':
+          e.preventDefault();
+          container.scrollTo({ top: 0, behavior: 'smooth' });
+          break;
+        case 'End':
+          e.preventDefault();
+          container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+          break;
+      }
+    });
+    
+    // Make containers focusable
+    container.setAttribute('tabindex', '0');
+  };
+
+  // Add keyboard navigation to both containers
+  addKeyboardNavigation(latestBlocksContainer);
+  addKeyboardNavigation(tournamentScoresContainer);
+
+  // Add scroll indicators
+  const addScrollIndicators = (container: HTMLElement) => {
+    const updateScrollIndicators = () => {
+      const { scrollTop, scrollHeight, clientHeight } = container;
+      const scrollPercentage = (scrollTop / (scrollHeight - clientHeight)) * 100;
+      
+      // Add visual feedback for scroll position
+      if (scrollTop === 0) {
+        container.classList.add('scroll-top');
+        container.classList.remove('scroll-bottom', 'scroll-middle');
+      } else if (scrollTop + clientHeight >= scrollHeight - 1) {
+        container.classList.add('scroll-bottom');
+        container.classList.remove('scroll-top', 'scroll-middle');
+      } else {
+        container.classList.add('scroll-middle');
+        container.classList.remove('scroll-top', 'scroll-bottom');
+      }
+    };
+    
+    container.addEventListener('scroll', updateScrollIndicators);
+    updateScrollIndicators(); // Initial check
+  };
+
+  addScrollIndicators(latestBlocksContainer);
+  addScrollIndicators(tournamentScoresContainer);
+
   // Mock data - In real implementation, this would come from Avalanche blockchain API
   function generateMockBlocks(): Block[] {
     const blocks: Block[] = [];
     const currentTime = Date.now();
     
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 25; i++) {
       blocks.push({
         number: 150000 - i,
         hash: `0x${Math.random().toString(16).slice(2, 18)}...${Math.random().toString(16).slice(2, 10)}`,
@@ -82,7 +141,7 @@ export function renderBlockExplorer(container: HTMLElement, onBack: () => void):
     const tournaments: Tournament[] = [];
     const players = ['Alice', 'Bob', 'Charlie', 'Diana', 'Eve', 'Frank'];
     
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 15; i++) {
       const winner = players[Math.floor(Math.random() * players.length)];
       const loser = players[Math.floor(Math.random() * players.length)];
       

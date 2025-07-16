@@ -61,9 +61,12 @@ export const blockExplorerTemplate = `
       <div class="bg-black/50 border border-pink-400 rounded-lg p-4">
         <div class="flex items-center justify-between mb-4">
           <h2 class="font-arcade text-sm text-accent">📦 LATEST BLOCKS</h2>
-          <div class="text-xs text-green-300">Auto-refresh: 30s</div>
+          <div class="flex items-center space-x-2">
+            <div class="text-xs text-green-300">Auto-refresh: 30s</div>
+            <div class="text-xs text-gray-400">• Use ↑↓ to scroll</div>
+          </div>
         </div>
-        <div id="latestBlocks" class="space-y-2 max-w-lg overflow-y-auto scrollbar-thin scrollbar-thumb-pink-500 scrollbar-track-transparent">
+        <div id="latestBlocks" class="space-y-2 h-96 overflow-y-auto scrollbar-thin scrollbar-thumb-pink-500 scrollbar-track-transparent scroll-smooth relative focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-inset rounded">
           <div class="text-green-300 text-center py-4 text-sm">Loading blocks...</div>
         </div>
       </div>
@@ -72,9 +75,12 @@ export const blockExplorerTemplate = `
       <div class="bg-black/50 border border-pink-400 rounded-lg p-4">
         <div class="flex items-center justify-between mb-4">
           <h2 class="font-arcade text-sm text-accent">🏆 TOURNAMENT RESULTS</h2>
-          <div class="text-xs text-green-300">On-chain verified</div>
+          <div class="flex items-center space-x-2">
+            <div class="text-xs text-green-300">On-chain verified</div>
+            <div class="text-xs text-gray-400">• Use ↑↓ to scroll</div>
+          </div>
         </div>
-        <div id="tournamentScores" class="space-y-2 max-w-lg overflow-y-auto scrollbar-thin scrollbar-thumb-pink-500 scrollbar-track-transparent">
+        <div id="tournamentScores" class="space-y-2 h-96 overflow-y-auto scrollbar-thin scrollbar-thumb-pink-500 scrollbar-track-transparent scroll-smooth relative focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-inset rounded">
           <div class="text-green-300 text-center py-4 text-sm">Loading tournament data...</div>
         </div>
       </div>
