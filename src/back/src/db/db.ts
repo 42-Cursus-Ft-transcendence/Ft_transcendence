@@ -1,6 +1,16 @@
 import path from "path";
 import fs from "fs";
 import sqlite3 from "sqlite3";
+import { ethers } from "ethers";
+
+// Function to generate Ethereum wallet for user
+export function generateUserWallet(): { address: string; privateKey: string } {
+  const wallet = ethers.Wallet.createRandom();
+  return {
+    address: wallet.address,
+    privateKey: wallet.privateKey,
+  };
+}
 
 const dbPath = path.resolve(
   __dirname,
@@ -89,7 +99,7 @@ db.serialize(() => {
     );
   `);
   db.run(`
-    CREATE TABLE IF NOT EXISTS \`Transaction\` (
+    CREATE TABLE IF NOT EXISTS Transaction (
       idTransaction     INTEGER PRIMARY KEY AUTOINCREMENT,
       hash              TEXT UNIQUE NOT NULL,
       block_number      INTEGER,
@@ -99,10 +109,12 @@ db.serialize(() => {
       timestamp         TEXT NOT NULL,
       status            TEXT NOT NULL DEFAULT 'pending',
       gas_used          INTEGER,
-      gas_price         TEXT,
-      FOREIGN KEY(player_address) REFERENCES User(address)
+      gas_price         TEXT
     );
   `);
+  // Create default user with generated wallet
+  const defaultWallet = generateUserWallet();
   db.run(`INSERT OR IGNORE INTO User(userName, email, password, registrationDate, address, privkey, connectionStatus)
-                VALUES ('Jarvis', 'antarctica', 0, 'forever', 0, 0, 0)`);
+                VALUES ('Jarvis', 'antarctica', 0, 'forever', ?, ?, 0)`, 
+         [defaultWallet.address, defaultWallet.privateKey]);
 });
