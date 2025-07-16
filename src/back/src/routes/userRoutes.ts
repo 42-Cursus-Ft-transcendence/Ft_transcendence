@@ -4,19 +4,7 @@ import jwt from "jsonwebtoken";
 import { Wallet } from "ethers";
 
 import { runAsync, getAsync } from "../db";
-
-// Function to get random default avatar
-function getRandomDefaultAvatar(): string {
-  const defaultAvatars = [
-    "/assets/icone/Demacia_Vice.webp",
-    "/assets/icone/Garen.webp",
-    "/assets/icone/Garen_Border.webp",
-    "/assets/icone/Legendary_Handshake.webp",
-    "/assets/icone/Lucian.webp",
-    "/assets/icone/Lucian_Border.webp",
-  ];
-  return defaultAvatars[Math.floor(Math.random() * defaultAvatars.length)];
-}
+import { getRandomDefaultAvatar } from "../utils/avatar";
 
 export default async function userRoutes(app: FastifyInstance) {
   console.log("🛠️  userRoutes mounted");
@@ -42,8 +30,18 @@ export default async function userRoutes(app: FastifyInstance) {
       const defaultAvatar = getRandomDefaultAvatar();
 
       const idUser = await runAsync(
-        `INSERT INTO User(userName, email, password, registrationDate, address, privkey, connectionStatus, avatarURL)
-                VALUES (?, ?, ?, ?, ?, ?, 0, ?)`,
+        `INSERT INTO User(
+         userName,
+         email,
+         password,
+         registrationDate,
+         address,
+         privkey,
+         connectionStatus,
+         avatarURL,
+         isTotpEnabled,
+         totpSecret
+       ) VALUES (?, ?, ?, ?, ?, ?, 0, ?, 0, NULL)`,
         [userName, email, hashPass, now, address, privKey, defaultAvatar]
       );
       return reply.status(201).send({ idUser });
