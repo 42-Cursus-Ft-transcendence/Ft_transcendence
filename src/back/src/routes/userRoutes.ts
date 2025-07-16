@@ -49,8 +49,8 @@ export default async function userRoutes(app: FastifyInstance) {
       const userName = (request.user as any).userName as string;
 
       try {
-        const res = await getAsync<{ email: string }>(
-          `SELECT email FROM User WHERE idUser = ?`,
+        const res = await getAsync<{ email: string; isTotpEnabled: number }>(
+          `SELECT email, isTotpEnabled FROM User WHERE idUser = ?`,
           [idUser]
         );
         if (!res) return reply.status(401).send({ error: "User not found" });
@@ -58,6 +58,7 @@ export default async function userRoutes(app: FastifyInstance) {
           idUser,
           userName,
           email: res.email,
+          twoFactorEnabled: res.isTotpEnabled === 1,
         });
       } catch (err) {
         return reply.status(500).send({ error: "Internal server error" });
@@ -65,7 +66,7 @@ export default async function userRoutes(app: FastifyInstance) {
     }
   );
 
-  app.post("/api/login", async (request, reply): Promise<void> => {
+  app.post("/login", async (request, reply): Promise<void> => {
     console.log(">> Recu POST /login");
     const { userName, password } = request.body as {
       userName?: string;
@@ -114,10 +115,18 @@ export default async function userRoutes(app: FastifyInstance) {
           { sub: user.idUser, pre2fa: true },
           { expiresIn: "5m" } // Short-lived token for pre-2FA login
         );
-        return reply.status(200).send({
-          require2fa: true,
-          pre2faToken,
-        });
+        return reply
+          .setCookie("pre2faToken", pre2faToken, {
+            // signed: true,
+            httpOnly: true,
+            path: "/",
+            sameSite: "strict",
+            // secure:   true
+          })
+          .status(200)
+          .send({
+            require2fa: true,
+          });
       }
       const token = app.jwt.sign(
         { sub: user.idUser, userName },
@@ -144,7 +153,7 @@ export default async function userRoutes(app: FastifyInstance) {
   });
 
   app.post(
-    "/api/logout",
+    "/logout",
     { preHandler: [(app as any).authenticate] },
     async (request, reply) => {
       // Récupère directement l’ID depuis le payload du JWT
