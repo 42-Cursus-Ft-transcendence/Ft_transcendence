@@ -44,6 +44,8 @@ export function renderPong(container, socket, onBack) {
             });
         }
     }
+    // Bind cancel button immediately since we start with waitingTemplate
+    bindCancel();
     window.addEventListener('popstate', (event) => {
         cleanup();
     });
