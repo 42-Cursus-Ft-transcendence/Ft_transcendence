@@ -54,6 +54,11 @@ import swaggerPlugin from "./plugins/swagger";
   const app = Fastify({
     logger: loggerOptions[environment],
     disableRequestLogging: true,
+    ajv: {
+      customOptions: {
+        strict: false, // Disable strict mode to allow additional properties for Swagger
+      },
+    },
   });
   app.register(loggerPlugin);
 
