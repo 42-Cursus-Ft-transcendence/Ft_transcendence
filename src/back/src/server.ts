@@ -21,7 +21,6 @@ import registerWebsocketRoutes from "./websocket";
 // Import plugins
 import loggerPlugin, { loggerOptions } from "./plugins/logger";
 import authPlugin from "./plugins/auth";
-import swaggerPlugin from "./plugins/swagger";
 //import { verifyPre2fa } from "./plugins/verifyPre2fa";
 
 (async () => {
@@ -103,12 +102,6 @@ import swaggerPlugin from "./plugins/swagger";
   // Register authentication
   await app.register(authPlugin);
 
-  // ─────────────────────────────────────────
-  // Swagger documentation configuration
-  // ─────────────────────────────────────────
-  if (process.env.NODE_ENV === "development") {
-    await app.register(swaggerPlugin);
-  }
   // ─────────────────────────────────────────────────────────────────────────────
   // Router Registration
   // ─────────────────────────────────────────────────────────────────────────────// bd routes
@@ -148,6 +141,7 @@ import swaggerPlugin from "./plugins/swagger";
     }
     reply.sendFile("index.html");
   });
+
   // ─────────────────────────────────────────────────────────────────────────────
   // Start server
   // ─────────────────────────────────────────────────────────────────────────────

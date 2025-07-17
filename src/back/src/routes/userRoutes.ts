@@ -3,57 +3,47 @@ import bcrypt from "bcrypt";
 import { Wallet } from "ethers";
 
 import { runAsync, getAsync } from "../db";
-import {
-  signupSchema,
-  loginSchema,
-  meSchema,
-  logoutSchema,
-} from "../schemas/userSchemas";
 import { getRandomDefaultAvatar } from "../utils/avatar";
 
 export default async function userRoutes(app: FastifyInstance) {
-  app.post(
-    "/signup",
-    { schema: signupSchema },
-    async (request, reply): Promise<void> => {
-      console.log(">> Reçu POST /user");
-      // Récupère et valide le body
-      const { userName, email, password } = request.body as {
-        userName?: string;
-        email?: string;
-        password?: string;
-      };
-      if (!userName || !email || !password)
-        return reply
-          .status(400)
-          .send({ error: "userName, email and password required" });
+  app.post("/signup", async (request, reply): Promise<void> => {
+    console.log(">> Reçu POST /user");
+    // Récupère et valide le body
+    const { userName, email, password } = request.body as {
+      userName?: string;
+      email?: string;
+      password?: string;
+    };
+    if (!userName || !email || !password)
+      return reply
+        .status(400)
+        .send({ error: "userName, email and password required" });
 
-      try {
-        const hashPass = await bcrypt.hash(password, 10);
-        const now = new Date().toString();
-        const userWallet = Wallet.createRandom();
-        const address = userWallet.address;
-        const privKey = userWallet.privateKey;
-        const defaultAvatar = getRandomDefaultAvatar();
+    try {
+      const hashPass = await bcrypt.hash(password, 10);
+      const now = new Date().toString();
+      const userWallet = Wallet.createRandom();
+      const address = userWallet.address;
+      const privKey = userWallet.privateKey;
+      const defaultAvatar = getRandomDefaultAvatar();
 
-        const idUser = await runAsync(
-          `INSERT INTO User(userName, email, password, registrationDate, address, privkey, connectionStatus, avatarURL)
+      const idUser = await runAsync(
+        `INSERT INTO User(userName, email, password, registrationDate, address, privkey, connectionStatus, avatarURL)
                 VALUES (?, ?, ?, ?, ?, ?, 0, ?)`,
-          [userName, email, hashPass, now, address, privKey, defaultAvatar]
-        );
-        return reply.status(201).send({ idUser });
-      } catch (err: any) {
-        if (err.code === "SQLITE_CONSTRAINT") {
-          return reply.status(409).send({ error: "Username already taken" });
-        }
-        return reply.status(500).send({ error: "Internal server error" });
+        [userName, email, hashPass, now, address, privKey, defaultAvatar]
+      );
+      return reply.status(201).send({ idUser });
+    } catch (err: any) {
+      if (err.code === "SQLITE_CONSTRAINT") {
+        return reply.status(409).send({ error: "Username already taken" });
       }
+      return reply.status(500).send({ error: "Internal server error" });
     }
-  );
+  });
 
   app.get(
     "/me",
-    { preHandler: [(app as any).authenticate], schema: meSchema },
+    { preHandler: [(app as any).authenticate] },
     async (request, reply) => {
       const idUser = (request.user as any).sub as number;
       const userName = (request.user as any).userName as string;
@@ -76,30 +66,27 @@ export default async function userRoutes(app: FastifyInstance) {
     }
   );
 
-  app.post(
-    "/login",
-    { schema: loginSchema },
-    async (request, reply): Promise<void> => {
-      console.log(">> Recu POST /login");
-      const { userName, password } = request.body as {
-        userName?: string;
-        password?: string;
-      };
-      if (!userName || !password)
-        return reply
-          .status(400)
-          .send({ error: "userName and password required" });
+  app.post("/login", async (request, reply): Promise<void> => {
+    console.log(">> Recu POST /login");
+    const { userName, password } = request.body as {
+      userName?: string;
+      password?: string;
+    };
+    if (!userName || !password)
+      return reply
+        .status(400)
+        .send({ error: "userName and password required" });
 
-      try {
-        const user = await getAsync<{
-          idUser: number;
-          email: string;
-          password: string;
-          connectionStatus: number;
-          isTotpEnabled: number;
-          avatarURL?: string;
-        }>(
-          `SELECT 
+    try {
+      const user = await getAsync<{
+        idUser: number;
+        email: string;
+        password: string;
+        connectionStatus: number;
+        isTotpEnabled: number;
+        avatarURL?: string;
+      }>(
+        `SELECT 
          idUser, 
          email, 
          password, 
@@ -108,46 +95,28 @@ export default async function userRoutes(app: FastifyInstance) {
          avatarURL
        FROM User
        WHERE userName = ?`,
-          [userName]
-        );
+        [userName]
+      );
 
-        if (!user)
-          return reply
-            .status(401)
-            .send({ error: "Invalid username or password" });
-        const match = await bcrypt.compare(password, user.password);
-        if (!match)
-          return reply
-            .status(401)
-            .send({ error: "Invalid username or password" });
-        await runAsync(
-          `UPDATE User SET connectionStatus = 1 WHERE idUser = ?`,
-          [user.idUser]
-        );
-        if (user.isTotpEnabled === 1) {
-          const pre2faToken = app.jwt.sign(
-            { sub: user.idUser, pre2fa: true },
-            { expiresIn: "5m" } // Short-lived token for pre-2FA login
-          );
-          return reply
-            .setCookie("pre2faToken", pre2faToken, {
-              // signed: true,
-              httpOnly: true,
-              path: "/",
-              sameSite: "strict",
-              // secure:   true
-            })
-            .status(200)
-            .send({
-              require2fa: true,
-            });
-        }
-        const token = app.jwt.sign(
-          { sub: user.idUser, userName },
-          { expiresIn: "2h" }
+      if (!user)
+        return reply
+          .status(401)
+          .send({ error: "Invalid username or password" });
+      const match = await bcrypt.compare(password, user.password);
+      if (!match)
+        return reply
+          .status(401)
+          .send({ error: "Invalid username or password" });
+      await runAsync(`UPDATE User SET connectionStatus = 1 WHERE idUser = ?`, [
+        user.idUser,
+      ]);
+      if (user.isTotpEnabled === 1) {
+        const pre2faToken = app.jwt.sign(
+          { sub: user.idUser, pre2fa: true },
+          { expiresIn: "5m" } // Short-lived token for pre-2FA login
         );
         return reply
-          .setCookie("token", token, {
+          .setCookie("pre2faToken", pre2faToken, {
             // signed: true,
             httpOnly: true,
             path: "/",
@@ -156,20 +125,37 @@ export default async function userRoutes(app: FastifyInstance) {
           })
           .status(200)
           .send({
-            userName,
-            email: user.email,
-            idUser: user.idUser,
-            avatarURL: user.avatarURL,
+            require2fa: true,
           });
-      } catch (err) {
-        return reply.status(500).send({ error: "Internal server error" });
       }
+      const token = app.jwt.sign(
+        { sub: user.idUser, userName },
+        { expiresIn: "2h" }
+      );
+      console.log("email in back", user.email);
+      return reply
+        .setCookie("token", token, {
+          // signed: true,
+          httpOnly: true,
+          path: "/",
+          sameSite: "strict",
+          // secure:   true
+        })
+        .status(200)
+        .send({
+          userName,
+          email: user.email,
+          idUser: user.idUser,
+          avatarURL: user.avatarURL,
+        });
+    } catch (err) {
+      return reply.status(500).send({ error: "Internal server error" });
     }
-  );
+  });
 
   app.post(
     "/logout",
-    { preHandler: [(app as any).authenticate], schema: logoutSchema },
+    { preHandler: [(app as any).authenticate] },
     async (request, reply) => {
       // Récupère directement l’ID depuis le payload du JWT
       const idUser = (request.user as any).sub as number;
