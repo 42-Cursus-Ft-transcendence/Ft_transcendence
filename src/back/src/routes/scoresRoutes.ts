@@ -11,6 +11,7 @@ import {
 import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { ethers } from "ethers";
 import { postScore, fetchScores } from "../blockchain";
+import { db } from "../db/db";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HTTP API: on-chain scores
@@ -69,7 +70,7 @@ export default async function scoresRoutes(app: FastifyInstance) {
           });
         }
 
-        const txHash = await postScore(gameId, normalizedAddress, score);
+        const txHash = await postScore(gameId, normalizedAddress, score, user.sub);
         reply.send({ txHash });
       } catch (err: any) {
         console.error("POST /api/scores error:", err);
@@ -144,7 +145,7 @@ export default async function scoresRoutes(app: FastifyInstance) {
       // Set the cookie like your OAuth does
       reply.setCookie("token", token, {
         httpOnly: true,
-        secure: false, // set to true in production with HTTPS
+        secure: false, 
         sameSite: "lax",
         maxAge: 7200, // 2 hours
       });
@@ -158,6 +159,44 @@ export default async function scoresRoutes(app: FastifyInstance) {
       reply.status(500).send({ error: "Failed to create test token" });
     }
   });
+
+  // Get transactions endpoint
+  app.get(
+    "/transactions",
+    {
+      preHandler: [(app as any).authenticate],
+    },
+    async (req, reply) => {
+      try {
+        const user = req.user as { sub: number; userName: string };
+        const page = parseInt((req.query as any).page) || 1;
+        const limit = parseInt((req.query as any).limit) || 100;
+        const offset = (page - 1) * limit;
+
+        console.log(`Fetching transactions for user ${user.userName} (ID: ${user.sub})`);
+
+        const rows = await new Promise<any[]>((resolve, reject) => {
+          db.all(
+            `SELECT * FROM \`Transaction\` 
+             WHERE userId = ? OR userId IS NULL 
+             ORDER BY timestamp DESC 
+             LIMIT ? OFFSET ?`,
+            [user.sub, limit, offset],
+            (err, rows) => {
+              if (err) reject(err);
+              else resolve(rows);
+            }
+          );
+        });
+
+        console.log(`Found ${rows.length} transactions for user ${user.sub}`);
+        reply.send(rows);
+      } catch (err) {
+        console.error("GET /api/transactions error:", err);
+        reply.status(500).send({ error: "Internal error" });
+      }
+    }
+  );
 
   // Add a test endpoint with better error reporting
   app.post("/test-scores-working", async (req, reply) => {

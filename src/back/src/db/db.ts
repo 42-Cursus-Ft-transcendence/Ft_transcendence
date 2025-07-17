@@ -105,11 +105,13 @@ db.serialize(() => {
       block_number      INTEGER,
       game_id           TEXT NOT NULL,
       player_address    TEXT NOT NULL,
+      userId            INTEGER,
       score             INTEGER NOT NULL,
       timestamp         TEXT NOT NULL,
       status            TEXT NOT NULL DEFAULT 'pending',
       gas_used          INTEGER,
-      gas_price         TEXT
+      gas_price         TEXT,
+      FOREIGN KEY(userId) REFERENCES User(idUser)
     );
   `);
     // Create default user with generated wallet

@@ -94,7 +94,7 @@ export function renderBlockExplorer(container, onBack) {
         }
         catch (error) {
             console.error('Error fetching transactions:', error);
-            return { transactions: [], pagination: { page: 1, limit: 20, total: 0, totalPages: 0 } };
+            return [];
         }
     }
     async function fetchTransactionByHash(hash) {
@@ -160,7 +160,7 @@ export function renderBlockExplorer(container, onBack) {
     async function loadBlockchainData() {
         try {
             const data = await fetchTransactions(1, 100); // Get more transactions for better block grouping
-            currentTransactions = data.transactions;
+            currentTransactions = Array.isArray(data) ? data : [];
             currentBlocks = transactionsToBlocks(currentTransactions);
             currentTournaments = transactionsToTournaments(currentTransactions);
         }
