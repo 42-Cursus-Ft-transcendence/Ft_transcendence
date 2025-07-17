@@ -1,0 +1,102 @@
+services:
+  anvil:
+    image: ghcr.io/foundry-rs/foundry:latest
+    entrypoint:
+      - anvil
+      - --host
+      - 0.0.0.0
+      - --chain-id
+      - "31337"
+      - --port
+      - "8545"
+    ports:
+      - "8545:8545"
+    networks:
+      - pongnet
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    container_name: transcendence
+    environment:
+      # RPC endpoint for blockchain (docker-compose network alias)
+      - RPC_URL=http://anvil:8545
+      # Optionally pass private key from env file or override here
+      - PRIVATE_KEY=${PRIVATE_KEY}
+    depends_on:
+      - anvil
+    env_file:
+      - .env
+      - ./src/back/.env.backend
+    networks:
+      - pongnet # <-- no colon here
+
+  nginx:
+    build:
+      context: .
+      dockerfile: docker/nginx/Dockerfile
+    container_name: nginx
+    depends_on:
+      - backend
+      - prometheus
+      - grafana
+    ports:
+      - "8080:80"
+      - "8443:443"
+    networks:
+      - pongnet
+
+  prometheus:
+    build:
+      context: ./docker/prometheus
+      dockerfile: Dockerfile
+      args:
+        ARCH: x86_64
+    container_name: prometheus
+    restart: on-failure
+    networks:
+      - pongnet
+    expose:
+      - "9090"
+    depends_on:
+      - nginx-prometheus-exporter
+
+  grafana:
+    build:
+      context: ./docker/grafana
+      dockerfile: Dockerfile
+    container_name: grafana
+    env_file:
+      - .env
+    restart: on-failure
+    environment:
+      #- GF_SERVER_ROOT_URL=https://grafana.junsan.42.fr/
+      - GF_SERVER_ROOT_URL=%(protocol)s://%(domain)s:%(http_port)s/grafana/
+      - GF_SECURITY_ADMIN_USER=${GF_ADMIN_USER}
+      - GF_SECURITY_ADMIN_PASSWORD=${GF_ADMIN_PASSWORD}
+      - GF_PATHS_PLUGINS=/usr/share/grafana/data/plugins
+      - GF_INSTALL_PLUGINS=grafana-lokiexplore-app
+    volumes:
+      - .:/var/lib/grafana
+    networks:
+      - pongnet
+    depends_on:
+      - prometheus
+  nginx-prometheus-exporter:
+    build:
+      context: ./docker/nginx-prometheus-exporter
+      dockerfile: Dockerfile
+      args:
+        ARCH: x86_64
+    container_name: nginx-prometheus-exporter
+    ports:
+      - "9113:9113"
+    networks:
+      - pongnet
+
+# Define the network
+networks:
+  pongnet:
+    driver: bridge
