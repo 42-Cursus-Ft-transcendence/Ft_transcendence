@@ -49,8 +49,12 @@ export default async function userRoutes(app: FastifyInstance) {
       const userName = (request.user as any).userName as string;
 
       try {
-        const res = await getAsync<{ email: string; isTotpEnabled: number }>(
-          `SELECT email, isTotpEnabled FROM User WHERE idUser = ?`,
+        const res = await getAsync<{
+          email: string;
+          isTotpEnabled: number;
+          avatarURL?: string;
+        }>(
+          `SELECT email, isTotpEnabled, avatarURL FROM User WHERE idUser = ?`,
           [idUser]
         );
         if (!res) return reply.status(401).send({ error: "User not found" });
@@ -58,7 +62,8 @@ export default async function userRoutes(app: FastifyInstance) {
           idUser,
           userName,
           email: res.email,
-          twoFactorEnabled: res.isTotpEnabled === 1,
+          isTotpEnabled: res.isTotpEnabled === 1,
+          avatarURL: res.avatarURL,
         });
       } catch (err) {
         return reply.status(500).send({ error: "Internal server error" });
@@ -180,6 +185,148 @@ export default async function userRoutes(app: FastifyInstance) {
           .setCookie("token", "", cookieOpt)
           .status(200)
           .send({ ok: true });
+      }
+    }
+  );
+  app.put("/account",
+    { preHandler: [(app as any).authenticate] },
+    async (request, reply): Promise<void> => {
+
+      // Get user ID from JWT payload
+      const idUser = (request.user as any).sub as number;
+
+      // Get and validate body
+      const { userName, email, avatarURL } = request.body as {
+        userName?: string;
+        email?: string;
+        avatarURL?: string;
+      };
+
+      // Validate that at least one field is provided
+      if (!userName && email === undefined && !avatarURL) {
+        return reply
+          .status(400)
+          .send({ error: "At least one field (userName, email, avatarURL) is required" });
+      }
+
+      // Validate username if provided
+      if (userName !== undefined && (!userName || userName.trim().length === 0)) {
+        return reply
+          .status(400)
+          .send({ error: "Username cannot be empty" });
+      }
+
+      // Validate email format if provided and not empty
+      if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        return reply
+          .status(400)
+          .send({ error: "Invalid email format" });
+      }
+
+      try {
+        // Update each field individually if present
+        if (userName !== undefined) {
+          await runAsync("UPDATE User SET userName = ? WHERE idUser = ?", [
+            userName.trim(),
+            idUser,
+          ]);
+        }
+        if (email !== undefined) {
+          await runAsync("UPDATE User SET email = ? WHERE idUser = ?", [
+            email,
+            idUser,
+          ]);
+        }
+        if (avatarURL !== undefined) {
+          await runAsync("UPDATE User SET avatarURL = ? WHERE idUser = ?", [
+            avatarURL,
+            idUser,
+          ]);
+        }
+
+        // Get updated profile from database
+        const updated = await getAsync<{
+          userName: string;
+          email: string;
+          avatarURL?: string;
+        }>(
+          "SELECT userName, email, avatarURL FROM User WHERE idUser = ?",
+          [idUser]
+        );
+
+        if (!updated) {
+          return reply.status(404).send({ error: "User not found" });
+        }
+
+        return reply.status(200).send(updated);
+      } catch (err: any) {
+        if (err.code === "SQLITE_CONSTRAINT") {
+          return reply
+            .status(409)
+            .send({ error: "Username or email already in use" });
+        }
+        return reply.status(500).send({ error: "Internal server error" });
+      }
+    }
+  );
+  app.put("/security",
+    { preHandler: [(app as any).authenticate] },
+    async (request, reply): Promise<void> => {
+      // Get user ID from JWT payload
+      const idUser = (request.user as any).sub as number;
+
+      // Get and validate body
+      const { currentPassword, newPassword } = request.body as {
+        currentPassword?: string;
+        newPassword?: string;
+      };
+
+      // Validate required fields
+      if (!currentPassword || !newPassword) {
+        return reply
+          .status(400)
+          .send({ error: "Current password and new password are required" });
+      }
+
+      // Validate new password length
+      if (newPassword.length < 8) {
+        return reply
+          .status(400)
+          .send({ error: "New password must be at least 8 characters long" });
+      }
+
+      try {
+        // Get current user password hash
+        const user = await getAsync<{ password: string }>(
+          "SELECT password FROM User WHERE idUser = ?",
+          [idUser]
+        );
+
+        if (!user) {
+          return reply.status(404).send({ error: "User not found" });
+        }
+
+        // Verify current password
+        const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.password);
+        if (!isCurrentPasswordValid) {
+          return reply
+            .status(400)
+            .send({ error: "Current password is incorrect" });
+        }
+
+        // Hash new password
+        const newHashedPassword = await bcrypt.hash(newPassword, 10);
+
+        // Update password in database
+        await runAsync(
+          "UPDATE User SET password = ? WHERE idUser = ?",
+          [newHashedPassword, idUser]
+        );
+
+        return reply.status(200).send({ message: "Password updated successfully" });
+      } catch (err: any) {
+        console.error("Error updating password:", err);
+        return reply.status(500).send({ error: "Internal server error" });
       }
     }
   );

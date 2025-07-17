@@ -193,6 +193,49 @@ export const settingsTemplate = `
         </div>
       </form>
     </div>
+    <div id="twofa-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md">
+      <div class="bg-black/60 backdrop-blur-sm border border-pink-500 rounded-lg shadow-neon w-full max-w-sm p-4 space-y-3">
+      <div class="flex justify-between items-center">
+        <h2 class="text-sm font-semibold text-pink-400">Enable 2FA</h2>
+        <button id="twofa-close" class="absolute top-2 right-2 text-pink-400 hover:text-pink-200 text-2xl">&times;</button>
+      </div>
+      <ol class="list-decimal list-inside text-green-400 space-y-2 text-xs">
+        <li>
+          <span class="text-xs font-medium">Download app</span>
+          <p class="text-xs text-gray-400 ml-9" style="font-size: 7px;">Download a mobile authentication app.</p>
+        </li>
+        <li>
+          <span class="text-xs font-medium">Scan QR Code</span>
+          <p class="text-xs text-gray-400 ml-9" style="font-size: 7px;">Scan this QR code using your authenticator app.</p>
+          <div class="flex justify-center mt-1">
+            <img id="twofa-qr" src="" alt="QR Code"
+                 class="w-24 h-24 border border-pink-500 rounded shadow-neon" />
+          </div>
+        </li>
+        <li>
+          <span class="text-xs font-medium">Enter Code</span>
+          <p class="text-xs text-gray-400 ml-9" style="font-size: 7px;">Enter the 6‑digit verification code:</p>
+          <div class="flex justify-center space-x-1 my-3">
+            <input type="text" maxlength="1"
+                   class="w-8 h-8 text-xs text-center bg-black/50 border border-pink-500 rounded focus:border-blue-400 outline-none text-green-400 shadow-inner" />
+            <input type="text" maxlength="1"
+                   class="w-8 h-8 text-xs text-center bg-black/50 border border-pink-500 rounded focus:border-blue-400 outline-none text-green-400 shadow-inner" />
+            <input type="text" maxlength="1"
+                   class="w-8 h-8 text-xs text-center bg-black/50 border border-pink-500 rounded focus:border-blue-400 outline-none text-green-400 shadow-inner" />
+            <input type="text" maxlength="1"
+                   class="w-8 h-8 text-xs text-center bg-black/50 border border-pink-500 rounded focus:border-blue-400 outline-none text-green-400 shadow-inner" />
+            <input type="text" maxlength="1"
+                   class="w-8 h-8 text-xs text-center bg-black/50 border border-pink-500 rounded focus:border-blue-400 outline-none text-green-400 shadow-inner" />
+            <input type="text" maxlength="1"
+                   class="w-8 h-8 text-xs text-center bg-black/50 border border-pink-500 rounded focus:border-blue-400 outline-none text-green-400 shadow-inner" />
+          </div>
+        </li>
+      </ol>
+      <div class="min-h-[20px] flex items-center justify-center">
+        <p id="error-2fa-modal" class="text-red-500 text-xs text-center hidden"></p>
+      </div>
+    </div>
+  </div>
   </div>
 </div>
 `;

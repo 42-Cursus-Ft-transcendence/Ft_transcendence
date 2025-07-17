@@ -1,4 +1,5 @@
 import { settingsTemplate } from "../templates/settingsTemplate.js";
+import { fetchUserProfile } from "../utils/auth.js";
 
 export interface GameplaySettings {
     difficulty: 'Easy' | 'Normal' | 'Hard';
@@ -51,14 +52,12 @@ const palettes = {
     Monochrome: { ballColor: '#ffffff', paddleColor: '#888888', bgColor: '#000000', glowIntensity: 0, trailLength: 2, bgOpacity: 100 },
 } as const;
 
-
-
-export function renderSettings(container: HTMLElement, onBack: () => void) {
+export async function renderSettings(container: HTMLElement, onBack: () => void) {
     container.innerHTML = settingsTemplate;
     bindBackButton(container, onBack);
-    bindAccountSection(container);
+    await bindAccountSection(container);
     bindGameplaySection(container);
-    bindSecuritySection(container);
+    await bindSecuritySection(container);
     bindTabNavigation(container);
 }
 
@@ -73,19 +72,23 @@ function bindBackButton(container: HTMLElement, onBack: () => void) {
 /**
  * Setup Account settings: profile info, avatar picker, form submission.
  */
-function bindAccountSection(container: HTMLElement) {
-    interface UserProfile { userName: string; email: string; avatarURL?: string; }
+async function bindAccountSection(container: HTMLElement) {
+    interface UserProfile { userName: string; email: string; avatarURL?: string; isTotpEnabled?: boolean; }
 
-    // Load stored profile from localStorage
-    const storedName = localStorage.getItem('userName');
-    const storedEmail = localStorage.getItem('email');
-    const storedAvatar = localStorage.getItem('avatarURL');
-    const profile: Partial<UserProfile> = {};
-    if (storedName) profile.userName = storedName;
-    if (storedEmail) profile.email = storedEmail;
-    if (storedAvatar) profile.avatarURL = storedAvatar;
-    // Keep track of the original avatar to detect changes
-    const originalAvatarURL = storedAvatar;
+    // Fetch user profile from API
+    const userData = await fetchUserProfile();
+    if (!userData) {
+        alert('Unable to load user profile');
+        return;
+    }
+
+    const profile: Partial<UserProfile> = {
+        userName: userData.userName,
+        email: userData.email,
+        avatarURL: userData.avatarURL,
+        isTotpEnabled: userData.isTotpEnabled
+    };
+    const originalAvatarURL = userData.avatarURL;
 
     // Selectors
     const profileImg = container.querySelector<HTMLImageElement>('#profile-img')!;
@@ -135,7 +138,7 @@ function bindAccountSection(container: HTMLElement) {
         }
     });
 
-    // Account form submission (PUT /api/settings/account)
+    // Account form submission (PUT /api/account)
     formAccount.addEventListener('submit', async e => {
         e.preventDefault();
         resetErrors(errName, errEmail);
@@ -185,7 +188,7 @@ function bindAccountSection(container: HTMLElement) {
         btnAcct.disabled = true;
         txtAcct.textContent = 'Saving…';
         try {
-            const res = await fetch('/api/settings/account', {
+            const res = await fetch('/api/account', {
                 method: 'PUT',
                 credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
@@ -204,21 +207,18 @@ function bindAccountSection(container: HTMLElement) {
             } else {
                 const updated = await res.json() as UserProfile;
 
-                // Update localStorage and UI with fresh data from server
+                // Update profile object and UI with fresh data from server
                 if (updated.userName) {
-                    localStorage.setItem('userName', updated.userName);
+                    profile.userName = updated.userName;
                     usernameInput.value = updated.userName;
-                    profile.userName = updated.userName; // Update local profile
                 }
                 if (updated.email !== undefined) {
-                    localStorage.setItem('email', updated.email);
+                    profile.email = updated.email;
                     emailInput.value = updated.email;
-                    profile.email = updated.email; // Update local profile
                 }
                 if (updated.avatarURL) {
-                    localStorage.setItem('avatarURL', updated.avatarURL);
+                    profile.avatarURL = updated.avatarURL;
                     profileImg.src = updated.avatarURL;
-                    profile.avatarURL = updated.avatarURL; // Update local profile
                 }
 
                 alert('Account settings saved successfully');
@@ -347,7 +347,10 @@ function bindKeyCapture(
 /**
  * Bind the security form to perform a PUT with passwords and 2FA toggle.
  */
-function bindSecuritySection(container: HTMLElement) {
+async function bindSecuritySection(container: HTMLElement) {
+    // Fetch current 2FA status from API
+    const userData = await fetchUserProfile();
+    let initialTwoFactor = userData?.isTotpEnabled || false;
     // Buttons to toggle between password and 2FA forms
     const btnPw = container.querySelector<HTMLButtonElement>('#btn-change-password')!;
     const btn2F = container.querySelector<HTMLButtonElement>('#btn-change-2fa')!;
@@ -363,16 +366,13 @@ function bindSecuritySection(container: HTMLElement) {
 
     // 2FA form elements
     const errCurr2FA = container.querySelector<HTMLParagraphElement>('#error-current-2fa')!;
-    const btn2FSubmit = container.querySelector<HTMLButtonElement>('#twofaSubmitBtn')!;
-    const txt2F = container.querySelector<HTMLSpanElement>('#twofaSubmitText')!;
+    const btn2FSubmit = container.querySelector<HTMLButtonElement>('#twoSubmitBtn')!;
+    const txt2F = container.querySelector<HTMLSpanElement>('#twofaSubmitText')!;;
 
-    // Track initial 2FA state from localStorage
+    // Track initial 2FA state from API
     const twoFactorInput = form2F.querySelector<HTMLInputElement>('#twoFactorCheckbox')!;
-    // Check if 2FA info is stored in localStorage - if present, 2FA is enabled
-    const stored2FA = localStorage.getItem('twoFactorEnabled');
-    const initialTwoFactor = stored2FA !== null; // true if key exists, false if not
 
-    // Set checkbox to match the stored state
+    // Set checkbox to match the fetched state
     twoFactorInput.checked = initialTwoFactor;
 
     // Toggle forms
@@ -409,7 +409,7 @@ function bindSecuritySection(container: HTMLElement) {
         btnPwSubmit.disabled = true;
         txtPw.textContent = 'Saving…';
         try {
-            const res = await fetch('/api/settings/security', {
+            const res = await fetch('/api/security', {
                 method: 'PUT', credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ currentPassword, newPassword })
@@ -455,15 +455,19 @@ function bindSecuritySection(container: HTMLElement) {
             return;
         }
         const change2FA = twoFactor !== initialTwoFactor;
+
         if (!change2FA) {
             showError(errCurr2FA, 'No change in 2FA state');
             return;
         }
 
+       
+
         btn2FSubmit.disabled = true;
         txt2F.textContent = 'Saving…';
         try {
-            const res = await fetch('/api/settings/2fa', {
+            console.log('📡 Envoi de la requête POST /api/2fa...');
+            const res = await fetch('/api/2fa', {
                 method: 'POST', credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -471,27 +475,40 @@ function bindSecuritySection(container: HTMLElement) {
                     enable2fa: twoFactor
                 })
             });
+            
             if (res.status === 401) {
                 const err = await res.json();
-                showError(errCurr2FA, err.error || 'Invalid current password');
+                if (err.error?.includes('2FA has been disabled')) {
+                    // 2FA was disabled successfully, user needs to log in again
+                    alert('2FA has been disabled. You will be redirected to login.');
+                    window.location.href = '/'; // Redirect to login
+                    return;
+                } else {
+                    // Invalid password
+                    showError(errCurr2FA, err.error || 'Invalid current password');
+                }
             } else if (!res.ok) {
                 const err = await res.json();
                 alert(err.error || 'Unexpected error');
             } else {
-                // Success - update localStorage to reflect new 2FA state
-                if (twoFactor) {
-                    // 2FA enabled - store in localStorage
-                    localStorage.setItem('twoFactorEnabled', 'true');
-                } else {
-                    // 2FA disabled - remove from localStorage
-                    localStorage.setItem('twoFactorEnabled', 'false');
+                // Success - 2FA was enabled, QR code generated
+                const data = await res.json();
+                if (data.qrDataUrl) {
+                    // Show QR code and verification form
+                    await show2FASetupModal(data.qrDataUrl, (success) => {
+                        if (success) {
+                            // 2FA setup completed successfully
+                            initialTwoFactor = true;
+                            twoFactorInput.checked = true;
+                            alert('2FA has been successfully enabled!');
+                        } else {
+                            // User cancelled or failed verification
+                            twoFactorInput.checked = initialTwoFactor;
+                        }
+                        form2F.reset();
+                        twoFactorInput.checked = initialTwoFactor;
+                    });
                 }
-
-                alert('Two-factor settings updated');
-                form2F.reset();
-
-                // Update the checkbox to reflect new state
-                twoFactorInput.checked = twoFactor;
             }
         } catch {
             alert('Unable to contact server');
@@ -569,5 +586,165 @@ async function handleFileUpload(file: File): Promise<string> {
         };
         reader.onerror = () => reject(new Error('Failed to read file'));
         reader.readAsDataURL(file);
+    });
+}
+
+// Helper function to show 2FA setup modal with QR code and verification
+async function show2FASetupModal(qrDataUrl: string, callback: (success: boolean) => void): Promise<void> {
+    return new Promise((resolve) => {
+        // Get the existing modal from the template
+        const modal = document.querySelector<HTMLDivElement>('#twofa-modal')!;
+        const qrImg = modal.querySelector<HTMLImageElement>('#twofa-qr')!;
+        const closeBtn = modal.querySelector<HTMLButtonElement>('#twofa-close')!;
+        const codeInputs = modal.querySelectorAll<HTMLInputElement>('input[type="text"]');
+        const errorEl = modal.querySelector<HTMLParagraphElement>('#error-2fa-modal')!;
+        
+        // Set the QR code
+        qrImg.src = qrDataUrl;
+        
+        // Show modal
+        modal.classList.remove('hidden');
+        
+        // Focus first input
+        if (codeInputs.length > 0) {
+            codeInputs[0].focus();
+        }
+        
+        // Handle input navigation between code fields
+        codeInputs.forEach((input, index) => {
+            input.addEventListener('input', (e) => {
+                const target = e.target as HTMLInputElement;
+                // Clear error when user starts typing
+                clearError();
+                
+                // Only allow digits
+                target.value = target.value.replace(/\D/g, '');
+                
+                // Move to next input if digit entered
+                if (target.value && index < codeInputs.length - 1) {
+                    codeInputs[index + 1].focus();
+                }
+                
+                // Check if all 6 fields are filled and trigger verification automatically
+                const code = getCode();
+                if (code.length === 6) {
+                    handleVerify();
+                }
+            });
+            
+            input.addEventListener('keydown', (e) => {
+                // Move to previous input on backspace
+                if (e.key === 'Backspace' && !input.value && index > 0) {
+                    codeInputs[index - 1].focus();
+                }
+            });
+        });
+        
+        // Get complete code from all inputs
+        const getCode = (): string => {
+            return Array.from(codeInputs).map(input => input.value).join('');
+        };
+        
+        // Clear all inputs
+        const clearInputs = () => {
+            codeInputs.forEach(input => input.value = '');
+        };
+        
+        // Clear inputs and error
+        const clearAll = () => {
+            clearInputs();
+            clearError();
+        };
+        
+        // Show error (using the error element in the template)
+        const showError = (message: string) => {
+            errorEl.textContent = message;
+            errorEl.classList.remove('hidden');
+        };
+        
+        // Clear error
+        const clearError = () => {
+            errorEl.textContent = '';
+            errorEl.classList.add('hidden');
+        };
+        
+        // Handle verify button click
+        const handleVerify = async () => {
+            const code = getCode();
+            clearError(); // Clear any previous errors
+            
+            if (code.length !== 6) {
+                showError('Please enter a complete 6-digit code');
+                return;
+            }
+            
+            try {
+                const res = await fetch('/api/2fa/verify', {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token: code })
+                });
+                
+                if (res.ok) {
+                    // Success
+                    cleanup();
+                    callback(true);
+                    resolve();
+                } else {
+                    const err = await res.json();
+                    showError(err.error || 'Invalid code. Please try again.');
+                    // Clear inputs but keep the error message
+                    codeInputs.forEach(input => input.value = '');
+                    if (codeInputs.length > 0) {
+                        codeInputs[0].focus();
+                    }
+                }
+            } catch {
+                showError('Unable to contact server. Please try again.');
+            }
+        };
+        
+        // Handle cancel/close
+        const handleCancel = () => {
+            cleanup();
+            callback(false);
+            resolve();
+        };
+        
+        // Helper to cleanup modal
+        const cleanup = () => {
+            modal.classList.add('hidden');
+            clearAll();
+            qrImg.src = ''; // Reset QR code
+        };
+        
+        // Event listeners
+        closeBtn.addEventListener('click', handleCancel);
+        
+        // Handle Enter key in any input
+        codeInputs.forEach(input => {
+            input.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    handleVerify();
+                }
+            });
+        });
+        
+        // Handle Escape key
+        const escapeHandler = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') {
+                document.removeEventListener('keydown', escapeHandler);
+                handleCancel();
+            }
+        };
+        document.addEventListener('keydown', escapeHandler);
+        
+        // Handle click outside modal
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                handleCancel();
+            }
+        });
     });
 }

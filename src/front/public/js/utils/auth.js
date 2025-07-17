@@ -12,4 +12,33 @@ export async function checkAuth() {
         return false;
     }
 }
+/**
+ * Fetch user profile data from API
+ */
+export async function fetchUserProfile() {
+    try {
+        const res = await fetch('/api/me', {
+            method: 'GET',
+            credentials: 'include'
+        });
+        if (res.ok) {
+            const userData = await res.json();
+            return {
+                userId: userData.userId,
+                userName: userData.userName,
+                email: userData.email,
+                avatarURL: userData.avatarURL,
+                isTotpEnabled: userData.isTotpEnabled || false
+            };
+        }
+        else {
+            console.error('Failed to fetch user profile');
+            return null;
+        }
+    }
+    catch (error) {
+        console.error('Error fetching user profile:', error);
+        return null;
+    }
+}
 //# sourceMappingURL=auth.js.map
