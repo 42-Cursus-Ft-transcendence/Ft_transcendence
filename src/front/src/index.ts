@@ -36,6 +36,16 @@ function doRender(screen: Screen) {
     const app = document.getElementById("app");
     if (!app) throw new Error("Le template arcade n a pas été monté");
 
+    // Apply zoom for all screens except menu
+    const arcadeEl = document.querySelector<HTMLElement>(".zoomable");
+    if (arcadeEl) {
+      if (screen === "menu") {
+        arcadeEl.classList.remove("zoomed");
+      } else {
+        arcadeEl.classList.add("zoomed");
+      }
+    }
+
     switch (screen) {
       case "menu":
         renderMenu(app, socket, (choice) => navigate(choice));
@@ -83,7 +93,9 @@ window.addEventListener("DOMContentLoaded", () => {
   (async () => {
     // Récupère l’écran demandé dans l’URL
     const params = new URLSearchParams(location.search);
-    const initialScreen = (params.get("screen") as Screen) || "menu";
+    let initialScreen = (params.get("screen") as Screen) || "menu";
+    if(initialScreen === "2player" || initialScreen === "ia" || initialScreen === "online")
+      initialScreen = "menu";
     history.replaceState({ screen: initialScreen }, "", location.href);
     navigate(initialScreen);
 
