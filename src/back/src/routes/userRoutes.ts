@@ -47,20 +47,20 @@ export default async function userRoutes(app: FastifyInstance) {
     async (request, reply) => {
       const idUser = (request.user as any).sub as number;
       const userName = (request.user as any).userName as string;
-
       try {
         const res = await getAsync<{
+          userName: string;
           email: string;
           isTotpEnabled: number;
           avatarURL?: string;
         }>(
-          `SELECT email, isTotpEnabled, avatarURL FROM User WHERE idUser = ?`,
+          `SELECT userName, email, isTotpEnabled, avatarURL FROM User WHERE idUser = ?`,
           [idUser]
         );
         if (!res) return reply.status(401).send({ error: "User not found" });
-        reply.status(200).send({
+        return reply.status(200).send({
           idUser,
-          userName,
+          userName: res.userName,
           email: res.email,
           isTotpEnabled: res.isTotpEnabled === 1,
           avatarURL: res.avatarURL,
@@ -130,6 +130,7 @@ export default async function userRoutes(app: FastifyInstance) {
           })
           .status(200)
           .send({
+            userId: user.idUser,
             require2fa: true,
           });
       }
@@ -137,7 +138,6 @@ export default async function userRoutes(app: FastifyInstance) {
         { sub: user.idUser, userName },
         { expiresIn: "2h" }
       );
-      console.log("email in back", user.email);
       return reply
         .setCookie("token", token, {
           // signed: true,
@@ -188,10 +188,10 @@ export default async function userRoutes(app: FastifyInstance) {
       }
     }
   );
-  app.put("/account",
+  app.put(
+    "/account",
     { preHandler: [(app as any).authenticate] },
     async (request, reply): Promise<void> => {
-
       // Get user ID from JWT payload
       const idUser = (request.user as any).sub as number;
 
@@ -204,23 +204,22 @@ export default async function userRoutes(app: FastifyInstance) {
 
       // Validate that at least one field is provided
       if (!userName && email === undefined && !avatarURL) {
-        return reply
-          .status(400)
-          .send({ error: "At least one field (userName, email, avatarURL) is required" });
+        return reply.status(400).send({
+          error: "At least one field (userName, email, avatarURL) is required",
+        });
       }
 
       // Validate username if provided
-      if (userName !== undefined && (!userName || userName.trim().length === 0)) {
-        return reply
-          .status(400)
-          .send({ error: "Username cannot be empty" });
+      if (
+        userName !== undefined &&
+        (!userName || userName.trim().length === 0)
+      ) {
+        return reply.status(400).send({ error: "Username cannot be empty" });
       }
 
       // Validate email format if provided and not empty
       if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-        return reply
-          .status(400)
-          .send({ error: "Invalid email format" });
+        return reply.status(400).send({ error: "Invalid email format" });
       }
 
       try {
@@ -249,10 +248,9 @@ export default async function userRoutes(app: FastifyInstance) {
           userName: string;
           email: string;
           avatarURL?: string;
-        }>(
-          "SELECT userName, email, avatarURL FROM User WHERE idUser = ?",
-          [idUser]
-        );
+        }>("SELECT userName, email, avatarURL FROM User WHERE idUser = ?", [
+          idUser,
+        ]);
 
         if (!updated) {
           return reply.status(404).send({ error: "User not found" });
@@ -269,7 +267,8 @@ export default async function userRoutes(app: FastifyInstance) {
       }
     }
   );
-  app.put("/security",
+  app.put(
+    "/security",
     { preHandler: [(app as any).authenticate] },
     async (request, reply): Promise<void> => {
       // Get user ID from JWT payload
@@ -307,7 +306,10 @@ export default async function userRoutes(app: FastifyInstance) {
         }
 
         // Verify current password
-        const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.password);
+        const isCurrentPasswordValid = await bcrypt.compare(
+          currentPassword,
+          user.password
+        );
         if (!isCurrentPasswordValid) {
           return reply
             .status(400)
@@ -318,12 +320,14 @@ export default async function userRoutes(app: FastifyInstance) {
         const newHashedPassword = await bcrypt.hash(newPassword, 10);
 
         // Update password in database
-        await runAsync(
-          "UPDATE User SET password = ? WHERE idUser = ?",
-          [newHashedPassword, idUser]
-        );
+        await runAsync("UPDATE User SET password = ? WHERE idUser = ?", [
+          newHashedPassword,
+          idUser,
+        ]);
 
-        return reply.status(200).send({ message: "Password updated successfully" });
+        return reply
+          .status(200)
+          .send({ message: "Password updated successfully" });
       } catch (err: any) {
         console.error("Error updating password:", err);
         return reply.status(500).send({ error: "Internal server error" });

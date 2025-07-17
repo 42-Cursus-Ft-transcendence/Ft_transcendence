@@ -40,9 +40,16 @@ export default async function twofaRoutes(app: FastifyInstance) {
         [userId]
       );
       app.log.error("2FA disabled");
-      return reply.status(401).send({
-        error: "2FA has been disabled. Please log in again.",
-      });
+      return reply
+        .clearCookie("token", {
+          httpOnly: true,
+          path: "/",
+          sameSite: "strict",
+        })
+        .status(401)
+        .send({
+          error: "2FA has been disabled. Please log in again.",
+        });
     }
 
     // 3) Enable 2FA: generate new secret (but not activated yet)
@@ -92,57 +99,58 @@ export default async function twofaRoutes(app: FastifyInstance) {
       await db.run("UPDATE User SET isTotpEnabled = 1 WHERE idUser = ?", [
         userId,
       ]);
-      return reply.send({ ok: true });
-    }
-  );
-
-  app.post(
-    "/2fa/authenticate",
-    { preHandler: [app.pre2faAuthenticate] },
-    async (req, reply) => {
-      const { userId, twoFactorCode } = req.body as {
-        userId: number;
-        twoFactorCode: string;
-      };
-
-      const row = await getAsync<{
-        totpSecret: string;
-        isTotpEnabled: number;
-      }>("SELECT totpSecret, isTotpEnabled FROM User WHERE idUser = ?", [
-        userId,
-      ]);
-      if (!row || row.isTotpEnabled === 0) {
-        return reply.status(400).send({ error: "2FA not configured" });
-      }
-      if (!authenticator.check(twoFactorCode, row.totpSecret)) {
-        return reply.status(401).send({ error: "Invalid 2FA code" });
-      }
-      const userRow = await getAsync<{
-        userName: string;
-        email: string;
-      }>("SELECT userName, email FROM User WHERE idUser = ?", [userId]);
-
-      if (!userRow) {
-        return reply.status(500).send({ error: "User lookup failed" });
-      }
-      reply.clearCookie("pre2faToken", {
-        httpOnly: true,
-        path: "/",
-        sameSite: "strict",
-      });
-      const jwt = app.jwt.sign({ sub: userId });
       return reply
-        .setCookie("token", jwt, {
+        .clearCookie("token", {
           httpOnly: true,
           path: "/",
           sameSite: "strict",
         })
         .status(200)
-        .send({
-          userName: userRow.userName,
-          email: userRow.email,
-          idUser: userId,
-        });
+        .send({ ok: true });
     }
   );
+
+  app.post("/2fa/authenticate", async (req, reply) => {
+    const { userId, twoFactorCode } = req.body as {
+      userId: string;
+      twoFactorCode: string;
+    };
+
+    const row = await getAsync<{
+      totpSecret: string;
+      isTotpEnabled: number;
+    }>("SELECT totpSecret, isTotpEnabled FROM User WHERE idUser = ?", [userId]);
+    if (!row || row.isTotpEnabled === 0) {
+      return reply.status(400).send({ error: "2FA not configured" });
+    }
+    if (!authenticator.check(twoFactorCode, row.totpSecret)) {
+      return reply.status(401).send({ error: "Invalid 2FA code" });
+    }
+    const userRow = await getAsync<{
+      userName: string;
+      email: string;
+    }>("SELECT userName, email FROM User WHERE idUser = ?", [userId]);
+
+    if (!userRow) {
+      return reply.status(500).send({ error: "User lookup failed" });
+    }
+    reply.clearCookie("pre2faToken", {
+      httpOnly: true,
+      path: "/",
+      sameSite: "strict",
+    });
+    const jwt = app.jwt.sign({ sub: userId, userName: userRow.userName });
+    return reply
+      .setCookie("token", jwt, {
+        httpOnly: true,
+        path: "/",
+        sameSite: "strict",
+      })
+      .status(200)
+      .send({
+        userName: userRow.userName,
+        email: userRow.email,
+        idUser: userId,
+      });
+  });
 }
