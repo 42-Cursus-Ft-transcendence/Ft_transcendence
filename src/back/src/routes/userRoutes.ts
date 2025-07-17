@@ -137,6 +137,7 @@ export default async function userRoutes(app: FastifyInstance) {
         { sub: user.idUser, userName },
         { expiresIn: "2h" }
       );
+      console.log("email in back", user.email);
       return reply
         .setCookie("token", token, {
           // signed: true,

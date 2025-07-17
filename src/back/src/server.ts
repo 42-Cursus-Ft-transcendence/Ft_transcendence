@@ -11,16 +11,16 @@ import fastifyStatic from "@fastify/static";
 
 import "./db/db"; // ← initialise la BD et les tables
 
-// Import new handlers
+// Import Routes
 import userRoutes from "./routes/userRoutes";
 import oauthRoutes from "./routes/oauthRoute";
 import twofaRoutes from "./routes/twofaRoutes";
 import scoresRoutes from "./routes/scoresRoutes";
+import registerWebsocketRoutes from "./websocket";
 
 // Import plugins
 import loggerPlugin, { loggerOptions } from "./plugins/logger";
 import authPlugin from "./plugins/auth";
-import registerWebsocketRoutes from "./websocket";
 //import { verifyPre2fa } from "./plugins/verifyPre2fa";
 
 (async () => {
@@ -53,6 +53,11 @@ import registerWebsocketRoutes from "./websocket";
   const app = Fastify({
     logger: loggerOptions[environment],
     disableRequestLogging: true,
+    ajv: {
+      customOptions: {
+        strict: false, // Disable strict mode to allow additional properties for Swagger
+      },
+    },
   });
   app.register(loggerPlugin);
 
@@ -136,6 +141,7 @@ import registerWebsocketRoutes from "./websocket";
     }
     reply.sendFile("index.html");
   });
+
   // ─────────────────────────────────────────────────────────────────────────────
   // Start server
   // ─────────────────────────────────────────────────────────────────────────────
