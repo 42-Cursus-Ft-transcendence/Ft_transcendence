@@ -16,6 +16,7 @@ export type Screen =
   | "2player"
   | "ia"
   | "online"
+  | "ranked"
   | "profile"
   | "settings"
   | "blockexplorer";
@@ -59,6 +60,9 @@ function doRender(screen: Screen) {
       case "online":
         renderPong(app, socket, () => navigate("menu"));
         break;
+      case "ranked":
+        renderPong(app, socket, () => navigate("menu"));
+        break;
       case "profile":
         renderProfile(app, () => navigate("menu"));
         break;
@@ -94,7 +98,7 @@ window.addEventListener("DOMContentLoaded", () => {
     // Récupère l’écran demandé dans l’URL
     const params = new URLSearchParams(location.search);
     let initialScreen = (params.get("screen") as Screen) || "menu";
-    if(initialScreen === "2player" || initialScreen === "ia" || initialScreen === "online")
+    if (initialScreen === "2player" || initialScreen === "ia" || initialScreen === "online" || initialScreen === "ranked")
       initialScreen = "menu";
     history.replaceState({ screen: initialScreen }, "", location.href);
     navigate(initialScreen);

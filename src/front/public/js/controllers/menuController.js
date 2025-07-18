@@ -39,6 +39,11 @@ export function renderMenu(container, socket, onSelect) {
         socket.send(JSON.stringify({ type: "start", vs: "online" }));
         onSelect("online");
     });
+    container.querySelector("#btnRanked").addEventListener("click", () => {
+        zoomIn();
+        socket.send(JSON.stringify({ type: "start", vs: "ranked" }));
+        onSelect("ranked");
+    });
     container.querySelector("#btnProfile").addEventListener("click", () => {
         zoomIn();
         onSelect("profile");
