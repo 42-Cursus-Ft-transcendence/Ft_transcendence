@@ -4,6 +4,7 @@ export const menuTemplate = `
         <li class="w-full"><button id="btn2p" class="threeD-button-set w-full">2 PLAYER</button></li>
         <li class="w-full"><button id="btnIa" class="threeD-button-set w-full">VS IA</button></li>
         <li class="w-full"><button id="btnOnline" class="threeD-button-set w-full">ONLINE</button></li>
+        <li class="w-full"><button id="btnRanked" class="threeD-button-set w-full">RANKED</button></li>
         <li class="w-full"><button id="btnProfile" class="threeD-button-set w-full">PROFILE</button></li>
         <li class="w-full"><button id="btnSettings" class="threeD-button-set w-full">SETTINGS</button></li>
         <li class="w-full"><button id="btnBlockExplorer" class="threeD-button-set w-full">BLOCK EXPLORER</button></li>

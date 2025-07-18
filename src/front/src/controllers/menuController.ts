@@ -6,6 +6,7 @@ export type ScreenChoise =
   | "2player"
   | "ia"
   | "online"
+  | "ranked"
   | "profile"
   | "settings"
   | "blockexplorer"
@@ -62,6 +63,11 @@ export function renderMenu(
     socket.send(JSON.stringify({ type: "start", vs: "online" }));
     onSelect("online");
   });
+  container.querySelector("#btnRanked")!.addEventListener("click", () => {
+    zoomIn();
+    socket.send(JSON.stringify({ type: "start", vs: "ranked" }));
+    onSelect("ranked");
+  });
   container.querySelector("#btnProfile")!.addEventListener("click", () => {
     zoomIn();
     onSelect("profile");
@@ -85,7 +91,7 @@ export function renderMenu(
           credentials: "include",
           keepalive: true,
         });
-      } catch (err) {}
+      } catch (err) { }
       onSelect("login");
     });
 }
