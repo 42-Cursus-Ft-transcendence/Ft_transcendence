@@ -1,27 +1,5 @@
-# ───────────────────────────────────────────────────────────────
-# 1) CONTRACTS-BUILDER STAGE: compile smart contracts with Foundry
-# ───────────────────────────────────────────────────────────────
-FROM ghcr.io/foundry-rs/foundry:latest AS contracts-builder
-WORKDIR /contracts
-
-# Copy smart contract sources
-COPY contracts/ ./
-
-# If you have vendored dependencies (e.g., forge-std in contracts/lib), simply build
-# Ensure your lib directory is included in the COPY above
-# Build contracts and output JSON artifacts to out/
-# Optional: Deploy ScoreBoard contract during build time (requires build-args RPC_URL and PRIVATE_KEY)
-# ARG RPC_URL
-# ARG PRIVATE_KEY
-# RUN forge create \
-#     --rpc-url "$RPC_URL" \
-#     --private-key "$PRIVATE_KEY" \
-#     --broadcast \
-#     src/ScoreBoard.sol:ScoreBoard# Build contracts and output JSON artifacts to out/
-RUN forge build
-
 # ─────────────────────────────────────────────────────────────────────────
-# 2) BUILDER STAGE: install deps & compile frontend and backend
+# 1) BUILDER STAGE: install deps & compile frontend and backend
 # ─────────────────────────────────────────────────────────────────────────
 FROM node:20-alpine AS builder
 
@@ -65,7 +43,7 @@ COPY src/back/src ./src
 RUN npm run build
 
 # ─────────────────────────────────────────────────────────────────────────
-# 3) RUNTIME STAGE: minimal image for running the server
+# 2) RUNTIME STAGE: minimal image for running the server
 # ─────────────────────────────────────────────────────────────────────────
 FROM node:20-alpine AS runtime
 
@@ -79,7 +57,8 @@ WORKDIR /app
 # ---------------------
 # copy package files from builder to avoid dev deps
 COPY --from=builder /app/back/package.json /app/back/package-lock.json ./
-RUN npm install --omit=dev
+# RUN npm install --omit=dev
+RUN npm install
 
 # ---------------------
 # copy compiled artifacts
@@ -89,9 +68,6 @@ COPY --from=builder /app/back/dist dist
 
 # frontend static assets
 COPY --from=builder /app/front/public public
-
-# copy compiled contract JSONs to the path expected by 
-COPY --from=contracts-builder /contracts/out /contracts/out
 
 # create and mount data directory
 RUN mkdir -p /app/data

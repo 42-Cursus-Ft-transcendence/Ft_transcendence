@@ -59,8 +59,9 @@ import authPlugin from "./plugins/auth";
       },
     },
   });
-  app.register(loggerPlugin);
-
+  if (isDev) {
+    app.register(loggerPlugin);
+  }
   console.log("Fastify instance created");
 
   // cookie
