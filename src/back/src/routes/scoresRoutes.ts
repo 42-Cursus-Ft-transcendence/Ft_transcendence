@@ -173,15 +173,16 @@ export default async function scoresRoutes(app: FastifyInstance) {
         const limit = parseInt((req.query as any).limit) || 100;
         const offset = (page - 1) * limit;
 
-        console.log(`Fetching transactions for user ${user.userName} (ID: ${user.sub})`);
+        console.log(`Fetching ALL transactions (requested by user ${user.userName})`);
 
         const rows = await new Promise<any[]>((resolve, reject) => {
           db.all(
-            `SELECT * FROM \`Transaction\` 
-             WHERE userId = ? OR userId IS NULL 
-             ORDER BY timestamp DESC 
+            `SELECT t.*, u.userName 
+             FROM \`Transaction\` t
+             LEFT JOIN User u ON t.userId = u.idUser
+             ORDER BY t.timestamp DESC 
              LIMIT ? OFFSET ?`,
-            [user.sub, limit, offset],
+            [limit, offset],
             (err, rows) => {
               if (err) reject(err);
               else resolve(rows);
@@ -189,7 +190,7 @@ export default async function scoresRoutes(app: FastifyInstance) {
           );
         });
 
-        console.log(`Found ${rows.length} transactions for user ${user.sub}`);
+        console.log(`Found ${rows.length} total transactions`);
         reply.send(rows);
       } catch (err) {
         console.error("GET /api/transactions error:", err);

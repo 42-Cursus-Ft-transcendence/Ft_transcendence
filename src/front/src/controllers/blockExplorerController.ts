@@ -21,6 +21,7 @@ interface Transaction {
   status: string;
   gas_used?: number;
   gas_price?: string;
+  userName?: string;
 }
 
 interface Tournament {
@@ -206,7 +207,7 @@ export function renderBlockExplorer(container: HTMLElement, onBack: () => void):
       .filter(tx => tx.status === 'confirmed')
       .map(tx => ({
         id: tx.game_id,
-        winner: tx.player_address.slice(0, 6) + '...' + tx.player_address.slice(-4),
+        winner: tx.userName || (tx.player_address.slice(0, 6) + '...' + tx.player_address.slice(-4)),
         score: tx.score.toString(),
         participants: [tx.player_address],
         timestamp: new Date(tx.timestamp).getTime(),
