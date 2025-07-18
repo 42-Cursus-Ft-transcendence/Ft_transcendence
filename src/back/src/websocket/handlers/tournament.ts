@@ -46,7 +46,7 @@ export interface EloUpdate {
 // ─────────────────────────────────────────────────────────────────────────────
 // Tournament State Management
 // ─────────────────────────────────────────────────────────────────────────────
-const rankedWaiting: RankedWaitingItem[] = [];
+export const rankedWaiting: RankedWaitingItem[] = [];
 const rankedSessions = new Map<string, RankedSession>();
 export const socketToRankedSession = new Map<WebSocket, RankedSession>();
 
@@ -562,6 +562,16 @@ export async function cleanupRankedSocket(socket: WebSocket): Promise<void> {
   // Handle session cleanup with forfeit
   const session = socketToRankedSession.get(socket);
   if (session) {
+    // Check if disconnect was already handled in index.ts
+    if ((session as any).disconnectHandled) {
+      console.log("Disconnect already handled, just cleaning up session");
+      clearInterval(session.loopTimer);
+      rankedSessions.delete(session.id);
+      socketToRankedSession.delete(session.sockets.p1);
+      socketToRankedSession.delete(session.sockets.p2);
+      return;
+    }
+
     // Check if the game is still in progress (not already ended)
     if (!session.game.isGameOver) {
       console.log(

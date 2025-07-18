@@ -41,23 +41,23 @@ export function handleOnlineStart(
             const state = JSON.stringify(sessionGame.getState());
             opponent.socket.send(state);
             socket.send(state);
-            
+
             // Check if game is over and auto-end
             if (sessionGame.isGameOver) {
                 clearInterval(loopTimer);
-                
+
                 // Send match over message to both players
-                const matchOverMsg = JSON.stringify({ 
-                    type: "matchOver", 
+                const matchOverMsg = JSON.stringify({
+                    type: "matchOver",
                     winner: sessionGame.winner,
-                    finalScore: sessionGame.score 
+                    finalScore: sessionGame.score
                 });
                 opponent.socket.send(matchOverMsg);
                 socket.send(matchOverMsg);
-                
+
                 // Post scores to blockchain
                 await handleOnlineMatchEnd(session);
-                
+
                 // Clean up session
                 sessions.delete(gameId);
                 socketToSession.delete(opponent.socket);
@@ -91,10 +91,10 @@ export function handleOnlineStart(
 async function handleOnlineMatchEnd(session: Session): Promise<void> {
     try {
         console.log("Online match ended, posting scores to blockchain");
-        
+
         const { p1, p2 } = session.players;
         const [score1, score2] = session.game.score;
-        
+
         // Get player addresses from database
         const row1 = await new Promise<any>((resolve, reject) => {
             db.get("SELECT address FROM User WHERE idUser = ?", [p1.sub], (err, row) => {
@@ -102,14 +102,14 @@ async function handleOnlineMatchEnd(session: Session): Promise<void> {
                 else resolve(row);
             });
         });
-        
+
         const row2 = await new Promise<any>((resolve, reject) => {
             db.get("SELECT address FROM User WHERE idUser = ?", [p2.sub], (err, row) => {
                 if (err) reject(err);
                 else resolve(row);
             });
         });
-        
+
         if (row1?.address && row2?.address) {
             console.log("blockchain posting for online match");
             const tx1 = await postScore(session.id, row1.address, score1, p1.sub);

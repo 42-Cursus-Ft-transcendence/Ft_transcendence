@@ -43,8 +43,8 @@ export function renderPong(container: HTMLElement, socket: WebSocket, onBack: ()
     const back = container.querySelector<HTMLButtonElement>('#backBtn');
     if (back) {
       back.addEventListener('click', () => {
+        socket.send(JSON.stringify({ type: 'stoplobby'}));
         cleanup();
-        socket.send(JSON.stringify({ type: 'stoplobby' }));
         onBack();
       });
     }
