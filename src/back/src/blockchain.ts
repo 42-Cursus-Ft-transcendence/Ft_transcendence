@@ -62,7 +62,8 @@ async function getNextNonce(): Promise<number> {
 export async function postScore(
     gameId: string,
     player: string,
-    score: number
+    score: number,
+    userId?: number
 ): Promise<string> {
     // Manual Ethereum address validation (bypass ethers.isAddress)
     const isValidEthAddress = (addr: string): boolean => {
@@ -82,9 +83,9 @@ export async function postScore(
     // Store transaction in database immediately after submission
     const timestamp = new Date().toISOString()
     db.run(
-        `INSERT INTO \`Transaction\` (hash, game_id, player_address, score, timestamp, status) 
-         VALUES (?, ?, ?, ?, ?, ?)`,
-        [tx.hash, gameId, player, score, timestamp, 'pending']
+        `INSERT INTO \`Transaction\` (hash, game_id, player_address, userId, score, timestamp, status) 
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [tx.hash, gameId, player, userId || null, score, timestamp, 'pending']
     )
 
     // Wait for confirmation and update status

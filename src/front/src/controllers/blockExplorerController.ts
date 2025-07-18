@@ -21,6 +21,7 @@ interface Transaction {
   status: string;
   gas_used?: number;
   gas_price?: string;
+  userName?: string;
 }
 
 interface Tournament {
@@ -133,7 +134,10 @@ export function renderBlockExplorer(container: HTMLElement, onBack: () => void):
   // API functions to fetch real blockchain data from local database
   async function fetchTransactions(page: number = 1, limit: number = 20): Promise<{transactions: Transaction[], pagination: any}> {
     try {
-      const response = await fetch(`/api/transactions?page=${page}&limit=${limit}`);
+      const response = await fetch(`/api/transactions?page=${page}&limit=${limit}`, {
+        method: 'GET',
+        credentials: 'include'
+      });
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -146,7 +150,10 @@ export function renderBlockExplorer(container: HTMLElement, onBack: () => void):
 
   async function fetchTransactionByHash(hash: string): Promise<Transaction | null> {
     try {
-      const response = await fetch(`/api/transactions/${hash}`);
+      const response = await fetch(`/api/transactions/${hash}`, {
+        method: 'GET',
+        credentials: 'include'
+      });
       if (!response.ok) {
         if (response.status === 404) {
           return null;
@@ -162,29 +169,36 @@ export function renderBlockExplorer(container: HTMLElement, onBack: () => void):
 
   // Convert database transactions to blocks format for display
   function transactionsToBlocks(transactions: Transaction[]): Block[] {
-    // Group transactions by block number
+    // Group transactions by block number (use 0 for pending transactions)
     const blockGroups: { [key: number]: Transaction[] } = {};
     transactions.forEach(tx => {
-      if (tx.block_number) {
-        if (!blockGroups[tx.block_number]) {
-          blockGroups[tx.block_number] = [];
-        }
-        blockGroups[tx.block_number].push(tx);
+      const blockNum = tx.block_number || 0; // Use 0 for pending transactions
+      if (!blockGroups[blockNum]) {
+        blockGroups[blockNum] = [];
       }
+      blockGroups[blockNum].push(tx);
     });
 
     // Convert to Block format using real blockchain data
     return Object.entries(blockGroups)
-      .map(([blockNumber, txs]) => ({
-        number: parseInt(blockNumber),
-        hash: txs[0]?.hash || 'N/A',
-        timestamp: new Date(txs[0]?.timestamp || Date.now()).getTime(),
-        transactions: txs.length,
-        gasUsed: txs.reduce((sum, tx) => sum + (tx.gas_used || 0), 0).toString(),
-        gasLimit: "8000000",
-        miner: "Local Testnet"
-      }))
-      .sort((a, b) => b.number - a.number);
+      .map(([blockNumber, txs]) => {
+        const blockNum = parseInt(blockNumber);
+        return {
+          number: blockNum,
+          hash: txs[0]?.hash || 'N/A',
+          timestamp: new Date(txs[0]?.timestamp || Date.now()).getTime(),
+          transactions: txs.length,
+          gasUsed: txs.reduce((sum, tx) => sum + (tx.gas_used || 0), 0).toString(),
+          gasLimit: "8000000",
+          miner: blockNum === 0 ? "Pending" : "Local Testnet"
+        };
+      })
+      .sort((a, b) => {
+        // Sort pending transactions (block 0) to top, then by block number desc
+        if (a.number === 0 && b.number !== 0) return -1;
+        if (b.number === 0 && a.number !== 0) return 1;
+        return b.number - a.number;
+      });
   }
 
   // Convert database transactions to tournament format for display
@@ -193,7 +207,7 @@ export function renderBlockExplorer(container: HTMLElement, onBack: () => void):
       .filter(tx => tx.status === 'confirmed')
       .map(tx => ({
         id: tx.game_id,
-        winner: tx.player_address.slice(0, 6) + '...' + tx.player_address.slice(-4),
+        winner: tx.userName || (tx.player_address.slice(0, 6) + '...' + tx.player_address.slice(-4)),
         score: tx.score.toString(),
         participants: [tx.player_address],
         timestamp: new Date(tx.timestamp).getTime(),
@@ -210,7 +224,8 @@ export function renderBlockExplorer(container: HTMLElement, onBack: () => void):
   async function loadBlockchainData(): Promise<void> {
     try {
       const data = await fetchTransactions(1, 100); // Get more transactions for better block grouping
-      currentTransactions = data.transactions;
+      // Handle both array and object responses
+      currentTransactions = Array.isArray(data) ? data : (data.transactions || []);
       currentBlocks = transactionsToBlocks(currentTransactions);
       currentTournaments = transactionsToTournaments(currentTransactions);
     } catch (error) {
@@ -239,21 +254,25 @@ export function renderBlockExplorer(container: HTMLElement, onBack: () => void):
       return;
     }
     
-    latestBlocksContainer.innerHTML = currentBlocks.slice(0, 10).map(block => `
-      <div class="bg-black/30 border border-pink-400 hover:border-pink-500 rounded p-2 cursor-pointer block-item transition" data-block='${JSON.stringify(block)}'>
-        <div class="flex justify-between items-center mb-1">
-          <div class="text-accent font-arcade text-xs">#${block.number}</div>
-          <div class="text-green-300 text-xs">${formatTimestamp(block.timestamp)}</div>
+    latestBlocksContainer.innerHTML = currentBlocks.slice(0, 10).map(block => {
+      const blockLabel = block.number === 0 ? 'Pending' : `#${block.number}`;
+      const blockClass = block.number === 0 ? 'border-yellow-400 hover:border-yellow-500' : 'border-pink-400 hover:border-pink-500';
+      return `
+        <div class="bg-black/30 border ${blockClass} rounded p-2 cursor-pointer block-item transition" data-block='${JSON.stringify(block)}'>
+          <div class="flex justify-between items-center mb-1">
+            <div class="text-accent font-arcade text-xs">${blockLabel}</div>
+            <div class="text-green-300 text-xs">${formatTimestamp(block.timestamp)}</div>
+          </div>
+          <div class="text-white text-xs mb-1 font-mono">
+            ${formatHash(block.hash)}
+          </div>
+          <div class="flex justify-between text-xs">
+            <span class="text-green-400">${block.transactions} txns</span>
+            <span class="text-blue-300">${parseInt(block.gasUsed || '0').toLocaleString()} gas</span>
+          </div>
         </div>
-        <div class="text-white text-xs mb-1 font-mono">
-          ${formatHash(block.hash)}
-        </div>
-        <div class="flex justify-between text-xs">
-          <span class="text-green-400">${block.transactions} txns</span>
-          <span class="text-blue-300">${parseInt(block.gasUsed || '0').toLocaleString()} gas</span>
-        </div>
-      </div>
-    `).join('');
+      `;
+    }).join('');
 
     // Add click listeners to blocks
     latestBlocksContainer.querySelectorAll('.block-item').forEach(item => {
