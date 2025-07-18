@@ -12,84 +12,119 @@ function lerp(a: number, b: number, t: number): number {
 }
 
 /**
- * Super-smooth AI for Pong: always glides toward the predicted ball intersection, even when waiting.
- * Difficulty controls accuracy and approach speed.
+ * AI for Pong following strict requirements:
+ * - Observes game state exactly once per second (fixed)
+ * - Moves smoothly every frame based on last observation
+ * - Returns to center when ball moves away (dx < 0)
+ * - Predicts intersection when ball approaches (dx > 0)
+ * - Difficulty affects prediction accuracy only
  */
 export function startAI(game: Game, difficulty: number): ReturnType<typeof setInterval> {
-    // Tune these:
-    const MIN_SPEED = 0.7;   // slowest pixels per frame
-    const MAX_SPEED = 4;     // fastest pixels per frame
-    const MAX_NOISE = 48;    // most error at low difficulty
-    const MIN_NOISE = 0;     // no error at high difficulty
-
-    // Compute params
-    const paddleSpeed = lerp(MIN_SPEED, MAX_SPEED, difficulty);
-    const noise = lerp(MAX_NOISE, MIN_NOISE, difficulty);
-
-    // Store last observation time and the target position decided from that observation
+    // Clamp difficulty to [0, 1] range
+    const clampedDifficulty = Math.max(0, Math.min(1, difficulty));
+    
+    // Difficulty-based parameters (much more responsive)
+    const PREDICTION_ERROR = lerp(30, 1, clampedDifficulty);      // pixels of prediction error
+    const REACTION_TIME = lerp(300, 50, clampedDifficulty);       // ms delay after observation
+    const STOPPING_ACCURACY = lerp(4, 1, clampedDifficulty);      // pixels - how precisely AI stops
+    const CALCULATION_NOISE = lerp(0.15, 0.02, clampedDifficulty); // random error in calculations
+    
+    // AI state
     let lastObservation = Date.now();
     let targetY = game.height / 2;
-
-    // Store a snapshot of the game state
-    let snapshot = {
-        ball: { ...game.ball },
-        paddleX: game.p2.x,
-        height: game.height
-    };
+    let targetSetTime = Date.now();
+    let isInReactionDelay = false;
 
     return setInterval(() => {
         const now = Date.now();
 
-        // Only observe the game state once per second
+        // OBSERVE: Once per second only
         if (now - lastObservation >= 1000) {
             lastObservation = now;
-
-            // Take a snapshot of the current game state
-            snapshot = {
-                ball: { ...game.ball },
+            
+            // Take snapshot
+            const snapshot = {
+                ball: { x: game.ball.x, y: game.ball.y, dx: game.ball.dx, dy: game.ball.dy },
                 paddleX: game.p2.x,
                 height: game.height
             };
 
-            // Predict where the ball will intersect paddle x using the snapshot
-            const { x: bx0, y: by0, dx, dy } = snapshot.ball;
-
-            if (dx > 0) {
-                // Simulate ball movement to paddle X
-                let bx = bx0, by = by0, vx = dx, vy = dy;
-                while (bx < snapshot.paddleX) {
+            // CALCULATE: Where to go based on ball direction
+            if (snapshot.ball.dx < 0) {
+                // Ball moving away - go to center with minimal error
+                const centerError = (Math.random() * 2 - 1) * PREDICTION_ERROR * 0.2;
+                targetY = snapshot.height / 2 + centerError;
+            } else {
+                // Ball approaching - predict intersection accurately
+                let bx = snapshot.ball.x;
+                let by = snapshot.ball.y;
+                let vx = snapshot.ball.dx;
+                let vy = snapshot.ball.dy;
+                
+                // Simulate ball movement precisely (high step count for accuracy)
+                const simulationSteps = Math.floor(lerp(100, 500, clampedDifficulty));
+                let stepCount = 0;
+                
+                while (bx < snapshot.paddleX && vx > 0 && stepCount < simulationSteps) {
                     bx += vx;
                     by += vy;
-                    if (by < 0 || by > snapshot.height) {
+                    stepCount++;
+                    
+                    // Handle bouncing with minimal calculation noise
+                    if (by <= 0 || by >= snapshot.height) {
                         vy = -vy;
+                        by = Math.max(0, Math.min(snapshot.height, by));
+                        
+                        // Add small calculation error on bounces
+                        const bounceError = (Math.random() * 2 - 1) * CALCULATION_NOISE * 5;
+                        by += bounceError;
                         by = Math.max(0, Math.min(snapshot.height, by));
                     }
                 }
-                targetY = by + (Math.random() * 2 - 1) * noise;
+                
+                // Apply final prediction error (much smaller)
+                const finalError = (Math.random() * 2 - 1) * PREDICTION_ERROR;
+                targetY = by + finalError;
+            }
+            
+            // Clamp target to valid positions
+            targetY = Math.max(Game.PADDLE_HEIGHT / 2, 
+                     Math.min(snapshot.height - Game.PADDLE_HEIGHT / 2, targetY));
+            
+            // Start reaction delay
+            targetSetTime = now;
+            isInReactionDelay = true;
+        }
+
+        // MOVE: Every frame - much more responsive
+        const paddleCenter = game.p2.y + Game.PADDLE_HEIGHT / 2;
+        const delta = targetY - paddleCenter;
+        const distance = Math.abs(delta);
+        
+        // Check if still in reaction delay (much shorter now)
+        const timeSinceObservation = now - targetSetTime;
+        const hasFinishedReacting = timeSinceObservation > REACTION_TIME;
+        
+        if (!hasFinishedReacting && isInReactionDelay) {
+            // Still reacting - don't move (but much shorter delay)
+            game.applyInput('p2', 'stop');
+        } else {
+            // Move directly to target - no more stop-go behavior
+            isInReactionDelay = false;
+            
+            if (distance < STOPPING_ACCURACY) {
+                // Very close - stop
+                game.applyInput('p2', 'stop');
+            } else if (delta > 0) {
+                // Target below - move down
+                game.applyInput('p2', 'down');
             } else {
-                // Ball moving away, return to center
-                targetY = snapshot.height / 2;
+                // Target above - move up
+                game.applyInput('p2', 'up');
             }
         }
 
-        // Every frame, move toward the target position
-        // This happens at 60fps regardless of observation frequency
-        const paddleCenter = game.p2.y + Game.PADDLE_HEIGHT / 2;
-        const delta = targetY - paddleCenter;
-
-        // Determine which direction to move based on target position
-        if (Math.abs(delta) < paddleSpeed) {
-            // Close enough, stop moving
-            game.applyInput('p2', 'stop');
-        } else if (delta > 0) {
-            // Target is below paddle, move down
-            game.applyInput('p2', 'down');
-        } else {
-            // Target is above paddle, move up
-            game.applyInput('p2', 'up');
-        }
-
-    }, 1000 / 60); // Run at 60 FPS for smooth movement
+    }, 1000 / 60);
 }
 
 export default class Game {
