@@ -84,6 +84,9 @@ export default function wsHandler(socket: WebSocket, request: FastifyRequest) {
         // Forfeit the game (this should trigger score posting)
         rankedSession.game.forfeit(winner);
 
+        // Mark that disconnect was handled to prevent duplicate processing
+        (rankedSession as any).disconnectHandled = true;
+
         // Get final scores after forfeit
         const score1 = rankedSession.game.score[0];
         const score2 = rankedSession.game.score[1];

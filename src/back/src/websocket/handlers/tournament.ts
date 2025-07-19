@@ -413,24 +413,55 @@ async function handleRankedMatchEnd(session: RankedSession): Promise<void> {
       eloChanges
     );
 
-    // Post scores to blockchain
-    try {
-      const row1 = await getAsync<{ address: string }>(
-        `SELECT address FROM User WHERE idUser = ?`,
-        [session.players.p1.sub]
-      );
-      const row2 = await getAsync<{ address: string }>(
-        `SELECT address FROM User WHERE idUser = ?`,
-        [session.players.p2.sub]
-      );
+    // Post scores to blockchain (only if not already posted due to disconnect)
+    if (!(session as any).disconnectHandled) {
+      try {
+        const row1 = await getAsync<{ address: string }>(
+          `SELECT address FROM User WHERE idUser = ?`,
+          [session.players.p1.sub]
+        );
+        const row2 = await getAsync<{ address: string }>(
+          `SELECT address FROM User WHERE idUser = ?`,
+          [session.players.p2.sub]
+        );
 
-      if (row1 && row2) {
-        const tx1 = await postScore(session.id, row1.address, score1, session.players.p1.sub);
-        const tx2 = await postScore(session.id, row2.address, score2, session.players.p2.sub);
-        console.log("Ranked scores posted to blockchain:", tx1, tx2);
+        if (row1 && row2) {
+          const tx1 = await postScore(session.id, row1.address, score1, session.players.p1.sub);
+          const tx2 = await postScore(session.id, row2.address, score2, session.players.p2.sub);
+          console.log("Ranked scores posted to blockchain:", tx1, tx2);
+
+          // Store transaction hashes in database for blockchain explorer
+          try {
+            await new Promise<void>((resolve, reject) => {
+              db.run(
+                `INSERT OR REPLACE INTO BlockchainTransactions 
+                 (gameId, playerId, playerAddress, score, transactionHash, gameType, createdAt) 
+                 VALUES (?, ?, ?, ?, ?, 'ranked', datetime('now'))`,
+                [session.id, session.players.p1.sub, row1.address, score1, tx1],
+                (err) => err ? reject(err) : resolve()
+              );
+            });
+
+            await new Promise<void>((resolve, reject) => {
+              db.run(
+                `INSERT OR REPLACE INTO BlockchainTransactions 
+                 (gameId, playerId, playerAddress, score, transactionHash, gameType, createdAt) 
+                 VALUES (?, ?, ?, ?, ?, 'ranked', datetime('now'))`,
+                [session.id, session.players.p2.sub, row2.address, score2, tx2],
+                (err) => err ? reject(err) : resolve()
+              );
+            });
+
+            console.log("Normal game transaction hashes stored in database");
+          } catch (err) {
+            console.error("Failed to store normal game transaction hashes:", err);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to post ranked scores to blockchain:", err);
       }
-    } catch (err) {
-      console.error("Failed to post ranked scores to blockchain:", err);
+    } else {
+      console.log("Scores already posted due to disconnect, skipping blockchain posting");
     }
 
     // Notify players of match results
