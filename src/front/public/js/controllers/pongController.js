@@ -38,8 +38,8 @@ export function renderPong(container, socket, onBack) {
         const back = container.querySelector('#backBtn');
         if (back) {
             back.addEventListener('click', () => {
-                cleanup();
                 socket.send(JSON.stringify({ type: 'stoplobby' }));
+                cleanup();
                 onBack();
             });
         }
