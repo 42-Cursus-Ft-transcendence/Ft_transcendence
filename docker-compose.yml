@@ -10,8 +10,6 @@ services:
       - "31337"
       - --port
       - "8545"
-    ports:
-      - "8545:8545"
     networks:
       - pongnet
     environment:
