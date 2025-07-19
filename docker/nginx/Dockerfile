@@ -11,10 +11,15 @@ RUN mkdir -p /etc/nginx/certs \
       -subj "/C=FR/ST=Paris/L=Paris/O=MyOrg/OU=Dev/CN=localhost"
 
 # copy the default.conf from its true location
-COPY src/docker/nginx/default.conf /etc/nginx/conf.d/default.conf
+COPY ./docker/nginx/nginx.conf /etc/nginx/conf.d/default.conf
+
+COPY ./docker/nginx/conf.d/default.conf /etc/nginx/conf.d/default.conf
 
 # remove default static files
 RUN rm -rf /usr/share/nginx/html/*
 
 # copy your built front-end from the project tree
-COPY src/front/public /usr/share/nginx/html
+COPY /src/front/public /usr/share/nginx/html
+
+EXPOSE 80 443
+CMD ["nginx", "-g", "daemon off;"]

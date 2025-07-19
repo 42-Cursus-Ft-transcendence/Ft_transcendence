@@ -48,8 +48,8 @@ export async function handleStop(socket: WebSocket): Promise<void> {
       // Post both scores on-chain
       console.log("blockchain posting");
       try {
-        const tx1 = await postScore(sess.id, row1.address, sess.game.score[0]);
-        const tx2 = await postScore(sess.id, row2.address, sess.game.score[1]);
+        const tx1 = await postScore(sess.id, row1.address, sess.game.score[0], sess.players.p1.sub);
+        const tx2 = await postScore(sess.id, row2.address, sess.game.score[1], sess.players.p2.sub);
         console.log("Scores posted:", tx1, tx2);
       } catch (err) {
         console.error("postScore failed:", err);

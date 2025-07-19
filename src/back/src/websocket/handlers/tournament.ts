@@ -425,8 +425,8 @@ async function handleRankedMatchEnd(session: RankedSession): Promise<void> {
       );
 
       if (row1 && row2) {
-        const tx1 = await postScore(session.id, row1.address, score1);
-        const tx2 = await postScore(session.id, row2.address, score2);
+        const tx1 = await postScore(session.id, row1.address, score1, session.players.p1.sub);
+        const tx2 = await postScore(session.id, row2.address, score2, session.players.p2.sub);
         console.log("Ranked scores posted to blockchain:", tx1, tx2);
       }
     } catch (err) {

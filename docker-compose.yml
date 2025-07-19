@@ -1,0 +1,125 @@
+services:
+  anvil:
+    image: ghcr.io/foundry-rs/foundry:latest
+    container_name: anvil
+    entrypoint:
+      - anvil
+      - --host
+      - 0.0.0.0
+      - --chain-id
+      - "31337"
+      - --port
+      - "8545"
+    ports:
+      - "8545:8545"
+    networks:
+      - pongnet
+    environment:
+      - FOUNDRY_DISABLE_NIGHTLY_WARNING=1
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    container_name: transcendence
+    depends_on:
+      - anvil
+    env_file:
+      - ./src/back/.env.backend
+      - .env
+    volumes:
+      - ./contracts/out:/contracts/out
+    networks:
+      - pongnet
+
+  nginx:
+    build:
+      context: .
+      dockerfile: docker/nginx/Dockerfile
+    container_name: nginx
+    depends_on:
+      - backend
+      - prometheus
+      - grafana
+    ports:
+      - "8080:80"
+      - "8443:443"
+    networks:
+      - pongnet
+
+  prometheus:
+    build:
+      context: ./docker/prometheus
+      dockerfile: Dockerfile
+      args:
+        ARCH: x86_64
+    container_name: prometheus
+    restart: on-failure
+    networks:
+      - pongnet
+    expose:
+      - "9090"
+    depends_on:
+      - nginx-prometheus-exporter
+
+  grafana:
+    build:
+      context: ./docker/grafana
+      dockerfile: Dockerfile
+    container_name: grafana
+    env_file:
+      - .env
+    restart: on-failure
+    environment:
+      #- GF_SERVER_ROOT_URL=https://grafana.junsan.42.fr/
+      - GF_SERVER_ROOT_URL=%(protocol)s://%(domain)s:%(http_port)s/grafana/
+      - GF_SECURITY_ADMIN_USER=${GF_ADMIN_USER}
+      - GF_SECURITY_ADMIN_PASSWORD=${GF_ADMIN_PASSWORD}
+      - GF_PATHS_PLUGINS=/usr/share/grafana/data/plugins
+      - GF_INSTALL_PLUGINS=grafana-lokiexplore-app
+    volumes:
+      - .:/var/lib/grafana
+    networks:
+      - pongnet
+    depends_on:
+      - prometheus
+  nginx-prometheus-exporter:
+    build:
+      context: ./docker/nginx-prometheus-exporter
+      dockerfile: Dockerfile
+      args:
+        ARCH: x86_64
+    container_name: nginx-prometheus-exporter
+    ports:
+      - "9113:9113"
+    networks:
+      - pongnet
+  deployer:
+    image: ghcr.io/foundry-rs/foundry:latest
+    user: root
+    env_file:
+      - .env
+    environment:
+      - FOUNDRY_DISABLE_NIGHTLY_WARNING=1
+      - PRIVATE_KEY
+      - RPC_URL
+    working_dir: /contracts
+    entrypoint:
+      - forge
+      - create
+      - "--rpc-url=${RPC_URL}"
+      - "--private-key=${PRIVATE_KEY}"
+      - "--broadcast"
+      - src/ScoreBoard.sol:ScoreBoard
+    volumes:
+      - ./contracts:/contracts
+    depends_on:
+      - anvil
+    networks:
+      - pongnet
+    restart: "no"
+# Define the network
+networks:
+  pongnet:
+    driver: bridge
