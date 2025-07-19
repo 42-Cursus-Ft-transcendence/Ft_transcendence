@@ -48,9 +48,12 @@ RUN npm run build
 FROM node:20-alpine AS runtime
 
 # install only runtime sqlite library
-RUN apk add --no-cache sqlite-libs
+RUN apk add --no-cache sqlite-libs curl
 
 WORKDIR /app
+
+COPY src/back/wait-for-anvil.sh /app/wait-for-anvil.sh
+RUN chmod +x /app/wait-for-anvil.sh
 
 # ---------------------
 # install only production deps for backend
@@ -76,4 +79,5 @@ VOLUME ["/app/data"]
 EXPOSE 3000
 
 # final command
+ENTRYPOINT ["/app/wait-for-anvil.sh"]
 CMD ["node", "dist/server.js"]

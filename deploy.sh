@@ -9,19 +9,14 @@ export FOUNDRY_DISABLE_NIGHTLY_WARNING=1
 # ───────────────────────────────────────────────────────────────
 # 1) Load environment variables from .env files
 # ───────────────────────────────────────────────────────────────
-if [ -f .env ]; then
-  echo "🔑 Loading global .env"
-  set -a; source .env; set +a
-fi
-
 if [ -f src/back/.env.backend ]; then
   echo "🔑 Loading backend .env.backend"
   set -a; source src/back/.env.backend; set +a
 fi
 
 # Default RPC endpoint and require PRIVATE_KEY
-: "${RPC_URL:=http://localhost:8545}"
-: "${PRIVATE_KEY:?Error: PRIVATE_KEY must be set in .env or .env.backend}"
+: "${RPC_URL:?Error: RPC_URL must be set in .env.backend}"
+: "${PRIVATE_KEY:?Error: PRIVATE_KEY must be set in .env.backend}"
 
 # ───────────────────────────────────────────────────────────────
 # 2) Start Anvil via Docker Compose
@@ -45,19 +40,7 @@ echo "✅ Anvil RPC is up!"
 # 4 & 5) Compile & Deploy via Foundry in a single container
 # ───────────────────────────────────────────────────────────────
 echo "🔨 Compiling and deploying via Foundry..."
-docker run --rm \
-  -v "${PWD}/contracts":/contracts \
-  -e RPC_URL="${RPC_URL}" \
-  -e PRIVATE_KEY="${PRIVATE_KEY}" \
-  ghcr.io/foundry-rs/foundry:latest \
-  sh -c "
-    forge build && \
-    forge create \
-      --rpc-url \$RPC_URL \
-      --private-key \$PRIVATE_KEY \
-      --broadcast \
-      out/ScoreBoard.sol/ScoreBoard.json
-  "
+docker-compose run --rm deployer
 echo "🚀 Compilation and deployment complete!"
 
 # ───────────────────────────────────────────────────────────────
