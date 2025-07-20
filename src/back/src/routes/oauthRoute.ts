@@ -60,6 +60,7 @@ export default async function oauthRoutes(app: FastifyInstance) {
         { sub: userId, userName, email },
         { expiresIn: "2h" }
       );
+      app.onUserLogin();
       return reply
         .setCookie("token", token, {
           // signed: true,

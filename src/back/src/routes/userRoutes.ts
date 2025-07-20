@@ -46,7 +46,6 @@ export default async function userRoutes(app: FastifyInstance) {
     { preHandler: [(app as any).authenticate] },
     async (request, reply) => {
       const idUser = (request.user as any).sub as number;
-      const userName = (request.user as any).userName as string;
       try {
         const res = await getAsync<{
           userName: string;
@@ -102,7 +101,6 @@ export default async function userRoutes(app: FastifyInstance) {
        WHERE userName = ?`,
         [userName]
       );
-
       if (!user)
         return reply
           .status(401)
@@ -120,6 +118,7 @@ export default async function userRoutes(app: FastifyInstance) {
           { sub: user.idUser, pre2fa: true },
           { expiresIn: "5m" } // Short-lived token for pre-2FA login
         );
+        app.onUserLogin();
         return reply
           .setCookie("pre2faToken", pre2faToken, {
             // signed: true,
@@ -138,6 +137,9 @@ export default async function userRoutes(app: FastifyInstance) {
         { sub: user.idUser, userName },
         { expiresIn: "2h" }
       );
+      console.log("Token généré:", token);
+      app.onUserLogin();
+      console.log("User login: activeUsers incremented");
       return reply
         .setCookie("token", token, {
           // signed: true,
@@ -176,8 +178,14 @@ export default async function userRoutes(app: FastifyInstance) {
           `UPDATE User SET connectionStatus = 0 WHERE idUser = ?`,
           [idUser]
         );
+        app.onUserLogout();
         return reply
-          .setCookie("token", "", cookieOpt)
+          .clearCookie("token", {
+            path: "/",
+            httpOnly: true,
+            sameSite: "strict",
+            // secure: true,
+          })
           .status(200)
           .send({ ok: true });
       } catch (err) {
@@ -188,6 +196,7 @@ export default async function userRoutes(app: FastifyInstance) {
       }
     }
   );
+
   app.put(
     "/account",
     { preHandler: [(app as any).authenticate] },

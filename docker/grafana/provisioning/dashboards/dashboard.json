@@ -1,0 +1,97 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": "-- Grafana --",
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "gnetId": null,
+  "graphTooltip": 0,
+  "id": null,
+  "iteration": 1627549200000,
+  "links": [],
+  "panels": [
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": { "unit": "none" },
+        "overrides": []
+      },
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 0 },
+      "id": 2,
+      "options": {
+        "orientation": "auto",
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "targets": [
+        {
+          "expr": "nginx_connections_accepted",
+          "format": "time_series",
+          "interval": "",
+          "legendFormat": "{{instance}}",
+          "refId": "A"
+        }
+      ],
+      "title": "NGINX Connections Accepted",
+      "type": "gauge"
+    },
+    {
+      "type": "stat",
+      "title": "Active Logged-in Users",
+      "id": 3,
+      "gridPos": { "x": 0, "y": 9, "w": 6, "h": 6 },
+      "targets": [{ "expr": "app_logged_in_users", "refId": "A" }]
+    },
+    {
+      "type": "timeseries",
+      "title": "API Response Time (p95)",
+      "id": 4,
+      "gridPos": { "x": 6, "y": 9, "w": 12, "h": 6 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[1m])) by (le))",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "5xx Error Rate",
+      "id": 5,
+      "gridPos": { "x": 0, "y": 15, "w": 6, "h": 6 },
+      "targets": [
+        {
+          "expr": "sum(rate(http_requests_total{status=~\"5..\"}[1m]))",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Active NGINX Connections",
+      "id": 6,
+      "gridPos": { "x": 6, "y": 15, "w": 6, "h": 6 },
+      "targets": [{ "expr": "nginx_connections_active", "refId": "A" }]
+    }
+  ],
+  "schemaVersion": 30,
+  "style": "dark",
+  "tags": [],
+  "templating": { "list": [] },
+  "time": { "from": "now-6h", "to": "now" },
+  "timepicker": {},
+  "timezone": "",
+  "title": "Transcendence Dashboard",
+  "uid": "Transcendence-dashboard",
+  "version": 1
+}
+

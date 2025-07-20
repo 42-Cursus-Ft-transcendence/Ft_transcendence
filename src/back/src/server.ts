@@ -21,7 +21,7 @@ import registerWebsocketRoutes from "./websocket";
 // Import plugins
 import loggerPlugin, { loggerOptions } from "./plugins/logger";
 import authPlugin from "./plugins/auth";
-//import { verifyPre2fa } from "./plugins/verifyPre2fa";
+import metricsPlugin from "./plugins/metrics";
 
 (async () => {
   // ─────────────────────────────────────────────────────────────────────────────
@@ -53,11 +53,7 @@ import authPlugin from "./plugins/auth";
   const app = Fastify({
     logger: loggerOptions[environment],
     disableRequestLogging: true,
-    ajv: {
-      customOptions: {
-        strict: false, // Disable strict mode to allow additional properties for Swagger
-      },
-    },
+    allowErrorHandlerOverride: true,
   });
   if (isDev) {
     app.register(loggerPlugin);
@@ -102,18 +98,19 @@ import authPlugin from "./plugins/auth";
 
   // Register authentication
   await app.register(authPlugin);
-
-  // ─────────────────────────────────────────────────────────────────────────────
-  // Router Registration
-  // ─────────────────────────────────────────────────────────────────────────────// bd routes
-  app.register(userRoutes, { prefix: "/api" });
-  app.register(oauthRoutes, { prefix: "/api" });
-  app.register(twofaRoutes, { prefix: "/api" });
-  app.register(scoresRoutes, { prefix: "/api" });
+  // Register metrics
+  await app.register(metricsPlugin);
 
   // Register WebSocket plugin without any options
   await app.register(registerWebsocketRoutes);
   console.log("WebSocket plugin registered");
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Router Registration
+  // ─────────────────────────────────────────────────────────────────────────────// bd routes
+  await app.register(userRoutes, { prefix: "/api" });
+  await app.register(oauthRoutes, { prefix: "/api" });
+  await app.register(twofaRoutes, { prefix: "/api" });
+  await app.register(scoresRoutes, { prefix: "/api" });
 
   // ─────────────────────────────────────────────────────────────────────────────
   // Serve static frontend & SPA fallback (excluding /ws & /api)

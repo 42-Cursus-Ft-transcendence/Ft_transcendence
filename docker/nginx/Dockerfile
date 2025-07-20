@@ -1,6 +1,6 @@
 FROM nginx:1.25-alpine
 
-RUN apk add --no-cache openssl
+RUN apk add --no-cache openssl apache2-utils
 
 # generate certs…
 RUN mkdir -p /etc/nginx/certs \
@@ -9,6 +9,12 @@ RUN mkdir -p /etc/nginx/certs \
       -keyout /etc/nginx/certs/server.key \
       -out /etc/nginx/certs/server.crt \
       -subj "/C=FR/ST=Paris/L=Paris/O=MyOrg/OU=Dev/CN=localhost"
+
+ARG NGINX_USER_NAME
+ARG NGINX_USER_PASSWORD
+
+# create .htpasswd
+RUN htpasswd -cb /etc/nginx/.htpasswd ${NGINX_USER_NAME} ${NGINX_USER_PASSWORD}
 
 # copy the default.conf from its true location
 COPY ./docker/nginx/nginx.conf /etc/nginx/conf.d/default.conf

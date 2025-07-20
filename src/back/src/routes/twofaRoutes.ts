@@ -140,6 +140,7 @@ export default async function twofaRoutes(app: FastifyInstance) {
       sameSite: "strict",
     });
     const jwt = app.jwt.sign({ sub: userId, userName: userRow.userName });
+    app.onUserLogin();
     return reply
       .setCookie("token", jwt, {
         httpOnly: true,

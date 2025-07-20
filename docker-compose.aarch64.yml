@@ -1,29 +1,45 @@
 services:
+  anvil:
+    platform: linux/arm64
+    init: true
+    security_opt:
+      - seccomp=unconfined
+      - apparmor=unconfined
+  backend:
+    platform: linux/arm64
+    init: true
+    security_opt:
+      - seccomp=unconfined
+      - apparmor=unconfined
   deployer:
     build:
       context: .
       dockerfile: Dockerfile.aarch64.deployer
-    user: root
-    env_file:
-      - .env
-    environment:
-      - PRIVATE_KEY
-      - RPC_URL
-      - FORGE_USE_SYSTEM_SOLC=1
-      - FOUNDRY_DISABLE_NIGHTLY_WARNING=1
-    working_dir: /contracts
-    entrypoint:
-      - forge
-      - create
-      - "--rpc-url=${RPC_URL}"
-      - "--private-key=${PRIVATE_KEY}"
-      - "--broadcast"
-      - src/ScoreBoard.sol:ScoreBoard
-    volumes:
-      - ./contracts:/contracts
-    depends_on:
-      - anvil
-    networks:
-      - pongnet
-    restart: "no"
+    security_opt:
+      - seccomp=unconfined
+      - apparmor=unconfined
+  
+  prometheus:
+    platform: linux/arm64
+    security_opt:
+      - seccomp=unconfined
+      - apparmor=unconfined
+
+  nginx-prometheus-exporter:
+    platform: linux/arm64
+    security_opt:
+      - seccomp=unconfined
+      - apparmor=unconfined
+   
+  grafana:
+    platform: linux/arm64
+    security_opt:
+      - seccomp=unconfined
+      - apparmor=unconfined
+  
+  nginx:
+    platform: linux/arm64
+    security_opt:
+      - seccomp=unconfined
+      - apparmor=unconfined
 
