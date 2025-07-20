@@ -27,8 +27,8 @@ export const defaultGameplaySettings: GameplaySettings = {
   bgOpacity: 70,
   p1UpKey: "w",
   p1DownKey: "s",
-  p2UpKey: "arrowup",
-  p2DownKey: "arrowdown",
+  p2UpKey: "ArrowUp",
+  p2DownKey: "ArrowDown",
 };
 
 export function loadGameplaySettings(): GameplaySettings {
@@ -90,6 +90,9 @@ export async function renderSettings(
   container: HTMLElement,
   onBack: () => void
 ) {
+  // Cleanup any existing keybind capture when switching views
+  cleanupKeybindCapture();
+
   container.innerHTML = settingsTemplate;
   bindBackButton(container, onBack);
   await bindAccountSection(container);
@@ -99,11 +102,21 @@ export async function renderSettings(
 }
 
 /**
+ * Cleanup function to be called when leaving settings page
+ */
+export function cleanupSettings() {
+  cleanupKeybindCapture();
+}
+
+/**
  * Bind the back button in the top-right corner.
  */
 function bindBackButton(container: HTMLElement, onBack: () => void) {
   const backBtn = container.querySelector<HTMLButtonElement>("#backBtn")!;
-  backBtn.addEventListener("click", onBack);
+  backBtn.addEventListener("click", () => {
+    cleanupKeybindCapture(); // Cleanup before navigating away
+    onBack();
+  });
 }
 
 /**
@@ -156,34 +169,77 @@ async function bindAccountSection(container: HTMLElement) {
   if (profile.userName) usernameInput.value = profile.userName;
   if (profile.email) emailInput.value = profile.email;
 
+  // Avatar modal management
+  const avatarCloseBtn = modal.querySelector<HTMLButtonElement>("#avatar-close");
+  const errorAvatar = modal.querySelector<HTMLParagraphElement>("#error-avatar-modal");
+
+  // Clear any previous errors when opening modal
+  const clearAvatarError = () => {
+    if (errorAvatar) {
+      errorAvatar.textContent = "";
+      errorAvatar.classList.add("hidden");
+    }
+  };
+
+  // Show avatar error
+  const showAvatarError = (message: string) => {
+    if (errorAvatar) {
+      errorAvatar.textContent = message;
+      errorAvatar.classList.remove("hidden");
+    }
+  };
+
+  // Close modal function
+  const closeAvatarModal = () => {
+    modal.classList.add("hidden");
+    clearAvatarError();
+  };
+
   // Avatar modal open
-  profileImg.addEventListener("click", () => modal.classList.remove("hidden"));
+  profileImg.addEventListener("click", () => {
+    modal.classList.remove("hidden");
+    clearAvatarError();
+  });
+
+  // Close button
+  avatarCloseBtn?.addEventListener("click", closeAvatarModal);
+
+  // Click outside to close
+  modal.addEventListener("click", (e) => {
+    if (e.target === modal) {
+      closeAvatarModal();
+    }
+  });
+
   // Predefined avatars
   modal.querySelectorAll<HTMLImageElement>(".avatar-option").forEach((img) => {
     img.addEventListener("click", () => {
       const url = img.dataset.src!;
       profile.avatarURL = url;
       profileImg.src = url;
-      modal.classList.add("hidden");
+      closeAvatarModal();
     });
   });
+
   // Import custom avatar
   container
     .querySelector<HTMLDivElement>("#avatar-import")!
     .addEventListener("click", () => fileInput.click());
+
   fileInput.addEventListener("change", async () => {
     const file = fileInput.files?.[0];
     if (!file) return;
 
     try {
+      clearAvatarError();
       // Convert file to Base64 for database storage
       const base64URL = await handleFileUpload(file);
       profile.avatarURL = base64URL;
       profileImg.src = base64URL;
-      modal.classList.add("hidden");
+      closeAvatarModal();
     } catch (error) {
       console.error("Error uploading file:", error);
-      alert("Error uploading avatar");
+      showAvatarError(error instanceof Error ? error.message : "Error uploading avatar");
     }
   });
 
@@ -326,10 +382,16 @@ function bindGameplaySection(container: HTMLElement) {
   trailRange.value = String(settings.trailLength);
   bgColorInput.value = settings.bgColor;
   bgOpacityRange.value = String(settings.bgOpacity);
-  p1UpInput.value = settings.p1UpKey;
-  p1DownInput.value = settings.p1DownKey;
-  p2UpInput.value = settings.p2UpKey;
-  p2DownInput.value = settings.p2DownKey;
+
+  // For keybind inputs, show visual display but store real values in data attribute
+  p1UpInput.value = getKeyDisplayName(settings.p1UpKey);
+  p1UpInput.setAttribute('data-real-key', settings.p1UpKey);
+  p1DownInput.value = getKeyDisplayName(settings.p1DownKey);
+  p1DownInput.setAttribute('data-real-key', settings.p1DownKey);
+  p2UpInput.value = getKeyDisplayName(settings.p2UpKey);
+  p2UpInput.setAttribute('data-real-key', settings.p2UpKey);
+  p2DownInput.value = getKeyDisplayName(settings.p2DownKey);
+  p2DownInput.setAttribute('data-real-key', settings.p2DownKey);
 
   // Bind color theme change: sync palette
   colorThemeSel.addEventListener("change", () =>
@@ -368,10 +430,13 @@ function bindGameplaySection(container: HTMLElement) {
     settings.trailLength = Number(trailRange.value);
     settings.bgColor = bgColorInput.value;
     settings.bgOpacity = Number(bgOpacityRange.value);
-    settings.p1UpKey = p1UpInput.value;
-    settings.p1DownKey = p1DownInput.value;
-    settings.p2UpKey = p2UpInput.value;
-    settings.p2DownKey = p2DownInput.value;
+
+    // Use real key values from data attributes instead of display values
+    settings.p1UpKey = p1UpInput.getAttribute('data-real-key') || settings.p1UpKey;
+    settings.p1DownKey = p1DownInput.getAttribute('data-real-key') || settings.p1DownKey;
+    settings.p2UpKey = p2UpInput.getAttribute('data-real-key') || settings.p2UpKey;
+    settings.p2DownKey = p2DownInput.getAttribute('data-real-key') || settings.p2DownKey;
+
     saveGameplaySettings(settings);
     alert("Gameplay settings saved");
   });
@@ -402,26 +467,262 @@ function applyPalette(
   Object.assign(settings, { colorTheme: theme, ...p });
 }
 
+// State management for keybind isolation
+let isKeybindActive = false;
+let activeKeybindInput: HTMLInputElement | null = null;
+let keybindOverlay: HTMLElement | null = null;
+
 /**
  * Capture any key press into a readonly input and store in settings.
+ * Provides visual isolation and prevents interference from other UI.
  */
 function bindKeyCapture(
   input: HTMLInputElement,
   prop: keyof GameplaySettings,
   settings: GameplaySettings
 ) {
-  input.addEventListener("focus", () => {
-    input.value = "…";
-    const onKey = (e: KeyboardEvent) => {
-      e.preventDefault();
-      input.value = e.key;
-      // @ts-ignore
-      settings[prop] = e.key;
-      window.removeEventListener("keydown", onKey);
-      input.blur();
-    };
-    window.addEventListener("keydown", onKey);
+  input.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    startKeybindCapture(input, prop, settings);
   });
+
+  input.addEventListener("focus", (e) => {
+    e.preventDefault();
+    input.blur(); // Prevent focus, use click instead
+  });
+}
+
+/**
+ * Start keybind capture mode with visual isolation
+ */
+function startKeybindCapture(
+  input: HTMLInputElement,
+  prop: keyof GameplaySettings,
+  settings: GameplaySettings
+) {
+  // Prevent multiple keybind captures
+  if (isKeybindActive) {
+    cancelKeybindCapture();
+  }
+
+  isKeybindActive = true;
+  activeKeybindInput = input;
+
+  // Show the modal
+  createKeybindOverlay(input);
+
+  // Get modal elements
+  const modal = document.querySelector("#keybind-modal");
+  const targetDisplay = modal?.querySelector("#keybind-target");
+  const keyDisplay = modal?.querySelector("#keybind-display");
+  const confirmBtn = modal?.querySelector("#keybind-confirm") as HTMLButtonElement;
+  const closeBtn = modal?.querySelector("#keybind-close") as HTMLButtonElement;
+
+  // Set up modal display
+  if (targetDisplay) {
+    const inputName = input.getAttribute("data-key") || prop.toString();
+    targetDisplay.textContent = inputName;
+  }
+
+  if (keyDisplay) {
+    keyDisplay.textContent = "Press any key";
+  }
+
+  // Show confirm button from the start (no longer hidden)
+  confirmBtn?.classList.remove("hidden");
+
+  // Store original value for cancellation
+  const originalValue = input.value;
+  let capturedKey: string | null = null;
+  let capturedRawKey: string | null = null; // Store the raw key for settings
+
+  // Key capture handler
+  const onKey = (e: KeyboardEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    // Allow Escape to cancel
+    if (e.key === "Escape") {
+      cancelKeybindCapture(originalValue);
+      return;
+    }
+
+    // Capture both raw key (for storage) and normalized key
+    capturedRawKey = e.key;
+    capturedKey = normalizeKeyName(e.key);
+
+    // Update displays with visual representation
+    if (keyDisplay) {
+      keyDisplay.textContent = getKeyDisplayName(e.key);
+    }
+  };
+
+  // Confirm button handler
+  const onConfirm = () => {
+    if (capturedKey && capturedRawKey) {
+      // Display visual version in input
+      input.value = getKeyDisplayName(capturedRawKey);
+      // Store real key value in data attribute for form submission
+      input.setAttribute('data-real-key', capturedKey);
+      // Store normalized key value for game compatibility
+      // @ts-ignore
+      settings[prop] = capturedKey;
+      completeKeybindCapture();
+    }
+  };
+
+  // Close button handler (same as cancel)
+  const onClose = () => {
+    cancelKeybindCapture(originalValue);
+  };
+
+  // Click outside handler to cancel
+  const onClickOutside = (e: MouseEvent) => {
+    const modalContent = modal?.querySelector(".animate-scaleIn");
+    if (modal && !modalContent?.contains(e.target as Node)) {
+      cancelKeybindCapture(originalValue);
+    }
+  };
+
+  // Bind events
+  window.addEventListener("keydown", onKey, { capture: true });
+  confirmBtn?.addEventListener("click", onConfirm);
+  closeBtn?.addEventListener("click", onClose);
+  setTimeout(() => {
+    document.addEventListener("click", onClickOutside, { capture: true });
+  }, 100); // Small delay to prevent immediate cancellation
+
+  // Store cleanup functions
+  (input as any)._keybindCleanup = () => {
+    window.removeEventListener("keydown", onKey, { capture: true });
+    document.removeEventListener("click", onClickOutside, { capture: true });
+    confirmBtn?.removeEventListener("click", onConfirm);
+    closeBtn?.removeEventListener("click", onClose);
+  };
+}
+
+/**
+ * Show the keybind modal from the template
+ */
+function createKeybindOverlay(input: HTMLInputElement) {
+  keybindOverlay = document.querySelector("#keybind-modal");
+  if (!keybindOverlay) {
+    console.error("Keybind modal not found in template");
+    return;
+  }
+
+  // Show the modal
+  keybindOverlay.classList.remove("hidden");
+
+  // Clear any previous error
+  const errorElement = keybindOverlay.querySelector("#error-keybind-modal");
+  if (errorElement) {
+    errorElement.classList.add("hidden");
+    errorElement.textContent = "";
+  }
+}
+
+/**
+ * Complete keybind capture and cleanup
+ */
+function completeKeybindCapture() {
+  if (!activeKeybindInput) return;
+
+  // Cleanup visual states
+  activeKeybindInput.classList.remove("animate-pulse", "border-yellow-400", "bg-yellow-900/30");
+  activeKeybindInput.classList.add("border-green-400", "bg-green-900/30");
+
+  // Brief success feedback
+  setTimeout(() => {
+    if (activeKeybindInput) {
+      activeKeybindInput.classList.remove("border-green-400", "bg-green-900/30");
+    }
+  }, 1000);
+
+  cleanupKeybindCapture();
+}
+
+/**
+ * Cancel keybind capture and restore original value
+ */
+function cancelKeybindCapture(originalValue?: string) {
+  if (!activeKeybindInput) return;
+
+  // Restore original value if provided
+  if (originalValue !== undefined) {
+    activeKeybindInput.value = originalValue;
+  }
+
+  // Cleanup visual states
+  activeKeybindInput.classList.remove(
+    "animate-pulse", "border-yellow-400", "bg-yellow-900/30",
+    "border-green-400", "bg-green-900/30"
+  );
+
+  cleanupKeybindCapture();
+}
+
+/**
+ * Common cleanup for keybind capture
+ */
+function cleanupKeybindCapture() {
+  // Remove event listeners
+  if (activeKeybindInput && (activeKeybindInput as any)._keybindCleanup) {
+    (activeKeybindInput as any)._keybindCleanup();
+    delete (activeKeybindInput as any)._keybindCleanup;
+  }
+
+  // Hide the modal
+  if (keybindOverlay) {
+    keybindOverlay.classList.add("hidden");
+    keybindOverlay = null;
+  }
+
+  // Reset state
+  isKeybindActive = false;
+  activeKeybindInput = null;
+}
+
+/**
+ * Get visual display for a key (for UI only)
+ */
+function getKeyDisplayName(key: string): string {
+  const displayMap: Record<string, string> = {
+    "ArrowUp": "↑",
+    "ArrowDown": "↓",
+    "ArrowLeft": "←",
+    "ArrowRight": "→",
+    " ": "Space",
+    "Control": "Ctrl",
+    "Alt": "Alt",
+    "Shift": "Shift",
+    "Meta": "Cmd",
+    "Tab": "Tab",
+    "Enter": "Enter",
+    "Backspace": "Backspace",
+    "Delete": "Delete",
+    "Escape": "Escape"
+  };
+
+  return displayMap[key] || key.toUpperCase();
+}
+
+/**
+ * Normalize key names for storage (keeps game compatibility)
+ */
+function normalizeKeyName(key: string): string {
+  // Only normalize specific cases to maintain game compatibility
+  const keyMap: Record<string, string> = {
+    " ": "space",
+    "Control": "ctrl",
+    "Alt": "alt",
+    "Shift": "shift",
+    "Meta": "cmd"
+  };
+
+  // Keep original case for arrow keys and most others to maintain compatibility
+  return keyMap[key] || key;
 }
 
 /**
