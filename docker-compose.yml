@@ -101,7 +101,6 @@ services:
     env_file:
       - .env
     environment:
-      - FOUNDRY_DISABLE_NIGHTLY_WARNING=1
       - PRIVATE_KEY
       - RPC_URL
     working_dir: /contracts

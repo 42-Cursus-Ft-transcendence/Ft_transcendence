@@ -7,7 +7,21 @@ set -euo pipefail
 export FOUNDRY_DISABLE_NIGHTLY_WARNING=1
 
 # ───────────────────────────────────────────────────────────────
-# 1) Load environment variables from .env files
+# 1) Determine architecture and store in env
+# ───────────────────────────────────────────────────────────────
+ARCH=$(uname -m)
+export ARCH
+# Persist ARCH in .env if desired
+if grep -q '^ARCH=' .env; then
+  sed -i "s/^ARCH=.*/ARCH=$ARCH/" .env
+else
+  echo "ARCH=$ARCH" >> .env
+fi
+
+echo "Detected architecture: $ARCH"
+
+# ───────────────────────────────────────────────────────────────
+# 2) Load environment variables from .env files
 # ───────────────────────────────────────────────────────────────
 if [ -f src/back/.env.backend ]; then
   echo "🔑 Loading backend .env.backend"
@@ -19,13 +33,13 @@ fi
 : "${PRIVATE_KEY:?Error: PRIVATE_KEY must be set in .env.backend}"
 
 # ───────────────────────────────────────────────────────────────
-# 2) Start Anvil via Docker Compose
+# 3) Start Anvil via Docker Compose
 # ───────────────────────────────────────────────────────────────
 echo "🚀 Starting Anvil service..."
 docker compose up --build --force-recreate -d anvil
 
 # ───────────────────────────────────────────────────────────────
-# 3) Wait until Anvil RPC is ready inside the network
+# 4) Wait until Anvil RPC is ready inside the network
 # ───────────────────────────────────────────────────────────────
 echo "🔧 Installing curl in Anvil container (as root)..."
 docker compose exec -T --user root anvil sh -c \
@@ -37,10 +51,19 @@ done
 echo "✅ Anvil RPC is up!"
 
 # ───────────────────────────────────────────────────────────────
-# 4 & 5) Compile & Deploy via Foundry in a single container
+# 5) Compile & Deploy via Foundry in a single container
 # ───────────────────────────────────────────────────────────────
 echo "🔨 Compiling and deploying via Foundry..."
-docker compose run --rm deployer
+COMPOSE_FILES="-f docker-compose.yml"
+if [ "$ARCH" = "aarch64" ]; then
+  echo "Using ARM64 override compose file"
+  COMPOSE_FILES="$COMPOSE_FILES -f docker-compose.aarch64.yml"
+else
+  echo "Using default compose file"
+fi
+
+echo "🔨 Compiling and deploying via Foundry ($ARCH)..."
+docker compose $COMPOSE_FILES up --build --force-recreate deployer
 echo "🚀 Compilation and deployment complete!"
 
 # ───────────────────────────────────────────────────────────────
