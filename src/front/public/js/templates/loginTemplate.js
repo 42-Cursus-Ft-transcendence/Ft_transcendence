@@ -13,34 +13,38 @@ export const loginTemplate = `
     
     <form id="loginForm" class="space-y-5">
       <!-- Email -->
-      <div class="relative">
-        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-          <i class='bx bx-user   text-pink-500'></i> 
+      <div>
+        <div class="relative">
+          <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <i class='bx bx-user   text-pink-500'></i> 
+          </div>
+          <input id="name" type="text" required placeholder="UserName" class="w-full pl-10 pr-4 py-3
+                 bg-black/30 placeholder-blue-300
+                 text-green-400 outline-none
+                 border border-pink-500/30
+                 rounded-lg
+                 focus:border-pink-500
+                 transition" />
         </div>
-        <input id="name" type="text" required placeholder="User Name" class="w-full pl-10 pr-4 py-3
-               bg-black/30 placeholder-blue-300
-               text-green-400 outline-none
-               border border-pink-500/30
-               rounded-lg
-               focus:border-pink-500
-               transition" />
         <p id="error-name" class="text-red-500 text-sm mt-1 hidden"></p>
       </div>
       
       <!-- Password -->
-      <div class="relative">
-        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-          <i class='bx bx-lock   text-pink-500'></i> 
-        </div>
-        <input id="password" type="password" required placeholder="Password" class="w-full pl-10 pr-12 py-3
-               bg-black/30 placeholder-blue-300
-               text-green-400 outline-none
-               border border-pink-500/30
-               rounded-lg
-               focus:border-pink-500
-               transition" />
-        <div class="absolute inset-y-0 right-0 pr-3 flex items-center">
-          <i id="togglePassword" class="bx bx-eye-slash text-blue-300 cursor-pointer hover:text-pink-400 transition" ></i>
+      <div>
+        <div class="relative">
+          <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <i class='bx bx-lock   text-pink-500'></i> 
+          </div>
+          <input id="password" type="password" required placeholder="Password" class="w-full pl-10 pr-12 py-3
+                 bg-black/30 placeholder-blue-300
+                 text-green-400 outline-none
+                 border border-pink-500/30
+                 rounded-lg
+                 focus:border-pink-500
+                 transition" />
+          <div class="absolute inset-y-0 right-0 pr-3 flex items-center">
+            <i id="togglePassword" class="bx bx-eye-slash text-blue-300 cursor-pointer hover:text-pink-400 transition" ></i>
+          </div>
         </div>
         <p id="error-password" class="text-red-500 text-sm mt-1 hidden"></p>
       </div>
