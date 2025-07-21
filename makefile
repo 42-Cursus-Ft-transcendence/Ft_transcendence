@@ -48,6 +48,7 @@ help:
 	@echo "  up                      End‑to‑end pipeline (detect → deploy → stack)"
 	@echo "  down                    docker compose down --remove-orphans"
 	@echo "  logs                    Tail logs of full stack"
+	@echo "  dev					 dev mode(overriding with docker-compose.dev.yml)"
 
 ###############################################################################
 # 2. SINGLE‑CONTAINER DOCKER WORKFLOW                                         #
@@ -167,3 +168,10 @@ remove-volumes:
 	  echo "🗑️  Deleting volume '$$vol'…"; \
 	  docker volume rm $$vol && echo "   ✅ $$vol deleted." || echo "   ⚠️ $$vol not found, skipping."; \
 	done
+
+###############################################################################
+# 6. DEVELOPMENT SHORTCUT                                                    #
+###############################################################################
+.PHONY: dev
+dev:
+	docker-compose $(COMPOSE_FILES) -f docker-compose.dev.yml up -d
