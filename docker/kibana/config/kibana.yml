@@ -1,0 +1,16 @@
+server.ssl.enabled: false
+#server.ssl.certificate: /usr/share/kibana/config/ssl/cert.pem
+#server.ssl.key: /usr/share/kibana/config/ssl/cert.key
+server.port: 5601
+server.host: 0.0.0.0
+
+# This section was automatically generated during setup.
+elasticsearch.hosts: ["http://elasticsearch:9200"]
+elasticsearch.username: "kibana_system"
+elasticsearch.password: ${KIBANA_PASSWORD}
+
+xpack.monitoring.enabled: true
+xpack.monitoring.ui.enabled: true
+xpack.monitoring.ui.container.elasticsearch.enabled: true
+xpack.monitoring.ui.container.logstash.enabled: true
+# xpack.security.encryptionKey: ${KIBANA_ENCRYPTION_KEY}

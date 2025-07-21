@@ -1,0 +1,11 @@
+cluster.name: "ft_transcende"
+network.host: 0.0.0.0
+http.port: 9200
+discovery.type: single-node
+
+xpack.security.enabled: true
+xpack.security.http.ssl.enabled: false
+xpack.security.enrollment.enabled: true
+xpack.monitoring.collection.enabled: true
+xpack.monitoring.collection.interval: 10s
+#xpack.monitoring.templates.enabled: true
