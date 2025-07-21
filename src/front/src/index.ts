@@ -26,8 +26,10 @@ export let socket: WebSocket;
 const root = document.getElementById("root") as HTMLElement;
 
 function doRender(screen: Screen) {
-  if (screen === "signup") renderSignup(root, () => navigate("login"));
-  else if (screen === "login") renderLogin(root, () => navigate("menu"));
+  if (screen === "signup") 
+    renderSignup(root, () => navigate("login"));
+  else if (screen === "login") 
+    renderLogin(root, () => navigate("menu"));
   else if (screen === "blockexplorer") {
     // Block explorer renders fullscreen without arcade frame
     renderBlockExplorer(root, () => navigate("menu"));

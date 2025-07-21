@@ -98,24 +98,24 @@ export function renderPong(container, socket, onBack) {
                 if (!isGameActive)
                     return;
                 let ply = null, dir = null;
-                // Compare with the actual key without lowercasing to preserve ArrowUp, ArrowDown, etc.
-                if (e.key === settings.p1UpKey) {
+                const k = e.key.toLowerCase();
+                if (k === settings.p1UpKey) {
                     ply = 'p1';
                     dir = 'up';
                 }
-                else if (e.key === settings.p1DownKey) {
+                else if (k === settings.p1DownKey) {
                     ply = 'p1';
                     dir = 'down';
                 }
-                else if (e.key === settings.p2UpKey) {
+                else if (k === settings.p2UpKey) {
                     ply = 'p2';
                     dir = 'up';
                 }
-                else if (e.key === settings.p2DownKey) {
+                else if (k === settings.p2DownKey) {
                     ply = 'p2';
                     dir = 'down';
                 }
-                else if (e.key === 'Escape') {
+                else if (k === 'escape') {
                     cleanup();
                     onBack();
                     return;
@@ -128,10 +128,10 @@ export function renderPong(container, socket, onBack) {
                 if (!isGameActive)
                     return;
                 let ply = null;
-                // Compare with the actual key without lowercasing
-                if (e.key === settings.p1UpKey || e.key === settings.p1DownKey)
+                const k = e.key.toLowerCase();
+                if (k === settings.p1UpKey || k === settings.p1DownKey)
                     ply = 'p1';
-                else if (e.key === settings.p2UpKey || e.key === settings.p2DownKey)
+                else if (k === settings.p2UpKey || k === settings.p2DownKey)
                     ply = 'p2';
                 if (ply) {
                     socket.send(JSON.stringify({ type: 'input', player: ply, dir: 'stop' }));
