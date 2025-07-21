@@ -38,8 +38,8 @@ services:
       context: .
       dockerfile: docker/nginx/Dockerfile
       args:
-          NGINX_USER_NAME: ${NGINX_USER_NAME}
-          NGINX_USER_PASSWORD: ${NGINX_USER_PASSWORD}
+        NGINX_USER_NAME: ${NGINX_USER_NAME}
+        NGINX_USER_PASSWORD: ${NGINX_USER_PASSWORD}
     container_name: nginx
     env_file:
       - .env
@@ -70,6 +70,13 @@ services:
       - "9090"
     depends_on:
       - nginx-prometheus-exporter
+  pushgateway:
+    image: prom/pushgateway:latest
+    container_name: pushgateway
+    ports:
+      - "9091:9091"
+    networks:
+      - pongnet
 
   grafana:
     build:
@@ -105,7 +112,7 @@ services:
       - "9113:9113"
     networks:
       - pongnet
-  
+
   deployer:
     image: ghcr.io/foundry-rs/foundry:latest
     user: root

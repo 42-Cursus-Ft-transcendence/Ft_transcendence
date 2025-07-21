@@ -143,9 +143,9 @@ deploy-contracts: anvil-up
 
 # 4‑e. Spin up full application + observability stack
 stack-up: deploy-contracts
-	@echo "🔄 Bringing up backend, nginx, exporters, Prometheus & Grafana"
+	@echo "🔄 Bringing up backend, nginx, exporters, Prometheus & Grafana & pushgateway"
 	docker compose $(COMPOSE_FILES) up --build --force-recreate $(EXTRA_FLAGS) -d \
-	  backend nginx nginx-prometheus-exporter prometheus grafana
+	  backend nginx nginx-prometheus-exporter prometheus grafana pushgateway
 	@echo "✅ All services running"
 
 # Shortcuts

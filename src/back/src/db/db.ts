@@ -5,27 +5,27 @@ import { ethers } from "ethers";
 
 // Function to generate Ethereum wallet for user
 export function generateUserWallet(): { address: string; privateKey: string } {
-    const wallet = ethers.Wallet.createRandom();
-    return {
-        address: wallet.address,
-        privateKey: wallet.privateKey,
-    };
+  const wallet = ethers.Wallet.createRandom();
+  return {
+    address: wallet.address,
+    privateKey: wallet.privateKey,
+  };
 }
 
 const dbPath = path.resolve(
-    __dirname,
-    process.env.DB_PATH || "../../data/db.sqlite"
+  __dirname,
+  process.env.DB_PATH || "../../data/db.sqlite"
 );
 fs.mkdirSync(path.dirname(dbPath), { recursive: true });
 export const db = new sqlite3.Database(dbPath, (err) => {
-    if (err) console.error(err);
-    else console.log("✅ SQLite ready");
+  if (err) console.error(err);
+  else console.log("✅ SQLite ready");
 });
 
 db.serialize(() => {
-    db.run(`PRAGMA foreign_keys = ON;`);
+  db.run(`PRAGMA foreign_keys = ON;`);
 
-    db.run(`
+  db.run(`
     CREATE TABLE IF NOT EXISTS User (
       idUser            INTEGER PRIMARY KEY,
       oauthSub          TEXT UNIQUE,
@@ -41,7 +41,7 @@ db.serialize(() => {
       avatarURL          TEXT
     );
   `);
-    db.run(`
+  db.run(`
     CREATE TABLE IF NOT EXISTS RecoveryCode (
       idCode             INTEGER PRIMARY KEY AUTOINCREMENT,
       userId             INTEGER NOT NULL,
@@ -50,7 +50,7 @@ db.serialize(() => {
       FOREIGN KEY(userId) REFERENCES User(idUser)
     );
   `);
-    db.run(`
+  db.run(`
     CREATE TABLE IF NOT EXISTS Match(
       idMatch           INTEGER PRIMARY KEY,
       matchDate         TEXT,
@@ -60,7 +60,7 @@ db.serialize(() => {
       FOREIGN KEY(winnerId) REFERENCES User(idUser)
     );
   `);
-    db.run(`
+  db.run(`
     CREATE TABLE IF NOT EXISTS User_Match (
       userId            INTEGER ,
       matchDate         TEXT,
@@ -70,7 +70,7 @@ db.serialize(() => {
       FOREIGN KEY(matchId) REFERENCES Match(idMatch)
     );
   `);
-    db.run(`
+  db.run(`
     CREATE TABLE IF NOT EXISTS PlayerRanking (
       userId            INTEGER PRIMARY KEY,
       elo               INTEGER NOT NULL DEFAULT 1200,
@@ -81,7 +81,7 @@ db.serialize(() => {
       FOREIGN KEY(userId) REFERENCES User(idUser)
     );
   `);
-    db.run(`
+  db.run(`
     CREATE TABLE IF NOT EXISTS RankedMatch (
       matchId           TEXT PRIMARY KEY,
       player1Id         INTEGER NOT NULL,
@@ -98,7 +98,7 @@ db.serialize(() => {
       FOREIGN KEY(winnerId) REFERENCES User(idUser)
     );
   `);
-    db.run(`
+  db.run(`
     CREATE TABLE IF NOT EXISTS \`Transaction\` (
       idTransaction     INTEGER PRIMARY KEY AUTOINCREMENT,
       hash              TEXT UNIQUE NOT NULL,
@@ -114,9 +114,11 @@ db.serialize(() => {
       FOREIGN KEY(userId) REFERENCES User(idUser)
     );
   `);
-    // Create default user with generated wallet
-    const defaultWallet = generateUserWallet();
-    db.run(`INSERT OR IGNORE INTO User(userName, email, password, registrationDate, address, privkey, connectionStatus)
+  // Create default user with generated wallet
+  const defaultWallet = generateUserWallet();
+  db.run(
+    `INSERT OR IGNORE INTO User(userName, email, password, registrationDate, address, privkey, connectionStatus)
                 VALUES ('Jarvis', 'antarctica', 0, 'forever', ?, ?, 0)`,
-        [defaultWallet.address, defaultWallet.privateKey]);
+    [defaultWallet.address, defaultWallet.privateKey]
+  );
 });

@@ -2,12 +2,17 @@ global:
   scrape_interval: 15s
 
 scrape_configs:
-  - job_name: 'fastify-backend'
+  - job_name: "fastify-backend"
     metrics_path: /metrics
+    scrape_interval: 5s
     static_configs:
-      - targets: ['backend:3000']
+      - targets: ["backend:3000"]
   - job_name: "nginx"
     static_configs:
       - targets: ["nginx-prometheus-exporter:9113"]
-
-
+  - job_name: "pushgateway"
+    honor_labels: true
+    metrics_path: "/metrics"
+    static_configs:
+      - targets:
+          - "pushgateway:9091"

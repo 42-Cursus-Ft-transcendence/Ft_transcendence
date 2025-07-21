@@ -32,6 +32,7 @@ export default async function userRoutes(app: FastifyInstance) {
                 VALUES (?, ?, ?, ?, ?, ?, 0, ?)`,
         [userName, email, hashPass, now, address, privKey, defaultAvatar]
       );
+      app.metrics.signupCounter.inc();
       return reply.status(201).send({ idUser });
     } catch (err: any) {
       if (err.code === "SQLITE_CONSTRAINT") {
@@ -118,7 +119,6 @@ export default async function userRoutes(app: FastifyInstance) {
           { sub: user.idUser, pre2fa: true },
           { expiresIn: "5m" } // Short-lived token for pre-2FA login
         );
-        app.onUserLogin();
         return reply
           .setCookie("pre2faToken", pre2faToken, {
             // signed: true,
@@ -137,9 +137,8 @@ export default async function userRoutes(app: FastifyInstance) {
         { sub: user.idUser, userName },
         { expiresIn: "2h" }
       );
-      console.log("Token généré:", token);
       app.onUserLogin();
-      console.log("User login: activeUsers incremented");
+      app.metrics.loginSuccess.inc();
       return reply
         .setCookie("token", token, {
           // signed: true,
@@ -155,7 +154,9 @@ export default async function userRoutes(app: FastifyInstance) {
           idUser: user.idUser,
           avatarURL: user.avatarURL,
         });
-    } catch (err) {
+    } catch (err: any) {
+      app.log.error("Login handler error:", err);
+      app.metrics.loginFailure.labels("Login Failure").inc();
       return reply.status(500).send({ error: "Internal server error" });
     }
   });

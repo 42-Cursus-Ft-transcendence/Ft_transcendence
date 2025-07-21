@@ -9,7 +9,7 @@ dotenv.config({ path: path.resolve(__dirname, "../.env.backend") });
 import Fastify from "fastify";
 import fastifyStatic from "@fastify/static";
 
-import "./db/db"; // ← initialise la BD et les tables
+import { db } from "./db/db"; // ← initialise la BD et les tables
 
 // Import Routes
 import userRoutes from "./routes/userRoutes";
@@ -22,6 +22,8 @@ import registerWebsocketRoutes from "./websocket";
 import loggerPlugin, { loggerOptions } from "./plugins/logger";
 import authPlugin from "./plugins/auth";
 import metricsPlugin from "./plugins/metrics";
+
+import { registerDbTimer } from "./db/dbTimer";
 
 (async () => {
   // ─────────────────────────────────────────────────────────────────────────────
@@ -96,10 +98,14 @@ import metricsPlugin from "./plugins/metrics";
     pkce: "S256",
   });
 
-  // Register authentication
-  await app.register(authPlugin);
   // Register metrics
   await app.register(metricsPlugin);
+
+  app.decorate("db", db);
+  // mapping DB query duration to metrics
+  registerDbTimer(app);
+  // Register authentication
+  await app.register(authPlugin);
 
   // Register WebSocket plugin without any options
   await app.register(registerWebsocketRoutes);

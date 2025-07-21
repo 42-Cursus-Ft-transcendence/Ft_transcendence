@@ -126,32 +126,39 @@ export default async function twofaRoutes(app: FastifyInstance) {
     if (!authenticator.check(twoFactorCode, row.totpSecret)) {
       return reply.status(401).send({ error: "Invalid 2FA code" });
     }
-    const userRow = await getAsync<{
-      userName: string;
-      email: string;
-    }>("SELECT userName, email FROM User WHERE idUser = ?", [userId]);
+    try {
+      const userRow = await getAsync<{
+        userName: string;
+        email: string;
+      }>("SELECT userName, email FROM User WHERE idUser = ?", [userId]);
 
-    if (!userRow) {
-      return reply.status(500).send({ error: "User lookup failed" });
-    }
-    reply.clearCookie("pre2faToken", {
-      httpOnly: true,
-      path: "/",
-      sameSite: "strict",
-    });
-    const jwt = app.jwt.sign({ sub: userId, userName: userRow.userName });
-    app.onUserLogin();
-    return reply
-      .setCookie("token", jwt, {
+      if (!userRow) {
+        return reply.status(500).send({ error: "User lookup failed" });
+      }
+      reply.clearCookie("pre2faToken", {
         httpOnly: true,
         path: "/",
         sameSite: "strict",
-      })
-      .status(200)
-      .send({
-        userName: userRow.userName,
-        email: userRow.email,
-        idUser: userId,
       });
+      const jwt = app.jwt.sign({ sub: userId, userName: userRow.userName });
+      app.onUserLogin();
+      app.metrics.loginSuccess.inc();
+      return reply
+        .setCookie("token", jwt, {
+          httpOnly: true,
+          path: "/",
+          sameSite: "strict",
+        })
+        .status(200)
+        .send({
+          userName: userRow.userName,
+          email: userRow.email,
+          idUser: userId,
+        });
+    } catch (err: any) {
+      app.log.error("2FA authentication error:", err);
+      app.metrics.loginFailure.labels("2FA Login Failure").inc();
+      return reply.status(500).send({ error: "Internal server error" });
+    }
   });
 }
