@@ -85,17 +85,30 @@ function updateProfileTab(container: HTMLElement, profile: UserProfile) {
 
     // Update username
     const username = container.querySelector('#profile-username')!;
-    const realname = container.querySelector('#profile-realname')!;
     username.textContent = profile.userName;
-    realname.textContent = profile.email; // Using email as "real name" for now
 
     // Update ELO
     const elo = container.querySelector('#profile-elo')!;
     const eloBar = container.querySelector<HTMLElement>('#profile-elo-bar')!;
+    const rankImg = container.querySelector<HTMLImageElement>('#profile-rank')!;
 
     elo.textContent = profile.elo.toString();
-    // ELO bar based on ranking tiers (800-2400 scale, starting at 1200)
-    const eloPercentage = Math.max(0, Math.min(((profile.elo - 800) / 1600) * 100, 100));
+    
+    // Calculate rank based on ELO (every 500 points)
+    const rankInfo = getRankFromElo(profile.elo);
+    
+    // Update rank image
+    if (rankInfo.image) {
+        rankImg.src = `assets/rank/${rankInfo.image}`;
+        rankImg.alt = rankInfo.name;
+        rankImg.style.display = 'block';
+    } else {
+        // Hide image if no rank image available (Iron)
+        rankImg.style.display = 'none';
+    }
+    
+    // ELO bar based on progress within current rank
+    const eloPercentage = ((profile.elo % 500) / 500) * 100;
     eloBar.style.width = `${eloPercentage}%`;
 
     // Update wins and losses
@@ -248,7 +261,7 @@ async function fetchUserProfile(): Promise<UserProfile> {
             userName: userData.userName,
             email: userData.email,
             avatarURL: userData.avatarURL || 'assets/icone/Lucian.webp',
-            elo: userRanking?.elo || 1200,
+            elo: userRanking?.elo || 4000,
             wins: userRanking?.wins || 0,
             losses: userRanking?.losses || 0,
             gamesPlayed: userRanking?.gamesPlayed || 0
@@ -314,6 +327,29 @@ async function fetchLeaderboard(): Promise<LeaderboardEntry[]> {
 }
 
 // Helper functions
+function getRankFromElo(elo: number): { name: string; image?: string } {
+    const ranks = [
+        { name: "Iron", minElo: 0 }, // No image available for Iron
+        { name: "Bronze", image: "Bronze.webp", minElo: 500 },
+        { name: "Silver", image: "Silver.webp", minElo: 1000 },
+        { name: "Gold", image: "Gold.png", minElo: 1500 },
+        { name: "Platinum", image: "Platinum.webp", minElo: 2000 },
+        { name: "Diamond", image: "Diamond.webp", minElo: 2500 },
+        { name: "Master", image: "Master.webp", minElo: 3000 },
+        { name: "Grandmaster", image: "Grandmaster.webp", minElo: 3500 },
+        { name: "Challenger", image: "Challenger.png", minElo: 4000 }
+    ];
+
+    // Find the highest rank that the player qualifies for
+    for (let i = ranks.length - 1; i >= 0; i--) {
+        if (elo >= ranks[i].minElo) {
+            return ranks[i];
+        }
+    }
+    
+    return ranks[0]; // Default to Iron
+}
+
 function getTimeAgo(date: Date): string {
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
