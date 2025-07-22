@@ -10,7 +10,7 @@ COMPOSE_FILES       = -f $(COMPOSE_BASE) $(if $(filter aarch64,$(ARCH)),-f $(COM
 EXTRA_FLAGS         = $(if $(filter aarch64,$(ARCH)),--remove-orphans,)
 BACK_ENV            = src/back/.env.backend
 CONTAINERS_TO_CLEAN = anvil transcendence
-VOLUMES		   		:= grafana-data
+VOLUMES		   		:= grafana-data es-tokens es-ca
 
 .DEFAULT_GOAL 	    := up
 
@@ -100,7 +100,7 @@ compose-exec-nginx: compose-up
 # 4. ADVANCED PIPELINE (Anvil → Foundry → Full stack)                         #
 ###############################################################################
 .PHONY: detect-arch clean-zombies anvil-up deploy-contracts stack-up \
-        up down remove-volumes logs re start-es enroll-tokens
+        up down remove-volumes logs re start-es setup-kibana
 
 # 4‑a. Detect architecture and persist to .env
 detect-arch:
@@ -146,27 +146,28 @@ deploy-contracts: anvil-up
 # 4‑e. First Deploy only Elasticsearch(For Creating Token)
 start-es:
 	@echo "🚀 Starting Elasticsearch…"
-	docker compose $(COMPOSE_FILES) up --build --force-recreate $(EXTRA_FLAGS) -d elasticsearch
+	docker compose $(COMPOSE_FILES) build --no-cache elasticsearch
+	docker compose $(COMPOSE_FILES) up $(EXTRA_FLAGS) -d elasticsearch
 
 # 4‑f. ENROLLMENT TOKEN GENERATION FOR ELK                                    #
-enroll-tokens:
+setup-kibana:
 	@echo
-	@echo "🔐 Running enrollment script…"
-	@chmod +x scripts/enroll_tokens.sh
-	@ENV_FILE="$(ENV_FILE)" COMPOSE_FILES="$(COMPOSE_FILES)" bash ./scripts/enroll_tokens.sh
+	@echo "🔐 Running setup script…"
+	@chmod +x scripts/setup-kibana.sh
+	@ENV_FILE="$(ENV_FILE)" COMPOSE_FILES="$(COMPOSE_FILES)" bash ./scripts/setup-kibana.sh
 	@echo
 
 # 4‑g. Spin up full application + observability stack
 stack-up: deploy-contracts
 	@echo "🔄 Bringing up backend, nginx, exporters, Prometheus & Grafana & pushgateway \
-			ELK"
+			logstash, kibana"
 	docker compose $(COMPOSE_FILES) up --build --force-recreate $(EXTRA_FLAGS) -d \
 	  backend nginx nginx-prometheus-exporter prometheus grafana pushgateway \
 	  logstash kibana
 	@echo "✅ All services running"
 
 # Shortcuts
-up: start-es enroll-tokens stack-up
+up: start-es setup-kibana stack-up
 down:
 	docker compose $(COMPOSE_FILES) down -v --remove-orphans
 

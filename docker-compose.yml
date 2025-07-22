@@ -1,6 +1,6 @@
 services:
   anvil:
-    image: ghcr.io/foundry-rs/foundry:latest
+    image: ghcr.io/foundry-rs/foundry:v1.2.3
     container_name: anvil
     entrypoint:
       - anvil
@@ -115,7 +115,7 @@ services:
       - pongnet
 
   deployer:
-    image: ghcr.io/foundry-rs/foundry:latest
+    image: ghcr.io/foundry-rs/foundry:v1.2.3
     user: root
     env_file:
       - .env
@@ -144,18 +144,27 @@ services:
     container_name: es
     ports:
       - "9200"
+      - "9300"
     env_file:
       - .env
     volumes:
       - /etc/localtime:/etc/localtime:ro
+      - es-tokens:/usr/share/elasticsearch/config/shared/tokens
+      - es-ca:/usr/share/elasticsearch/config/shared/ca
     healthcheck:
-      test: curl -u elastic:${ES_PASSWORD} http://localhost:9200/_cluster/health?pretty >/dev/null || exit 1
+      test:
+        [
+          "CMD-SHELL",
+          "curl -k -u elastic:${ES_PASSWORD} https://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=1s >/dev/null 2>&1",
+        ]
       interval: 5s
       timeout: 5s
       retries: 50
     restart: on-failure
     networks:
-      - elknet
+      elknet:
+        aliases:
+          - elasticsearch # Alias for internal communication
   logstash:
     build:
       context: ./docker/logstash
@@ -163,12 +172,13 @@ services:
     container_name: logstash
     environment:
       - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
-      - ELASTICSEARCH_ENROLLMENT_TOKEN=${LOGSTASH_ENROLLMENT_TOKEN:-}
       - LS_JAVA_OPTS=-Xmx256m -Xms256m
     env_file:
       - .env
     volumes:
       - /etc/localtime:/etc/localtime:ro
+      - es-ca:/usr/share/logstash/config/shared/ca:ro
+      - es-tokens:/usr/share/logstash/config/shared/tokens:ro
     depends_on:
       elasticsearch:
         condition: service_healthy
@@ -189,12 +199,13 @@ services:
       - "5601"
     environment:
       - ELASTICSEARCH_URL:http://elasticsearch:9200
-      - ELASTICSEARCH_ENROLLMENT_TOKEN=${KIBANA_ENROLLMENT_TOKEN:-}
       - KIBANA_ENCRYPTION_KEY
     env_file:
       - .env
     volumes:
       - /etc/localtime:/etc/localtime:ro
+      - es-tokens:/usr/share/kibana/config/shared/tokens:ro
+      - es-ca:/usr/share/kibana/config/shared/ca:ro
     restart: on-failure
     networks:
       - elknet
@@ -211,3 +222,5 @@ networks:
 
 volumes:
   grafana-data:
+  es-tokens:
+  es-ca:
