@@ -5,8 +5,9 @@ COPY ./scripts/init_tls.sh      /usr/share/elasticsearch/config/init_tls.sh
 
 USER root
 
-RUN ln -sf /usr/share/elasticsearch/jdk/bin/keytool /usr/bin/keytool \
-    && chmod +x /usr/share/elasticsearch/config/init_tls.sh
+RUN chmod +x /usr/share/elasticsearch/config/init_tls.sh \
+    && chown -R elasticsearch:elasticsearch /usr/share/elasticsearch/config \
+    && chmod -R 750 /usr/share/elasticsearch/config
 
 EXPOSE 9200 9300
 

@@ -2,14 +2,16 @@ cluster.name: "ft_transcende"
 network.host: 0.0.0.0
 http.port: 9200
 discovery.type: single-node
+
 xpack.security.enabled: true
 xpack.security.http.ssl.enabled: true
-xpack.security.enrollment.enabled: true
+
+xpack.security.http.ssl.verification_mode: certificate
+xpack.security.http.ssl.certificate: certs/node/elasticsearch.crt
+xpack.security.http.ssl.key: certs/node/elasticsearch.key
+xpack.security.http.ssl.certificate_authorities: ["certs/ca/ca.crt"]
+
+xpack.security.enrollment.enabled: false # Keystore(true) / Pem(false)
 xpack.monitoring.collection.enabled: true
 xpack.monitoring.collection.interval: 10s
-xpack.security.http.ssl.verification_mode: certificate
-xpack.security.http.ssl.keystore.path: certs/keystore.p12
-xpack.security.http.ssl.keystore.password: ""
-xpack.security.http.ssl.truststore.path: certs/truststore.p12
-xpack.security.http.ssl.truststore.password: "1q2w3e4r"
 #xpack.monitoring.templates.enabled: true

@@ -149,13 +149,13 @@ services:
       - .env
     volumes:
       - /etc/localtime:/etc/localtime:ro
-      - es-tokens:/usr/share/elasticsearch/config/shared/tokens
-      - es-ca:/usr/share/elasticsearch/config/shared/ca
+      - ./docker/volumes/es-ca:/usr/share/elasticsearch/config/shared/ca
+      - ./docker/volumes/es-certs:/usr/share/elasticsearch/config/shared/certs
     healthcheck:
       test:
         [
           "CMD-SHELL",
-          "curl -k -u elastic:${ES_PASSWORD} https://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=1s >/dev/null 2>&1",
+          "curl -k -u elastic:${ELASTIC_PASSWORD} https://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=1s >/dev/null 2>&1",
         ]
       interval: 5s
       timeout: 5s
@@ -171,14 +171,16 @@ services:
       dockerfile: Dockerfile
     container_name: logstash
     environment:
-      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - LOGSTASH_SYSTEM_PASSWORD
+      - ELASTICSEARCH_HOSTS=https://elasticsearch:9200
       - LS_JAVA_OPTS=-Xmx256m -Xms256m
     env_file:
       - .env
     volumes:
       - /etc/localtime:/etc/localtime:ro
-      - es-ca:/usr/share/logstash/config/shared/ca:ro
-      - es-tokens:/usr/share/logstash/config/shared/tokens:ro
+      - ./docker/volumes/es-ca:/usr/share/logstash/ca:ro
+      - ./docker/volumes/es-certs/logstash:/usr/share/logstash/certs:ro
+
     depends_on:
       elasticsearch:
         condition: service_healthy
@@ -198,14 +200,16 @@ services:
     ports:
       - "5601"
     environment:
-      - ELASTICSEARCH_URL:http://elasticsearch:9200
+      - KIBANA_SYSTEM_PASSWORD
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
       - KIBANA_ENCRYPTION_KEY
     env_file:
       - .env
     volumes:
       - /etc/localtime:/etc/localtime:ro
-      - es-tokens:/usr/share/kibana/config/shared/tokens:ro
-      - es-ca:/usr/share/kibana/config/shared/ca:ro
+      - ./docker/volumes/es-ca:/usr/share/kibana/ca:ro
+      - ./docker/volumes/es-certs/kibana:/usr/share/kibana/certs:ro
+
     restart: on-failure
     networks:
       - elknet
@@ -222,5 +226,3 @@ networks:
 
 volumes:
   grafana-data:
-  es-tokens:
-  es-ca:
