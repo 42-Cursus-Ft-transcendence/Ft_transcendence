@@ -1,0 +1,45 @@
+services:
+  anvil:
+    platform: linux/arm64
+    init: true
+    security_opt:
+      - seccomp=unconfined
+      - apparmor=unconfined
+  backend:
+    platform: linux/arm64
+    init: true
+    security_opt:
+      - seccomp=unconfined
+      - apparmor=unconfined
+  deployer:
+    build:
+      context: .
+      dockerfile: Dockerfile.aarch64.deployer
+    security_opt:
+      - seccomp=unconfined
+      - apparmor=unconfined
+  
+  prometheus:
+    platform: linux/arm64
+    security_opt:
+      - seccomp=unconfined
+      - apparmor=unconfined
+
+  nginx-prometheus-exporter:
+    platform: linux/arm64
+    security_opt:
+      - seccomp=unconfined
+      - apparmor=unconfined
+   
+  grafana:
+    platform: linux/arm64
+    security_opt:
+      - seccomp=unconfined
+      - apparmor=unconfined
+  
+  nginx:
+    platform: linux/arm64
+    security_opt:
+      - seccomp=unconfined
+      - apparmor=unconfined
+

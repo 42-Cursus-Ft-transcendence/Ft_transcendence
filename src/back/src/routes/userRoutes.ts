@@ -60,6 +60,7 @@ export default async function userRoutes(app: FastifyInstance) {
           getRandomDefaultAvatar(),
         ]
       );
+      app.metrics.signupCounter.inc();
       return reply.status(201).send({ idUser });
     } catch (error: any) {
       if (error instanceof ValidationError) {
@@ -85,7 +86,6 @@ export default async function userRoutes(app: FastifyInstance) {
     { preHandler: [(app as any).authenticate] },
     async (request, reply) => {
       const idUser = (request.user as any).sub as number;
-      const userName = (request.user as any).userName as string;
       try {
         const res = await getAsync<{
           userName: string;
@@ -141,7 +141,6 @@ export default async function userRoutes(app: FastifyInstance) {
        WHERE userName = ?`,
         [userName]
       );
-
       if (!user)
         return reply
           .status(401)
@@ -177,6 +176,8 @@ export default async function userRoutes(app: FastifyInstance) {
         { sub: user.idUser, userName },
         { expiresIn: "2h" }
       );
+      app.onUserLogin();
+      app.metrics.loginSuccess.inc();
       return reply
         .setCookie("token", token, {
           // signed: true,
@@ -192,7 +193,9 @@ export default async function userRoutes(app: FastifyInstance) {
           idUser: user.idUser,
           avatarURL: user.avatarURL,
         });
-    } catch (err) {
+    } catch (err: any) {
+      app.log.error("Login handler error:", err);
+      app.metrics.loginFailure.labels("Login Failure").inc();
       return reply.status(500).send({ error: "Internal server error" });
     }
   });
@@ -215,8 +218,14 @@ export default async function userRoutes(app: FastifyInstance) {
           `UPDATE User SET connectionStatus = 0 WHERE idUser = ?`,
           [idUser]
         );
+        app.onUserLogout();
         return reply
-          .setCookie("token", "", cookieOpt)
+          .clearCookie("token", {
+            path: "/",
+            httpOnly: true,
+            sameSite: "strict",
+            // secure: true,
+          })
           .status(200)
           .send({ ok: true });
       } catch (err) {
@@ -227,6 +236,7 @@ export default async function userRoutes(app: FastifyInstance) {
       }
     }
   );
+
   app.put(
     "/account",
     { preHandler: [(app as any).authenticate] },

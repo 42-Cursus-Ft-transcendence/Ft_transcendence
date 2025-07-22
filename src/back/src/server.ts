@@ -9,7 +9,7 @@ dotenv.config({ path: path.resolve(__dirname, "../.env.backend") });
 import Fastify from "fastify";
 import fastifyStatic from "@fastify/static";
 
-import "./db/db"; // ← initialise la BD et les tables
+import { db } from "./db/db"; // ← initialise la BD et les tables
 
 // Import Routes
 import userRoutes from "./routes/userRoutes";
@@ -21,7 +21,9 @@ import registerWebsocketRoutes from "./websocket";
 // Import plugins
 import loggerPlugin, { loggerOptions } from "./plugins/logger";
 import authPlugin from "./plugins/auth";
-//import { verifyPre2fa } from "./plugins/verifyPre2fa";
+import metricsPlugin from "./plugins/metrics";
+
+import { registerDbTimer } from "./db/dbTimer";
 
 (async () => {
   // ─────────────────────────────────────────────────────────────────────────────
@@ -53,14 +55,11 @@ import authPlugin from "./plugins/auth";
   const app = Fastify({
     logger: loggerOptions[environment],
     disableRequestLogging: true,
-    ajv: {
-      customOptions: {
-        strict: false, // Disable strict mode to allow additional properties for Swagger
-      },
-    },
+    allowErrorHandlerOverride: true,
   });
-  app.register(loggerPlugin);
-
+  if (isDev) {
+    app.register(loggerPlugin);
+  }
   console.log("Fastify instance created");
 
   // cookie
@@ -99,20 +98,25 @@ import authPlugin from "./plugins/auth";
     pkce: "S256",
   });
 
+  // Register metrics
+  await app.register(metricsPlugin);
+
+  app.decorate("db", db);
+  // mapping DB query duration to metrics
+  registerDbTimer(app);
   // Register authentication
   await app.register(authPlugin);
-
-  // ─────────────────────────────────────────────────────────────────────────────
-  // Router Registration
-  // ─────────────────────────────────────────────────────────────────────────────// bd routes
-  app.register(userRoutes, { prefix: "/api" });
-  app.register(oauthRoutes, { prefix: "/api" });
-  app.register(twofaRoutes, { prefix: "/api" });
-  app.register(scoresRoutes, { prefix: "/api" });
 
   // Register WebSocket plugin without any options
   await app.register(registerWebsocketRoutes);
   console.log("WebSocket plugin registered");
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Router Registration
+  // ─────────────────────────────────────────────────────────────────────────────// bd routes
+  await app.register(userRoutes, { prefix: "/api" });
+  await app.register(oauthRoutes, { prefix: "/api" });
+  await app.register(twofaRoutes, { prefix: "/api" });
+  await app.register(scoresRoutes, { prefix: "/api" });
 
   // ─────────────────────────────────────────────────────────────────────────────
   // Serve static frontend & SPA fallback (excluding /ws & /api)

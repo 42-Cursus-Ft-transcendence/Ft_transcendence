@@ -20,6 +20,7 @@
     "src/types/auth.d.ts",
     "src/types/oauth.d.ts",
     "src/types/fastify-static.d.ts",
-    "src/types/session.d.ts"
+    "src/types/session.d.ts",
+    "src/types/metrics.d.ts"
   ] // types files
 }
