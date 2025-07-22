@@ -2,7 +2,7 @@ import { FastifyInstance } from "fastify";
 import bcrypt from "bcrypt";
 import { Wallet } from "ethers";
 
-import { runAsync, getAsync } from "../db";
+import { runAsync, getAsync, getAllAsync } from "../db";
 import { getRandomDefaultAvatar } from "../utils/avatar";
 
 export default async function userRoutes(app: FastifyInstance) {
@@ -46,7 +46,6 @@ export default async function userRoutes(app: FastifyInstance) {
     { preHandler: [(app as any).authenticate] },
     async (request, reply) => {
       const idUser = (request.user as any).sub as number;
-      const userName = (request.user as any).userName as string;
       try {
         const res = await getAsync<{
           userName: string;
@@ -67,6 +66,31 @@ export default async function userRoutes(app: FastifyInstance) {
         });
       } catch (err) {
         return reply.status(500).send({ error: "Internal server error" });
+      }
+    }
+  );
+
+  app.get(
+    "/checkAuth",
+    { preHandler: [(app as any).authenticate] },
+    async (request, reply) => {
+      try {
+        const idUser = (request.user as any).sub as number;
+        const userName = (request.user as any).userName as string;
+
+        console.log(">> checkAuth successful for user:", userName, "ID:", idUser);
+
+        return reply.status(200).send({
+          authenticated: true,
+          userId: idUser,
+          userName: userName,
+        });
+      } catch (err) {
+        console.error(">> checkAuth error:", err);
+        return reply.status(401).send({
+          authenticated: false,
+          error: "Authentication failed",
+        });
       }
     }
   );
@@ -334,7 +358,93 @@ export default async function userRoutes(app: FastifyInstance) {
       }
     }
   );
+
+  // Route pour récupérer l'historique des matchs de l'utilisateur
+  app.get(
+    "/match-history",
+    { preHandler: [(app as any).authenticate] },
+    async (request, reply) => {
+      const idUser = (request.user as any).sub as number;
+
+      try {
+        console.log(">> Fetching match history for user ID:", idUser);
+
+        // Récupérer les matchs depuis la table RankedMatch
+        const matches = await getAllAsync<{
+          matchId: string;
+          player1Id: number;
+          player2Id: number;
+          player1Score: number;
+          player2Score: number;
+          winnerId: number;
+          player1EloChange: number;
+          player2EloChange: number;
+          matchDate: string;
+          matchDuration: number;
+          opponent_name: string;
+        }>(
+          `SELECT 
+            rm.matchId,
+            rm.player1Id,
+            rm.player2Id,
+            rm.player1Score,
+            rm.player2Score,
+            rm.winnerId,
+            rm.player1EloChange,
+            rm.player2EloChange,
+            rm.matchDate,
+            rm.matchDuration,
+            CASE 
+              WHEN rm.player1Id = ? THEN u2.userName 
+              ELSE u1.userName 
+            END as opponent_name
+          FROM RankedMatch rm
+          LEFT JOIN User u1 ON rm.player1Id = u1.idUser
+          LEFT JOIN User u2 ON rm.player2Id = u2.idUser
+          WHERE rm.player1Id = ? OR rm.player2Id = ?
+          ORDER BY rm.matchDate DESC
+          LIMIT 50`,
+          [idUser, idUser, idUser]
+        );
+
+        // Transformer les données pour le frontend
+        const matchHistory = matches.map((match) => {
+          const isPlayer1 = match.player1Id === idUser;
+          const playerScore = isPlayer1 ? match.player1Score : match.player2Score;
+          const opponentScore = isPlayer1 ? match.player2Score : match.player1Score;
+          const eloChange = isPlayer1 ? match.player1EloChange : match.player2EloChange;
+          const won = match.winnerId === idUser;
+
+          return {
+            matchId: match.matchId,
+            date: match.matchDate,
+            opponent: match.opponent_name,
+            playerScore: playerScore,
+            opponentScore: opponentScore,
+            won: won,
+            eloChange: eloChange,
+            duration: match.matchDuration || 0,
+          };
+        });
+
+        console.log(`>> Found ${matchHistory.length} matches for user ${idUser}`);
+
+        return reply.status(200).send({
+          matches: matchHistory,
+          total: matchHistory.length,
+        });
+      } catch (err) {
+        console.error(">> Error fetching match history:", err);
+        return reply.status(500).send({
+          error: "Internal server error",
+          matches: [],
+          total: 0,
+        });
+      }
+    }
+  );
 }
+
 export async function createGame(
   idp1: number,
   idp2: number,

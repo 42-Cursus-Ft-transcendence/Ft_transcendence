@@ -606,6 +606,8 @@ async function bindSecuritySection(container) {
     const twoFactorInput = form2F.querySelector("#twoFactorCheckbox");
     // Set checkbox to match the fetched state
     twoFactorInput.checked = initialTwoFactor;
+    // Setup password visibility toggles
+    setupPasswordToggle(container);
     // Toggle forms
     btnPw.addEventListener("click", () => {
         form2F.classList.add("hidden");
@@ -964,5 +966,39 @@ async function show2FASetupModal(qrDataUrl, callback) {
             }
         });
     });
+}
+/**
+ * Setup password visibility toggle functionality
+ */
+function setupPasswordToggle(container) {
+    // Find all password input fields with toggle icons
+    const passwordInputs = container.querySelectorAll('input[type="password"]');
+    passwordInputs.forEach(input => {
+        // Find the eye icon in the same parent container
+        const parentDiv = input.closest('.relative');
+        const eyeIcon = parentDiv?.querySelector('.bx-eye-slash, .bx-eye');
+        if (eyeIcon) {
+            eyeIcon.addEventListener('click', () => {
+                togglePasswordVisibility(input, eyeIcon);
+            });
+        }
+    });
+}
+/**
+ * Toggle password visibility for a specific input
+ */
+function togglePasswordVisibility(input, icon) {
+    if (input.type === 'password') {
+        // Show password
+        input.type = 'text';
+        icon.classList.remove('bx-eye-slash');
+        icon.classList.add('bx-eye');
+    }
+    else {
+        // Hide password
+        input.type = 'password';
+        icon.classList.remove('bx-eye');
+        icon.classList.add('bx-eye-slash');
+    }
 }
 //# sourceMappingURL=settingsController.js.map

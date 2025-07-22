@@ -197,10 +197,33 @@ async function fetchUserProfile() {
 }
 async function fetchMatchHistory() {
     try {
-        // For now, return empty array since there's no specific match history endpoint
-        // You might need to add this endpoint to the backend
-        console.log('Match history endpoint not implemented yet');
-        return [];
+        console.log('>> Fetching match history from API...');
+        const response = await fetch('/api/match-history', {
+            method: 'GET',
+            credentials: 'include'
+        });
+        if (!response.ok) {
+            console.error('Failed to fetch match history:', response.status, response.statusText);
+            return [];
+        }
+        const data = await response.json();
+        if (!data.matches || !Array.isArray(data.matches)) {
+            console.error('Invalid match history data structure');
+            return [];
+        }
+        // Transform backend data to frontend interface
+        const matchHistory = data.matches.map((match) => ({
+            matchId: match.matchId,
+            opponent: match.opponent,
+            opponentId: 0, // Backend doesn't provide opponent ID in current structure
+            result: match.won ? 'win' : 'loss',
+            playerScore: match.playerScore,
+            opponentScore: match.opponentScore,
+            eloChange: match.eloChange,
+            matchDate: match.date
+        }));
+        console.log(`>> Successfully fetched ${matchHistory.length} matches`);
+        return matchHistory;
     }
     catch (error) {
         console.error('Error fetching match history:', error);
@@ -255,7 +278,7 @@ function getRankFromElo(elo) {
         { name: "Diamond", image: "Diamond.webp", minElo: 2500 },
         { name: "Master", image: "Master.webp", minElo: 3000 },
         { name: "Grandmaster", image: "Grandmaster.webp", minElo: 3500 },
-        { name: "Challenger", image: "Challenger.png", minElo: 4000 }
+        { name: "Challenger", image: "icone.png", minElo: 4000 }
     ];
     // Find the highest rank that the player qualifies for
     for (let i = ranks.length - 1; i >= 0; i--) {

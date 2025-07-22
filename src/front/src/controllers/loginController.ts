@@ -85,7 +85,7 @@ function handleTogglePassword({ passInput, togglePassword }: LoginElements) {
   } else {
     // Hide password
     passInput.type = "password";
-    togglePassword.className = "bx bx-eye-closed text-blue-300 cursor-pointer hover:text-pink-400 transition";
+    togglePassword.className = "bx bx-eye-slash text-blue-300 cursor-pointer hover:text-pink-400 transition";
   }
 }
 
