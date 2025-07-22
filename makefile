@@ -154,12 +154,12 @@ start-es:
 setup-lk:
 	@echo
 	@echo "🔐 Running setup script…"
-	@chmod +x scripts/setup-lk.sh
-	@ENV_FILE="$(ENV_FILE)" COMPOSE_FILES="$(COMPOSE_FILES)" bash ./scripts/setup-lk.sh
+	@chmod +x scripts/init.sh
+	@ENV_FILE="$(ENV_FILE)" COMPOSE_FILES="$(COMPOSE_FILES)" bash ./scripts/init.sh
 	@echo
 
 # 4‑h. Spin up full application + observability stack
-stack-up: deploy-contracts
+stack-up: start-es setup-lk deploy-contracts
 	@echo "🔄 Bringing up backend, nginx, exporters, Prometheus & Grafana & pushgateway \
 			logstash, kibana"
 	docker compose $(COMPOSE_FILES) up --build --force-recreate $(EXTRA_FLAGS) -d \
@@ -168,13 +168,14 @@ stack-up: deploy-contracts
 	@echo "✅ All services running"
 
 # Shortcuts
-up: start-es setup-lk stack-up
+up: stack-up
 down:
 	@echo "🔽 Stopping and removing all services…"
 	docker compose $(COMPOSE_FILES) down -v --remove-orphans
 	@echo "✅ All services stopped and removed"
 	@echo "🗑️  Removing volumes…"
 	@rm -rf $(VOLUMES_DIR)
+	@echo "✅ Volumes removed"
 logs:
 	docker compose $(COMPOSE_FILES) logs -f
 

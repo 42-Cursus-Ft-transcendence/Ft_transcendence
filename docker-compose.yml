@@ -147,6 +147,8 @@ services:
       - "9300"
     env_file:
       - .env
+    environment:
+      - ES_JAVA_OPTS=-Xms2g -Xmx2g # Memory settings
     volumes:
       - /etc/localtime:/etc/localtime:ro
       - ./docker/volumes/es-ca:/usr/share/elasticsearch/config/shared/ca
@@ -155,7 +157,7 @@ services:
       test:
         [
           "CMD-SHELL",
-          "curl -k -u elastic:${ELASTIC_PASSWORD} https://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=1s >/dev/null 2>&1",
+          "curl -k -u elastic:${ELASTIC_PASSWORD} https://localhost:9200/_cluster/health?wait_for_status=green&timeout=1s >/dev/null 2>&1",
         ]
       interval: 5s
       timeout: 5s
@@ -173,27 +175,25 @@ services:
     environment:
       - LOGSTASH_SYSTEM_PASSWORD
       - ELASTICSEARCH_HOSTS=https://elasticsearch:9200
-      - LS_JAVA_OPTS=-Xmx256m -Xms256m
+      - LS_JAVA_OPTS=-Xmx512m -Xms512m
+      - LOGGING_ROOT_LEVEL=debug
     env_file:
       - .env
     volumes:
       - /etc/localtime:/etc/localtime:ro
       - ./docker/volumes/es-ca:/usr/share/logstash/ca:ro
       - ./docker/volumes/es-certs/logstash:/usr/share/logstash/certs:ro
-
-    depends_on:
-      elasticsearch:
-        condition: service_healthy
     restart: on-failure
     networks:
       - elknet
+
   kibana:
     build:
       context: ./docker/kibana
       dockerfile: Dockerfile
     container_name: kibana
     healthcheck:
-      test: curl -s http://localhost:5601/login >/dev/null || exit 1
+      test: curl -s https://localhost:5601/login >/dev/null || exit 1
       interval: 10s
       timeout: 5s
       retries: 20
@@ -201,19 +201,21 @@ services:
       - "5601"
     environment:
       - KIBANA_SYSTEM_PASSWORD
-      - ELASTICSEARCH_URL=http://elasticsearch:9200
+      - ELASTICSEARCH_URL=https://elasticsearch:9200
       - KIBANA_ENCRYPTION_KEY
+      - LOGGING_ROOT_LEVEL=debug
     env_file:
       - .env
     volumes:
       - /etc/localtime:/etc/localtime:ro
       - ./docker/volumes/es-ca:/usr/share/kibana/ca:ro
       - ./docker/volumes/es-certs/kibana:/usr/share/kibana/certs:ro
-
     restart: on-failure
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
     networks:
       - elknet
-
 networks:
   pongnet:
     driver: bridge
