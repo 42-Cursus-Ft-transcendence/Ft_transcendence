@@ -40,14 +40,14 @@ export default async function userRoutes(app: FastifyInstance) {
       return reply.status(500).send({ error: "Internal server error" });
     }
   });
-
   app.get(
     "/me",
     { preHandler: [(app as any).authenticate] },
     async (request, reply) => {
       const idUser = (request.user as any).sub as number;
       try {
-        const res = await getAsync<{
+        // Get basic user information
+        const userRes = await getAsync<{
           userName: string;
           email: string;
           isTotpEnabled: number;
@@ -56,15 +56,81 @@ export default async function userRoutes(app: FastifyInstance) {
           `SELECT userName, email, isTotpEnabled, avatarURL FROM User WHERE idUser = ?`,
           [idUser]
         );
-        if (!res) return reply.status(401).send({ error: "User not found" });
+
+        if (!userRes) return reply.status(401).send({ error: "User not found" });
+
+        // Get user ranking statistics (same query as leaderboard)
+        const rankingRes = await getAsync<{
+          elo: number;
+          wins: number;
+          losses: number;
+          gamesPlayed: number;
+          lastMatchDate?: string;
+        }>(
+          `SELECT pr.elo, pr.wins, pr.losses, pr.gamesPlayed, pr.lastMatchDate 
+           FROM PlayerRanking pr 
+           WHERE pr.userId = ?`,
+          [idUser]
+        );
+
+        // If no ranking data exists, create default entry (for ranked matches only)
+        if (!rankingRes) {
+          console.log(`>> Creating default PlayerRanking entry for user ${idUser}`);
+          await runAsync(
+            `INSERT INTO PlayerRanking (userId, elo, wins, losses, gamesPlayed) 
+             VALUES (?, 1200, 0, 0, 0)`,
+            [idUser]
+          );
+        }
+
+        // Get total match statistics (including normal games from Match table)
+        const totalMatchesRes = await getAsync<{
+          totalWins: number;
+          totalLosses: number;
+          totalGamesPlayed: number;
+        }>(
+          `SELECT 
+            COUNT(CASE WHEN winnerId = ? THEN 1 END) as totalWins,
+            COUNT(CASE WHEN winnerId != ? THEN 1 END) as totalLosses,
+            COUNT(*) as totalGamesPlayed
+           FROM User_Match um
+           JOIN Match m ON um.matchId = m.idMatch
+           WHERE um.userId = ?`,
+          [idUser, idUser, idUser]
+        );
+
+        // Get ranking data (either existing or newly created default)
+        const finalRankingRes = rankingRes || {
+          elo: 1200,
+          wins: 0,
+          losses: 0,
+          gamesPlayed: 0,
+          lastMatchDate: null
+        };
+
+        // Combine ranked and total statistics
+        const totalStats = totalMatchesRes || { totalWins: 0, totalLosses: 0, totalGamesPlayed: 0 };
+
         return reply.status(200).send({
           idUser,
-          userName: res.userName,
-          email: res.email,
-          isTotpEnabled: res.isTotpEnabled === 1,
-          avatarURL: res.avatarURL,
+          userName: userRes.userName,
+          email: userRes.email,
+          isTotpEnabled: userRes.isTotpEnabled === 1,
+          avatarURL: userRes.avatarURL,
+          // ELO is only from ranked matches
+          elo: finalRankingRes.elo,
+          // Wins/losses from ranked matches only
+          rankedWins: finalRankingRes.wins,
+          rankedLosses: finalRankingRes.losses,
+          rankedGamesPlayed: finalRankingRes.gamesPlayed,
+          // Total wins/losses including normal games
+          totalWins: totalStats.totalWins,
+          totalLosses: totalStats.totalLosses,
+          totalGamesPlayed: totalStats.totalGamesPlayed,
+          lastMatchDate: finalRankingRes.lastMatchDate
         });
       } catch (err) {
+        console.error(">> Error in /me route:", err);
         return reply.status(500).send({ error: "Internal server error" });
       }
     }
@@ -369,8 +435,8 @@ export default async function userRoutes(app: FastifyInstance) {
       try {
         console.log(">> Fetching match history for user ID:", idUser);
 
-        // Récupérer les matchs depuis la table RankedMatch
-        const matches = await getAllAsync<{
+        // Récupérer les matchs classés (RankedMatch avec ELO)
+        const rankedMatches = await getAllAsync<{
           matchId: string;
           player1Id: number;
           player2Id: number;
@@ -402,36 +468,88 @@ export default async function userRoutes(app: FastifyInstance) {
           LEFT JOIN User u1 ON rm.player1Id = u1.idUser
           LEFT JOIN User u2 ON rm.player2Id = u2.idUser
           WHERE rm.player1Id = ? OR rm.player2Id = ?
-          ORDER BY rm.matchDate DESC
-          LIMIT 50`,
+          ORDER BY rm.matchDate DESC`,
           [idUser, idUser, idUser]
         );
 
-        // Transformer les données pour le frontend
-        const matchHistory = matches.map((match) => {
-          const isPlayer1 = match.player1Id === idUser;
-          const playerScore = isPlayer1 ? match.player1Score : match.player2Score;
-          const opponentScore = isPlayer1 ? match.player2Score : match.player1Score;
-          const eloChange = isPlayer1 ? match.player1EloChange : match.player2EloChange;
-          const won = match.winnerId === idUser;
+        // Récupérer les matchs normaux (Match sans ELO)
+        const normalMatches = await getAllAsync<{
+          matchId: number;
+          matchDate: string;
+          player1Score: number;
+          player2Score: number;
+          winnerId: number;
+          player1Name: string;
+          player2Name: string;
+        }>(
+          `SELECT 
+            m.idMatch as matchId,
+            m.matchDate,
+            m.player1Score,
+            m.player2Score,
+            m.winnerId,
+            u1.userName as player1Name,
+            u2.userName as player2Name
+          FROM User_Match um
+          JOIN Match m ON um.matchId = m.idMatch
+          LEFT JOIN User_Match um2 ON um2.matchId = m.idMatch AND um2.userId != ?
+          LEFT JOIN User u1 ON um.userId = u1.idUser
+          LEFT JOIN User u2 ON um2.userId = u2.idUser
+          WHERE um.userId = ?
+          ORDER BY m.matchDate DESC`,
+          [idUser, idUser]
+        );
 
-          return {
-            matchId: match.matchId,
-            date: match.matchDate,
-            opponent: match.opponent_name,
-            playerScore: playerScore,
-            opponentScore: opponentScore,
-            won: won,
-            eloChange: eloChange,
-            duration: match.matchDuration || 0,
-          };
-        });
+        // Combiner et transformer les données
+        const allMatches = [
+          ...rankedMatches.map(match => {
+            const isPlayer1 = match.player1Id === idUser;
+            const playerScore = isPlayer1 ? match.player1Score : match.player2Score;
+            const opponentScore = isPlayer1 ? match.player2Score : match.player1Score;
+            const eloChange = isPlayer1 ? match.player1EloChange : match.player2EloChange;
+            const won = match.winnerId === idUser;
 
-        console.log(`>> Found ${matchHistory.length} matches for user ${idUser}`);
+            return {
+              matchId: match.matchId,
+              date: match.matchDate,
+              opponent: match.opponent_name,
+              playerScore: playerScore,
+              opponentScore: opponentScore,
+              won: won,
+              eloChange: eloChange,
+              duration: match.matchDuration || 0,
+              type: 'ranked' as const
+            };
+          }),
+          ...normalMatches.map(match => {
+            // Determine opponent name - it's the other player
+            const opponentName = match.player1Name === (request.user as any).userName ?
+              match.player2Name : match.player1Name;
+
+            return {
+              matchId: match.matchId.toString(),
+              date: match.matchDate,
+              opponent: opponentName || 'Unknown',
+              playerScore: match.player1Score, // Simplified for normal matches
+              opponentScore: match.player2Score,
+              won: match.winnerId === idUser,
+              eloChange: 0, // No ELO change for normal matches
+              duration: 0,
+              type: 'normal' as const
+            };
+          })
+        ];
+
+        // Trier par date et limiter à 50
+        const sortedMatches = allMatches
+          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+          .slice(0, 50);
+
+        console.log(`>> Found ${sortedMatches.length} matches for user ${idUser} (${rankedMatches.length} ranked, ${normalMatches.length} normal)`);
 
         return reply.status(200).send({
-          matches: matchHistory,
-          total: matchHistory.length,
+          matches: sortedMatches,
+          total: sortedMatches.length,
         });
       } catch (err) {
         console.error(">> Error fetching match history:", err);

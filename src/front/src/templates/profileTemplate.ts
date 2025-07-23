@@ -73,7 +73,7 @@ export const profileTemplate = `
       <div class="space-y-4">
         <h3 class="text-xl font-bold text-center text-pink-400 mb-6 drop-shadow-lg">Match History</h3>
         
-        <div id="match-history" class="space-y-3">
+        <div id="match-history" class="space-y-2">
           <!-- Match items will be dynamically inserted here -->
           <div class="text-center text-purple-300 py-8">Loading match history...</div>
         </div>
@@ -95,3 +95,136 @@ export const profileTemplate = `
   </div>
 </div>
 `;
+
+// Template functions for dynamic content
+export function createMatchHistoryItem(match: {
+  resultClass: string;
+  resultText: string;
+  opponent: string;
+  typeText: string;
+  typeBadgeClass: string;
+  timeAgo: string;
+  scoreText: string;
+  eloDisplay: string;
+}): string {
+  return `
+    <div class="bg-gradient-to-r ${match.resultClass === 'green' ? 'from-green-900/20 to-green-800/30' : 'from-red-900/20 to-red-800/30'} ${match.resultClass === 'green' ? 'border-green-500/30' : 'border-red-500/30'} border rounded-xl p-2.5 backdrop-blur-sm">
+      <div class="flex items-center justify-between">
+        <!-- Left section: Result indicator and main info -->
+        <div class="flex items-center space-x-2 flex-1">
+          <!-- Victory/Defeat indicator -->
+          <div class="flex flex-col items-center">
+            <div class="w-1 h-6 ${match.resultClass === 'green' ? 'bg-green-500 shadow-green-500/50' : 'bg-red-500 shadow-red-500/50'} rounded-full shadow-lg"></div>
+          </div>
+          
+          <!-- Match info -->
+          <div class="flex flex-col">
+            <div class="flex items-center space-x-2 mb-0.5">
+              <span class="${match.resultClass === 'green' ? 'text-green-400' : 'text-red-400'} font-bold text-xs font-arcade">${match.resultText}</span>
+            </div>
+            <div class="text-gray-300 text-xs">${match.timeAgo}</div>
+          </div>
+        </div>
+
+        <!-- Center section: Score and opponent -->
+        <div class="flex items-center justify-center space-x-3">
+          <!-- Score display -->
+          <div class="text-center w-16">
+            <div class="text-white font-bold text-sm font-arcade">${match.scoreText}</div>
+            <div class="text-gray-400 text-xs uppercase tracking-wide">SCORE</div>
+          </div>
+          
+          <!-- VS separator -->
+          <div class="text-gray-300 text-xs font-bold px-1">VS</div>
+          
+          <!-- Opponent -->
+          <div class="text-center w-20">
+            <div class="text-cyan-400 font-semibold text-xs font-arcade truncate">${match.opponent}</div>
+          </div>
+        </div>
+
+        <!-- Right section: ELO change -->
+        <div class="text-right flex-1 max-w-20">
+          ${match.eloDisplay}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+export function createLeaderboardEntry(entry: {
+  rank: number;
+  rankClass: string;
+  borderClass: string;
+  bgClass: string;
+  avatarURL: string;
+  userName: string;
+  isCurrentUser: boolean;
+  wins: number;
+  losses: number;
+  elo: number;
+}): string {
+  // Define color classes based on rank position (special colors for top 3 only)
+  const getRankColors = (rank: number) => {
+    switch (rank) {
+      case 1: return {
+        bg: 'bg-yellow-500',
+        border: 'border-yellow-400',
+        text: 'text-yellow-400'
+      };
+      case 2: return {
+        bg: 'bg-gray-400',
+        border: 'border-gray-300',
+        text: 'text-gray-300'
+      };
+      case 3: return {
+        bg: 'bg-orange-600',
+        border: 'border-orange-400',
+        text: 'text-orange-400'
+      };
+      default: return {
+        bg: 'bg-purple-500',
+        border: 'border-purple-400',
+        text: 'text-purple-400'
+      };
+    }
+  };
+
+  const colors = getRankColors(entry.rank);
+
+  return `
+    <div class="bg-gradient-to-r ${entry.bgClass} ${entry.borderClass} rounded-xl p-4 backdrop-blur-sm">
+      <div class="flex items-center justify-between">
+        <!-- Left section: Rank, avatar and user info -->
+        <div class="flex items-center space-x-4 flex-1">
+          <!-- Rank indicator -->
+          <div class="w-10 h-10 ${colors.bg} rounded-full flex items-center justify-center text-black font-bold font-arcade text-sm shadow-lg">
+            ${entry.rank}
+          </div>
+          
+          <!-- Avatar -->
+          <img src="${entry.avatarURL || 'assets/icone/Lucian.webp'}" alt="Avatar" 
+               class="w-12 h-12 rounded-full border-2 ${colors.border} shadow-lg" />
+          
+          <!-- User info -->
+          <div class="flex flex-col">
+            <div class="text-white font-semibold text-lg flex items-center font-arcade">
+              <span class="truncate max-w-32">${entry.userName}</span>
+              ${entry.isCurrentUser ? '<span class="ml-2 text-xs bg-green-500 text-black px-2 py-1 rounded-full font-sans">YOU</span>' : ''}
+            </div>
+            <div class="text-gray-400 text-sm">
+              <span class="text-cyan-400">${entry.wins}</span> wins • 
+              <span class="text-pink-400">${entry.losses}</span> losses
+            </div>
+          </div>
+        </div>
+
+        <!-- Right section: ELO -->
+        <div class="text-right">
+          <div class="${colors.text} font-bold text-xl font-arcade">${entry.elo}</div>
+          <div class="text-gray-400 text-xs uppercase tracking-wider">ELO</div>
+        </div>
+      </div>
+    </div>
+  `;
+}

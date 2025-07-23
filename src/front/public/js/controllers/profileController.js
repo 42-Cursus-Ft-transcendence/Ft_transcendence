@@ -1,4 +1,4 @@
-import { profileTemplate } from "../templates/profileTemplate.js";
+import { profileTemplate, createMatchHistoryItem, createLeaderboardEntry } from "../templates/profileTemplate.js";
 export async function renderProfile(container, onBack) {
     container.innerHTML = profileTemplate;
     // Bind back button
@@ -61,15 +61,23 @@ function updateProfileTab(container, profile) {
     // ELO bar based on progress within current rank
     const eloPercentage = ((profile.elo % 500) / 500) * 100;
     eloBar.style.width = `${eloPercentage}%`;
-    // Update wins and losses
+    // Update wins and losses (using ranked stats since they correspond to ELO)
     const wins = container.querySelector('#profile-wins');
     const losses = container.querySelector('#profile-losses');
     const winrate = container.querySelector('#profile-winrate');
-    wins.textContent = profile.wins.toString();
-    losses.textContent = profile.losses.toString();
-    const totalGames = profile.wins + profile.losses;
-    const winratePercentage = totalGames > 0 ? Math.round((profile.wins / totalGames) * 100) : 0;
+    wins.textContent = profile.rankedWins.toString();
+    losses.textContent = profile.rankedLosses.toString();
+    const rankedGames = profile.rankedWins + profile.rankedLosses;
+    const winratePercentage = rankedGames > 0 ? Math.round((profile.rankedWins / rankedGames) * 100) : 0;
     winrate.textContent = `${winratePercentage}%`;
+    // Add a small indicator to show these are ranked stats
+    const statsContainer = container.querySelector('#profile-stats');
+    if (statsContainer && !statsContainer.querySelector('.ranked-indicator')) {
+        const indicator = document.createElement('div');
+        indicator.className = 'ranked-indicator text-xs text-yellow-400 mt-1 text-center';
+        indicator.textContent = `Ranked Games Only (${rankedGames} total)`;
+        statsContainer.appendChild(indicator);
+    }
 }
 function updateHistoryTab(container, matches) {
     const historyContainer = container.querySelector('#match-history');
@@ -82,21 +90,33 @@ function updateHistoryTab(container, matches) {
         const resultText = match.result === 'win' ? 'Victory' : 'Defeat';
         const eloChangeText = match.eloChange > 0 ? `+${match.eloChange}` : match.eloChange.toString();
         const scoreText = `${match.playerScore}-${match.opponentScore}`;
+        // Match type badge
+        const typeText = match.type === 'ranked' ? 'RANKED' : 'CASUAL';
+        const typeBadgeClass = match.type === 'ranked' ? 'bg-yellow-600' : 'bg-gray-600';
+        // ELO display (only for ranked matches) - improved styling
+        const eloDisplay = match.type === 'ranked' ?
+            `<div class="flex flex-col items-end">
+                <div class="text-${resultClass}-400 font-bold text-lg">${eloChangeText}</div>
+                <div class="text-gray-400 text-xs">ELO</div>
+             </div>` :
+            `<div class="flex flex-col items-end">
+                <div class="text-gray-500 font-bold text-lg">--</div>
+                <div class="text-gray-500 text-xs">CASUAL</div>
+             </div>`;
         // Format date
         const date = new Date(match.matchDate);
         const timeAgo = getTimeAgo(date);
-        return `
-            <div class="bg-black/30 border border-${resultClass}-500/50 rounded-lg p-4 flex items-center justify-between">
-                <div class="flex items-center space-x-4">
-                    <div class="w-3 h-3 bg-${resultClass}-500 rounded-full"></div>
-                    <div>
-                        <div class="text-white font-semibold">${resultText} vs. ${match.opponent}</div>
-                        <div class="text-gray-400 text-sm">${timeAgo} • Score: ${scoreText}</div>
-                    </div>
-                </div>
-                <div class="text-${resultClass}-400 font-bold">${eloChangeText} ELO</div>
-            </div>
-        `;
+        // Use template function
+        return createMatchHistoryItem({
+            resultClass,
+            resultText,
+            opponent: match.opponent,
+            typeText,
+            typeBadgeClass,
+            timeAgo,
+            scoreText,
+            eloDisplay
+        });
     }).join('');
     historyContainer.innerHTML = matchElements;
 }
@@ -111,22 +131,19 @@ function updateRankingTab(container, leaderboard, userProfile) {
         const rankClass = rank === 1 ? 'yellow' : rank === 2 ? 'gray' : rank === 3 ? 'orange' : 'blue';
         const borderClass = entry.isCurrentUser ? 'border-2 border-green-500' : `border border-${rankClass}-500`;
         const bgClass = entry.isCurrentUser ? 'from-green-600/30 to-blue-600/30' : `from-${rankClass}-600/30 to-${rankClass}-500/30`;
-        return `
-            <div class="bg-gradient-to-r ${bgClass} ${borderClass} rounded-lg p-4 flex items-center justify-between">
-                <div class="flex items-center space-x-4">
-                    <div class="w-8 h-8 bg-${rankClass}-500 rounded-full flex items-center justify-center text-black font-bold">${rank}</div>
-                    <img src="${entry.avatarURL || 'assets/icone/Lucian.webp'}" alt="Avatar" class="w-10 h-10 rounded-full border-2 border-${rankClass}-400" />
-                    <div>
-                        <div class="text-white font-semibold flex items-center">
-                            <span>${entry.userName}</span>
-                            ${entry.isCurrentUser ? '<span class="ml-2 text-xs bg-green-500 text-black px-2 py-1 rounded-full">YOU</span>' : ''}
-                        </div>
-                        <div class="text-gray-400 text-sm">${entry.wins} wins • ${entry.losses} losses</div>
-                    </div>
-                </div>
-                <div class="text-${rankClass}-400 font-bold">${entry.elo} ELO</div>
-            </div>
-        `;
+        // Use template function
+        return createLeaderboardEntry({
+            rank,
+            rankClass,
+            borderClass,
+            bgClass,
+            avatarURL: entry.avatarURL,
+            userName: entry.userName,
+            isCurrentUser: entry.isCurrentUser || false,
+            wins: entry.wins,
+            losses: entry.losses,
+            elo: entry.elo
+        });
     }).join('');
     leaderboardContainer.innerHTML = leaderboardElements;
 }
@@ -159,7 +176,8 @@ function bindTabNavigation(container) {
 // Real API functions
 async function fetchUserProfile() {
     try {
-        // Get basic user info
+        console.log('>> Fetching user profile from /api/me...');
+        // Get user info with ranking data included
         const userResponse = await fetch('/api/me', {
             method: 'GET',
             credentials: 'include'
@@ -168,27 +186,24 @@ async function fetchUserProfile() {
             throw new Error('Failed to fetch user profile');
         }
         const userData = await userResponse.json();
-        // Get user ranking data
-        const leaderboardResponse = await fetch('/api/leaderboard?limit=100', {
-            method: 'GET',
-            credentials: 'include'
-        });
-        if (!leaderboardResponse.ok) {
-            throw new Error('Failed to fetch ranking data');
-        }
-        const leaderboard = await leaderboardResponse.json();
-        // Find current user in leaderboard
-        const userRanking = leaderboard.find((entry) => entry.userId === userData.idUser);
-        return {
+        // The /me endpoint now includes all the data we need
+        const profile = {
             idUser: userData.idUser,
             userName: userData.userName,
             email: userData.email,
             avatarURL: userData.avatarURL || 'assets/icone/Lucian.webp',
-            elo: userRanking?.elo || 4000,
-            wins: userRanking?.wins || 0,
-            losses: userRanking?.losses || 0,
-            gamesPlayed: userRanking?.gamesPlayed || 0
+            elo: userData.elo || 0,
+            // Ranked match stats
+            rankedWins: userData.rankedWins || 0,
+            rankedLosses: userData.rankedLosses || 0,
+            rankedGamesPlayed: userData.rankedGamesPlayed || 0,
+            // Total match stats (including normal games)
+            totalWins: userData.totalWins || 0,
+            totalLosses: userData.totalLosses || 0,
+            totalGamesPlayed: userData.totalGamesPlayed || 0
         };
+        console.log('>> Successfully fetched user profile:', profile.userName, 'ELO:', profile.elo);
+        return profile;
     }
     catch (error) {
         console.error('Error fetching user profile:', error);
@@ -220,7 +235,8 @@ async function fetchMatchHistory() {
             playerScore: match.playerScore,
             opponentScore: match.opponentScore,
             eloChange: match.eloChange,
-            matchDate: match.date
+            matchDate: match.date,
+            type: match.type || 'normal' // Include match type
         }));
         console.log(`>> Successfully fetched ${matchHistory.length} matches`);
         return matchHistory;
@@ -271,14 +287,14 @@ async function fetchLeaderboard() {
 function getRankFromElo(elo) {
     const ranks = [
         { name: "Iron", minElo: 0 }, // No image available for Iron
-        { name: "Bronze", image: "Bronze.webp", minElo: 500 },
-        { name: "Silver", image: "Silver.webp", minElo: 1000 },
+        { name: "Bronze", image: "Bronze.png", minElo: 500 },
+        { name: "Silver", image: "Silver.png", minElo: 1000 },
         { name: "Gold", image: "Gold.png", minElo: 1500 },
-        { name: "Platinum", image: "Platinum.webp", minElo: 2000 },
-        { name: "Diamond", image: "Diamond.webp", minElo: 2500 },
-        { name: "Master", image: "Master.webp", minElo: 3000 },
-        { name: "Grandmaster", image: "Grandmaster.webp", minElo: 3500 },
-        { name: "Challenger", image: "icone.png", minElo: 4000 }
+        { name: "Platinum", image: "Platinum.png", minElo: 2000 },
+        { name: "Diamond", image: "Diamond.png", minElo: 2500 },
+        { name: "Master", image: "Master.png", minElo: 3000 },
+        { name: "Grandmaster", image: "Grandmaster.png", minElo: 3500 },
+        { name: "Challenger", image: "Challenger.png", minElo: 4000 }
     ];
     // Find the highest rank that the player qualifies for
     for (let i = ranks.length - 1; i >= 0; i--) {
