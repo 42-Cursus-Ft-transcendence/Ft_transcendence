@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Load .env variables
+ENV_FILE=${ENV_FILE:-.env}
+
 set -o allexport
-source "${ENV_FILE:-.env}"
+source "$ENV_FILE"
 set +o allexport
 
 : "${ELASTIC_PASSWORD:?ELASTIC_PASSWORD must be set in ${ENV_FILE}}"
@@ -21,9 +22,11 @@ done
 echo "Elasticsearch is ready."
 
 # 2) Generate certs (if missing)
-./scripts/cert_generation.sh
+./scripts/cert_generation.sh "${ENV_FILE}"
 
 # 3) Create Elasticsearch users and wait for confirmation
 ./scripts/user_setup.sh "${ENV_FILE}"
+
+./scripts/api_token_generation.sh "${ENV_FILE}"
 
 echo "✅ ELK stack setup completed."

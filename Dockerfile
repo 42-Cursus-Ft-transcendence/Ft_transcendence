@@ -52,7 +52,7 @@ RUN apk add --no-cache sqlite-libs curl sqlite
 
 WORKDIR /app
 
-COPY src/back/wait-for-anvil.sh /app/wait-for-anvil.sh
+COPY src/back/scripts/wait-for-anvil.sh /app/wait-for-anvil.sh
 RUN chmod +x /app/wait-for-anvil.sh
 
 # ---------------------

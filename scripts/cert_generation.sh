@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+ENV_FILE=${ENV_FILE:-.env}
+
 set -o allexport
 source "${ENV_FILE}"
 set +o allexport

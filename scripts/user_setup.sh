@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+ENV_FILE="${ENV_FILE:-.env}"
+
 echo "🔐 Bootstrapping user_setup.sh start"
 # Load environment variables from .env
 set -o allexport
-source "${ENV_FILE}"
+source "$ENV_FILE"
 set +o allexport
 
 

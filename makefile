@@ -10,7 +10,7 @@ COMPOSE_FILES       = -f $(COMPOSE_BASE) $(if $(filter aarch64,$(ARCH)),-f $(COM
 EXTRA_FLAGS         = $(if $(filter aarch64,$(ARCH)),--remove-orphans,)
 BACK_ENV            = src/back/.env.backend
 CONTAINERS_TO_CLEAN = anvil transcendence
-VOLUMES		   		:= grafana-data es-tokens es-ca
+VOLUMES		   		:= grafana-data es-data
 VOLUMES_DIR			:= docker/volumes
 
 .DEFAULT_GOAL 	    := up

@@ -56,8 +56,8 @@ services:
       - "8080:80"
       - "8443:443"
     networks:
-      - pongnet
       - elknet
+      - pongnet
 
   prometheus:
     build:
@@ -150,9 +150,11 @@ services:
     environment:
       - ES_JAVA_OPTS=-Xms2g -Xmx2g # Memory settings
     volumes:
+      - es-data:/usr/share/elasticsearch/data
       - /etc/localtime:/etc/localtime:ro
       - ./docker/volumes/es-ca:/usr/share/elasticsearch/config/shared/ca
       - ./docker/volumes/es-certs:/usr/share/elasticsearch/config/shared/certs
+      - ./docker/volumes/es-tokens:/usr/share/elasticsearch/config/shared/tokens
     healthcheck:
       test:
         [
@@ -173,7 +175,8 @@ services:
       dockerfile: Dockerfile
     container_name: logstash
     environment:
-      - LOGSTASH_SYSTEM_PASSWORD
+      - LOGSTASH_API_KEY # API key for Logstash
+      - LOGSTASH_MONITORING_API_KEY # API key for monitoring
       - ELASTICSEARCH_HOSTS=https://elasticsearch:9200
       - LS_JAVA_OPTS=-Xmx512m -Xms512m
       - LOGGING_ROOT_LEVEL=debug
@@ -199,9 +202,20 @@ services:
       retries: 20
     ports:
       - "5601"
+    command: >
+      sh -c '
+        if [ -f /usr/share/kibana/tokens/service.token ]; then
+          export ELASTICSEARCH_SERVICE_ACCOUNT_TOKEN=$(cat /usr/share/kibana/tokens/service.token)
+          echo "🔑 Loaded service token from file"
+        else
+          echo "⚠️  service.token not found, falling back to ENV"
+        fi
+        exec /usr/local/bin/kibana-docker
+      '
     environment:
-      - KIBANA_SYSTEM_PASSWORD
-      - ELASTICSEARCH_URL=https://elasticsearch:9200
+      # - ELASTICSEARCH_USERNAME=kibana_system
+      # - ELASTICSEARCH_PASSWORD=${KIBANA_SYSTEM_PASSWORD}
+      - ELASTICSEARCH_SERVICE_ACCOUNT_TOKEN=${KIBANA_SERVICE_TOKEN:-}
       - KIBANA_ENCRYPTION_KEY
       - LOGGING_ROOT_LEVEL=debug
     env_file:
@@ -210,12 +224,16 @@ services:
       - /etc/localtime:/etc/localtime:ro
       - ./docker/volumes/es-ca:/usr/share/kibana/ca:ro
       - ./docker/volumes/es-certs/kibana:/usr/share/kibana/certs:ro
+      - ./docker/volumes/es-tokens/kibana:/usr/share/kibana/tokens:ro
     restart: on-failure
     depends_on:
       elasticsearch:
         condition: service_healthy
     networks:
-      - elknet
+      elknet:
+      pongnet:
+        aliases:
+          - kibana
 networks:
   pongnet:
     driver: bridge
@@ -228,3 +246,4 @@ networks:
 
 volumes:
   grafana-data:
+  es-data:
