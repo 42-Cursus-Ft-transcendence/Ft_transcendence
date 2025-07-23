@@ -10,9 +10,11 @@ COMPOSE_FILES       = -f $(COMPOSE_BASE) $(if $(filter aarch64,$(ARCH)),-f $(COM
 EXTRA_FLAGS         = $(if $(filter aarch64,$(ARCH)),--remove-orphans,)
 BACK_ENV            = src/back/.env.backend
 CONTAINERS_TO_CLEAN = anvil transcendence
-VOLUMES		   := grafana-data
+VOLUMES		   		:= grafana-data es-data
+VOLUMES_DIR			:= docker/volumes
 
-.DEFAULT_GOAL 	   := up
+.DEFAULT_GOAL 	    := up
+
 ###############################################################################
 # 1. HELP                                                                     #
 ###############################################################################
@@ -99,7 +101,7 @@ compose-exec-nginx: compose-up
 # 4. ADVANCED PIPELINE (Anvil → Foundry → Full stack)                         #
 ###############################################################################
 .PHONY: detect-arch clean-zombies anvil-up deploy-contracts stack-up \
-        up down remove-volumes logs re
+        up down remove-volumes logs re start-es setup-lk
 
 # 4‑a. Detect architecture and persist to .env
 detect-arch:
@@ -142,18 +144,38 @@ deploy-contracts: anvil-up
 	@echo "🔨 Foundry compile + deploy"
 	docker compose $(COMPOSE_FILES) up --build --force-recreate $(EXTRA_FLAGS) deployer
 
-# 4‑e. Spin up full application + observability stack
-stack-up: deploy-contracts
-	@echo "🔄 Bringing up backend, nginx, exporters, Prometheus & Grafana & pushgateway"
+# 4‑e. First Deploy only Elasticsearch(For Creating Token)
+start-es:
+	@echo "🚀 Starting Elasticsearch…"
+	docker compose $(COMPOSE_FILES) build --no-cache elasticsearch
+	docker compose $(COMPOSE_FILES) up $(EXTRA_FLAGS) -d elasticsearch
+
+# 4‑f. ENROLLMENT TOKEN GENERATION FOR ELK                                    #
+setup-lk:
+	@echo
+	@echo "🔐 Running setup script…"
+	@chmod +x scripts/init.sh
+	@ENV_FILE="$(ENV_FILE)" COMPOSE_FILES="$(COMPOSE_FILES)" bash ./scripts/init.sh
+	@echo
+
+# 4‑h. Spin up full application + observability stack
+stack-up: start-es setup-lk deploy-contracts
+	@echo "🔄 Bringing up backend, nginx, exporters, Prometheus & Grafana & pushgateway \
+			logstash, kibana"
 	docker compose $(COMPOSE_FILES) up --build --force-recreate $(EXTRA_FLAGS) -d \
-	  backend nginx nginx-prometheus-exporter prometheus grafana pushgateway
+	  backend nginx nginx-prometheus-exporter prometheus grafana pushgateway \
+	  logstash kibana
 	@echo "✅ All services running"
 
 # Shortcuts
 up: stack-up
 down:
+	@echo "🔽 Stopping and removing all services…"
 	docker compose $(COMPOSE_FILES) down -v --remove-orphans
-
+	@echo "✅ All services stopped and removed"
+	@echo "🗑️  Removing volumes…"
+	@rm -rf $(VOLUMES_DIR)
+	@echo "✅ Volumes removed"
 logs:
 	docker compose $(COMPOSE_FILES) logs -f
 
@@ -174,4 +196,4 @@ remove-volumes:
 ###############################################################################
 .PHONY: dev
 dev:
-	docker-compose $(COMPOSE_FILES) -f docker-compose.dev.yml up -d
+	docker compose $(COMPOSE_FILES) -f docker-compose.dev.yml up -d

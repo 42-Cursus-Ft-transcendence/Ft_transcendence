@@ -1,6 +1,6 @@
 services:
   anvil:
-    image: ghcr.io/foundry-rs/foundry:latest
+    image: ghcr.io/foundry-rs/foundry:v1.2.3
     container_name: anvil
     entrypoint:
       - anvil
@@ -50,10 +50,13 @@ services:
       - backend
       - prometheus
       - grafana
+      - elasticsearch
+      - kibana
     ports:
       - "8080:80"
       - "8443:443"
     networks:
+      - elknet
       - pongnet
 
   prometheus:
@@ -112,7 +115,7 @@ services:
       - pongnet
 
   deployer:
-    image: ghcr.io/foundry-rs/foundry:latest
+    image: ghcr.io/foundry-rs/foundry:v1.2.3
     user: root
     env_file:
       - .env
@@ -134,7 +137,103 @@ services:
     networks:
       - pongnet
     restart: "no"
+  elasticsearch:
+    build:
+      context: ./docker/elasticsearch
+      dockerfile: Dockerfile
+    container_name: es
+    ports:
+      - "9200"
+      - "9300"
+    env_file:
+      - .env
+    environment:
+      - ES_JAVA_OPTS=-Xms2g -Xmx2g # Memory settings
+    volumes:
+      - es-data:/usr/share/elasticsearch/data
+      - /etc/localtime:/etc/localtime:ro
+      - ./docker/volumes/es-ca:/usr/share/elasticsearch/config/shared/ca
+      - ./docker/volumes/es-certs:/usr/share/elasticsearch/config/shared/certs
+      - ./docker/volumes/es-tokens:/usr/share/elasticsearch/config/shared/tokens
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl -k -u elastic:${ELASTIC_PASSWORD} https://localhost:9200/_cluster/health?wait_for_status=green&timeout=1s >/dev/null 2>&1",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 50
+    restart: on-failure
+    networks:
+      elknet:
+        aliases:
+          - elasticsearch # Alias for internal communication
+  logstash:
+    build:
+      context: ./docker/logstash
+      dockerfile: Dockerfile
+    container_name: logstash
+    environment:
+      - LOGSTASH_API_KEY # API key for Logstash
+      - LOGSTASH_MONITORING_API_KEY # API key for monitoring
+      - ELASTICSEARCH_HOSTS=https://elasticsearch:9200
+      - LS_JAVA_OPTS=-Xmx512m -Xms512m
+      - LOGGING_ROOT_LEVEL=debug
+    env_file:
+      - .env
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ./docker/volumes/es-ca:/usr/share/logstash/ca:ro
+      - ./docker/volumes/es-certs/logstash:/usr/share/logstash/certs:ro
+    restart: on-failure
+    networks:
+      - elknet
 
+  kibana:
+    build:
+      context: ./docker/kibana
+      dockerfile: Dockerfile
+    container_name: kibana
+    healthcheck:
+      test: curl -s https://localhost:5601/login >/dev/null || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    ports:
+      - "5601"
+    command: >
+      sh -c '
+        if [ -f /usr/share/kibana/tokens/service.token ]; then
+          export ELASTICSEARCH_SERVICE_ACCOUNT_TOKEN=$(cat /usr/share/kibana/tokens/service.token)
+          echo "🔑 Loaded service token from file"
+        else
+          echo "⚠️  service.token not found, falling back to ENV"
+        fi
+        exec /usr/local/bin/kibana-docker
+      '
+    environment:
+      # - ELASTICSEARCH_USERNAME=kibana_system
+      # - ELASTICSEARCH_PASSWORD=${KIBANA_SYSTEM_PASSWORD}
+      - ELASTICSEARCH_SERVICE_ACCOUNT_TOKEN=${KIBANA_SERVICE_TOKEN:-}
+      - KIBANA_ENCRYPTION_KEY
+      - LOGGING_ROOT_LEVEL=debug
+    env_file:
+      - .env
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ./docker/volumes/es-ca:/usr/share/kibana/ca:ro
+      - ./docker/volumes/es-certs/kibana:/usr/share/kibana/certs:ro
+      - ./docker/volumes/es-tokens/kibana:/usr/share/kibana/tokens:ro
+    restart: on-failure
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      elknet:
+      pongnet:
+        aliases:
+          - kibana
 networks:
   pongnet:
     driver: bridge
@@ -142,6 +241,9 @@ networks:
       config:
         - subnet: 172.20.0.0/16
           gateway: 172.20.0.1
+  elknet:
+    driver: bridge
 
 volumes:
   grafana-data:
+  es-data:

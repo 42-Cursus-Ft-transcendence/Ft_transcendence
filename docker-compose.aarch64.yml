@@ -18,7 +18,7 @@ services:
     security_opt:
       - seccomp=unconfined
       - apparmor=unconfined
-  
+
   prometheus:
     platform: linux/arm64
     security_opt:
@@ -30,16 +30,33 @@ services:
     security_opt:
       - seccomp=unconfined
       - apparmor=unconfined
-   
+
   grafana:
     platform: linux/arm64
     security_opt:
       - seccomp=unconfined
       - apparmor=unconfined
-  
+
   nginx:
     platform: linux/arm64
     security_opt:
       - seccomp=unconfined
       - apparmor=unconfined
 
+  elasticsearch:
+    platform: linux/arm64
+    security_opt:
+      - seccomp=unconfined
+      - apparmor=unconfined
+
+  kibana:
+    platform: linux/arm64
+    security_opt:
+      - seccomp=unconfined
+      - apparmor=unconfined
+
+  logstash:
+    platform: linux/arm64
+    security_opt:
+      - seccomp=unconfined
+      - apparmor=unconfined
