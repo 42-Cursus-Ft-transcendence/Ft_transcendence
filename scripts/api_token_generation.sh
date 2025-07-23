@@ -26,7 +26,7 @@ upsert() {
   fi
 }
 
-docker compose exec -T elasticsearch sh -eux <<'EOS'
+docker compose exec -T elasticsearch sh -euo<<'EOS'
   # ---- create or recreate Kibana token -------------------------------
   API_JSON=$(curl -s -u "elastic:${ELASTIC_PASSWORD}" -k \
       --cacert /usr/share/elasticsearch/config/shared/ca/ca.crt \

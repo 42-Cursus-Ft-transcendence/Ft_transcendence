@@ -165,7 +165,11 @@ stack-up: start-es setup-lk deploy-contracts
 	  backend nginx nginx-prometheus-exporter prometheus grafana pushgateway \
 	  logstash kibana
 	@echo "✅ All services running"
-
+	@echo "🔧 Importing Kibana dashboards inside the Kibana container"
+	@docker compose exec kibana bash -lc "\
+	  echo '🔄 Importing dashboards…'; \
+	  cd /usr/share/kibana/scripts/kibana-import && \
+	  ./import-all.sh"
 # Shortcuts
 up: stack-up
 
