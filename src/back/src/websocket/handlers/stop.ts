@@ -6,8 +6,7 @@ import {
 } from "./online";
 import { localGames } from "./ai";
 import { socketToRankedSession, handleRankedStop } from "./tournament";
-import { postScore } from "../../blockchain";
-import { getAsync } from "../../db";
+import { createGame } from "../../routes/userRoutes";
 
 export async function handleStop(socket: WebSocket): Promise<void> {
   // Check if socket belongs to a ranked session first
@@ -32,28 +31,18 @@ export async function handleStop(socket: WebSocket): Promise<void> {
     onlineSocketToSession.delete(sess.sockets.p1);
     onlineSocketToSession.delete(sess.sockets.p2);
 
-    // Get player addresses for blockchain posting
-    const row1 = await getAsync<{ address: string }>(
-      `SELECT address FROM User WHERE idUser = ?`,
-      [sess.players.p1.sub]
-    );
-    const row2 = await getAsync<{ address: string }>(
-      `SELECT address FROM User WHERE idUser = ?`,
-      [sess.players.p2.sub]
-    );
-
-    if (!row1 || !row2) {
-      console.error("Missing on-chain address for one of the players");
-    } else {
-      // Post both scores on-chain
-      console.log("blockchain posting");
-      try {
-        const tx1 = await postScore(sess.id, row1.address, sess.game.score[0], sess.players.p1.sub);
-        const tx2 = await postScore(sess.id, row2.address, sess.game.score[1], sess.players.p2.sub);
-        console.log("Scores posted:", tx1, tx2);
-      } catch (err) {
-        console.error("postScore failed:", err);
-      }
+    // Save online match to database instead of blockchain
+    try {
+      console.log("Saving online match to database");
+      const gameId = await createGame(
+        sess.players.p1.sub, 
+        sess.players.p2.sub, 
+        sess.game.score[0], 
+        sess.game.score[1]
+      );
+      console.log(`Online match saved to database with ID: ${gameId}`);
+    } catch (err) {
+      console.error("Failed to save online match to database:", err);
     }
 
     const result = JSON.stringify({

@@ -527,29 +527,33 @@ export async function handleRankedForfeit(
         const disconnectedPlayer =
             disconnectedSocket === session.sockets.p1 ? "p1" : "p2";
         const winner = disconnectedPlayer === "p1" ? "p2" : "p1";
+        const disconnectedPlayerName = disconnectedPlayer === "p1" ? session.players.p1.userName : session.players.p2.userName;
+        const remainingSocket = disconnectedPlayer === "p1" ? session.sockets.p2 : session.sockets.p1;
+
+        console.log(
+            `🏆 Player ${disconnectedPlayerName} (${disconnectedPlayer}) forfeited due to ${reason}. Winner: ${winner}`
+        );
 
         // Set forfeit score (10-0 for the remaining player)
         session.game.forfeit(winner);
 
-        console.log(
-            `Player ${disconnectedPlayer} forfeited due to ${reason}. Winner: ${winner}`
-        );
-
-        // End the match with forfeit scores
+        // End the match with forfeit scores - this handles ELO, database, and blockchain
         await handleRankedMatchEnd(session);
 
         // Notify the remaining player about the forfeit
-        const remainingSocket =
-            disconnectedPlayer === "p1" ? session.sockets.p2 : session.sockets.p1;
         try {
             remainingSocket.send(
                 JSON.stringify({
-                    type: "opponentForfeited",
-                    reason: reason,
+                    type: "matchOver",
+                    reason: "opponent_forfeit",
+                    message: `${disconnectedPlayerName} has ${reason === "disconnection" ? "disconnected" : "forfeited"}. You win!`,
                     gameId: session.id,
                     winner: winner,
+                    score: session.game.score,
+                    forfeit: true
                 })
             );
+            console.log(`✅ Notified remaining player about forfeit win`);
         } catch (err) {
             console.log(
                 "Could not notify remaining player - they may have also disconnected"
@@ -599,13 +603,14 @@ export async function cleanupRankedSocket(socket: WebSocket): Promise<void> {
     );
     if (waitingIndex >= 0) {
         rankedWaiting.splice(waitingIndex, 1);
+        console.log(`Removed player from ranked waiting queue`);
         return;
     }
 
     // Handle session cleanup with forfeit
     const session = socketToRankedSession.get(socket);
     if (session) {
-        // Check if disconnect was already handled in index.ts
+        // Check if disconnect was already handled
         if ((session as any).disconnectHandled) {
             console.log("Disconnect already handled, just cleaning up session");
             clearInterval(session.loopTimer);
@@ -618,11 +623,16 @@ export async function cleanupRankedSocket(socket: WebSocket): Promise<void> {
         // Check if the game is still in progress (not already ended)
         if (!session.game.isGameOver) {
             console.log(
-                `Player disconnected during active ranked match: ${session.id}`
+                `🏆 Player disconnected during active ranked match: ${session.id} - handling forfeit`
             );
+            
+            // Mark disconnect as being handled to prevent duplicate processing
+            (session as any).disconnectHandled = true;
+            
             await handleRankedForfeit(session, socket, "disconnection");
         } else {
             // Game was already over, just clean up
+            console.log(`Game already over, cleaning up ranked session: ${session.id}`);
             clearInterval(session.loopTimer);
             rankedSessions.delete(session.id);
             socketToRankedSession.delete(session.sockets.p1);

@@ -39,6 +39,13 @@ export function renderPong(container: HTMLElement, socket: WebSocket, onBack: ()
             console.log('Game ended:', msg.score1, msg.score2);
             cleanup();
             onBack();
+        } else if (msg.type === 'matchOver') {
+            console.log('Match ended:', msg);
+            if (msg.message) {
+                alert(msg.message); // Show forfeit/disconnect message to user
+            }
+            cleanup();
+            onBack();
         } else if (msg.type === "rankedMatchFound") {
             console.log('🏆 Ranked match found message received:', msg);
             const yourP = msg.youAre;
@@ -150,8 +157,19 @@ export function renderPong(container: HTMLElement, socket: WebSocket, onBack: ()
     bindCancel();
 
     window.addEventListener('popstate', (event) => {
+        if (isGameActive) {
+            socket.send(JSON.stringify({ type: 'forfeit' }));
+        }
         cleanup();
     });
+
+    // Handle page refresh/close during active game
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+        if (isGameActive) {
+            socket.send(JSON.stringify({ type: 'forfeit' }));
+        }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
     function bindGame(initial: any) {
         const CW = 500, CH = 300, PW = 10, PH = 60, BR = 6;
 
@@ -212,7 +230,13 @@ export function renderPong(container: HTMLElement, socket: WebSocket, onBack: ()
                 else if (k === settings.p1DownKey) { ply = 'p1'; dir = 'down'; }
                 else if (k === settings.p2UpKey) { ply = 'p2'; dir = 'up'; }
                 else if (k === settings.p2DownKey) { ply = 'p2'; dir = 'down'; }
-                else if (k === 'escape') { cleanup(); onBack(); return; }
+                else if (k === 'escape') { 
+                    // Send forfeit message for active games instead of stop
+                    socket.send(JSON.stringify({ type: 'forfeit' }));
+                    cleanup(); 
+                    onBack(); 
+                    return; 
+                }
 
                 if (ply && dir) {
                     socket.send(JSON.stringify({ type: 'input', player: ply, dir }));
@@ -260,7 +284,10 @@ export function renderPong(container: HTMLElement, socket: WebSocket, onBack: ()
             keyHandlersAdded = false;
         }
 
-        // Send stop message
+        // Remove beforeunload handler
+        window.removeEventListener('beforeunload', handleBeforeUnload);
+
+        // Send stop message (only if game wasn't forfeited already)
         socket.send(JSON.stringify({ type: 'stop' }));
     }
 

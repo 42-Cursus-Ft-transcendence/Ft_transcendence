@@ -2,7 +2,7 @@ import type { WebSocket } from "@fastify/websocket";
 import crypto from "crypto";
 import Game from "./game";
 import { db } from "../../db/db";
-import { postScore } from "../../blockchain";
+import { createGame } from "../../routes/userRoutes";
 
 export type Session = {
     id: string;
@@ -103,47 +103,65 @@ export function handleOnlineStart(
 
 async function handleOnlineMatchEnd(session: Session): Promise<void> {
     try {
-        console.log("Online match ended, posting scores to blockchain");
+        console.log("Online match ended, saving to database");
 
         const { p1, p2 } = session.players;
         const [score1, score2] = session.game.score;
 
-        // Get player addresses from database
-        const row1 = await new Promise<any>((resolve, reject) => {
-            db.get("SELECT address FROM User WHERE idUser = ?", [p1.sub], (err, row) => {
-                if (err) reject(err);
-                else resolve(row);
-            });
-        });
+        // Save the match to the database using the existing createGame function
+        const gameId = await createGame(p1.sub, p2.sub, score1, score2);
+        console.log(`Online match saved to database with ID: ${gameId}`);
 
-        const row2 = await new Promise<any>((resolve, reject) => {
-            db.get("SELECT address FROM User WHERE idUser = ?", [p2.sub], (err, row) => {
-                if (err) reject(err);
-                else resolve(row);
-            });
-        });
-
-        if (row1?.address && row2?.address) {
-            console.log("blockchain posting for online match");
-            const tx1 = await postScore(session.id, row1.address, score1, p1.sub);
-            const tx2 = await postScore(session.id, row2.address, score2, p2.sub);
-            console.log("Online scores posted to blockchain:", tx1, tx2);
-        } else {
-            console.log("Missing player addresses, cannot post to blockchain");
-        }
     } catch (err) {
-        console.error("Failed to post online match scores:", err);
+        console.error("Failed to save online match to database:", err);
     }
 }
 
 export function cleanupOnlineSocket(socket: WebSocket): void {
     // Remove from waiting queue
     const idx = waiting.findIndex((w) => w.socket === socket);
-    if (idx >= 0) waiting.splice(idx, 1);
+    if (idx >= 0) {
+        waiting.splice(idx, 1);
+        console.log(`Removed player from online waiting queue`);
+        return;
+    }
 
-    // Clean up session
+    // Handle session cleanup
     const sess = socketToSession.get(socket);
     if (sess) {
+        console.log(`🎮 Player disconnected from online match: ${sess.id}`);
+        
+        // Save the match to database with current scores
+        try {
+            const gameId = await createGame(
+                sess.players.p1.sub,
+                sess.players.p2.sub,
+                sess.game.score[0],
+                sess.game.score[1]
+            );
+            console.log(`Disconnected online match saved to database with ID: ${gameId}`);
+        } catch (err) {
+            console.error("Failed to save disconnected online match to database:", err);
+        }
+        
+        // Notify the other player
+        const disconnectedPlayer = sess.sockets.p1 === socket ? sess.players.p1.userName : sess.players.p2.userName;
+        const otherSocket = sess.sockets.p1 === socket ? sess.sockets.p2 : sess.sockets.p1;
+        
+        try {
+            otherSocket.send(JSON.stringify({
+                type: "matchOver",
+                reason: "opponent_disconnected",
+                message: `${disconnectedPlayer} has disconnected.`,
+                score: sess.game.score,
+                winner: null // No winner for disconnected online matches
+            }));
+            console.log(`✅ Notified remaining player about opponent disconnect`);
+        } catch (err) {
+            console.log("Could not notify other player - they may have also disconnected");
+        }
+
+        // Clean up session
         clearInterval(sess.loopTimer);
         sessions.delete(sess.id);
         socketToSession.delete(sess.sockets.p1);
