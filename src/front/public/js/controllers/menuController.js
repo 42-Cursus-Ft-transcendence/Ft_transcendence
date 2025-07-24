@@ -48,6 +48,10 @@ export function renderMenu(container, socket, onSelect) {
         zoomIn();
         onSelect("profile");
     });
+    container.querySelector("#btnFriends").addEventListener("click", () => {
+        zoomIn();
+        onSelect("friends");
+    });
     container.querySelector("#btnSettings").addEventListener("click", () => {
         zoomIn();
         onSelect("settings");

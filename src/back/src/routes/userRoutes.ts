@@ -611,6 +611,339 @@ export default async function userRoutes(app: FastifyInstance) {
       }
     }
   );
+
+  // ============================================
+  // FRIENDS ROUTES
+  // ============================================
+
+  // Get user's friends and pending requests
+  app.get(
+    "/friends",
+    { preHandler: [(app as any).authenticate] },
+    async (request, reply) => {
+      const userId = (request.user as any).sub as number;
+      
+      try {
+        console.log(">> Getting friends for user:", userId);
+
+        // Get confirmed friends
+        const friends = await getAllAsync<{
+          userId: number;
+          userName: string;
+          avatarURL?: string;
+          connectionStatus: number;
+        }>(
+          `SELECT 
+            CASE 
+              WHEN f.requesterId = ? THEN u2.idUser 
+              ELSE u1.idUser 
+            END as userId,
+            CASE 
+              WHEN f.requesterId = ? THEN u2.userName 
+              ELSE u1.userName 
+            END as userName,
+            CASE 
+              WHEN f.requesterId = ? THEN u2.avatarURL 
+              ELSE u1.avatarURL 
+            END as avatarURL,
+            CASE 
+              WHEN f.requesterId = ? THEN u2.connectionStatus 
+              ELSE u1.connectionStatus 
+            END as connectionStatus
+          FROM Friends f
+          JOIN User u1 ON f.requesterId = u1.idUser
+          JOIN User u2 ON f.receiverId = u2.idUser
+          WHERE (f.requesterId = ? OR f.receiverId = ?) AND f.status = 'accepted'`,
+          [userId, userId, userId, userId, userId, userId]
+        );
+
+        // Get pending friend requests (received)
+        const receivedRequests = await getAllAsync<{
+          userId: number;
+          userName: string;
+          avatarURL?: string;
+          requestedAt: string;
+        }>(
+          `SELECT u.idUser as userId, u.userName, u.avatarURL, f.requestedAt
+          FROM Friends f
+          JOIN User u ON f.requesterId = u.idUser
+          WHERE f.receiverId = ? AND f.status = 'pending'`,
+          [userId]
+        );
+
+        // Get pending friend requests (sent)
+        const sentRequests = await getAllAsync<{
+          userId: number;
+          userName: string;
+          avatarURL?: string;
+          requestedAt: string;
+        }>(
+          `SELECT u.idUser as userId, u.userName, u.avatarURL, f.requestedAt
+          FROM Friends f
+          JOIN User u ON f.receiverId = u.idUser
+          WHERE f.requesterId = ? AND f.status = 'pending'`,
+          [userId]
+        );
+
+        // Format friends data
+        const formattedFriends = friends.map(friend => ({
+          userId: friend.userId,
+          userName: friend.userName,
+          avatarURL: friend.avatarURL || null,
+          status: friend.connectionStatus === 1 ? 'online' : 'offline',
+          lastSeen: null, // Not available in current schema
+          isOnline: friend.connectionStatus === 1
+        }));
+
+        // Format pending requests
+        const pendingRequests = [
+          ...receivedRequests.map(req => ({
+            requestId: req.userId, // Using userId as requestId for simplicity
+            userId: req.userId,
+            userName: req.userName,
+            avatarURL: req.avatarURL || null,
+            requestedAt: req.requestedAt,
+            type: 'received' as const
+          })),
+          ...sentRequests.map(req => ({
+            requestId: req.userId,
+            userId: req.userId,
+            userName: req.userName,
+            avatarURL: req.avatarURL || null,
+            requestedAt: req.requestedAt,
+            type: 'sent' as const
+          }))
+        ];
+
+        return reply.status(200).send({
+          friends: formattedFriends,
+          pendingRequests: pendingRequests
+        });
+
+      } catch (error) {
+        console.error("Error fetching friends:", error);
+        return reply.status(500).send({ error: "Internal server error" });
+      }
+    }
+  );
+
+  // Send friend request
+  app.post(
+    "/friends/request",
+    { preHandler: [(app as any).authenticate] },
+    async (request, reply) => {
+      const userId = (request.user as any).sub as number;
+      const { username } = request.body as { username: string };
+
+      if (!username) {
+        return reply.status(400).send({ error: "Username is required" });
+      }
+
+      try {
+        console.log(">> Sending friend request from user", userId, "to", username);
+
+        // Find target user
+        const targetUser = await getAsync<{ idUser: number }>(
+          `SELECT idUser FROM User WHERE userName = ?`,
+          [username]
+        );
+
+        if (!targetUser) {
+          return reply.status(404).send({ error: "User not found" });
+        }
+
+        if (targetUser.idUser === userId) {
+          return reply.status(400).send({ error: "Cannot send friend request to yourself" });
+        }
+
+        // Check if friendship already exists
+        const existingFriendship = await getAsync<{ status: string }>(
+          `SELECT status FROM Friends 
+          WHERE (requesterId = ? AND receiverId = ?) OR (requesterId = ? AND receiverId = ?)`,
+          [userId, targetUser.idUser, targetUser.idUser, userId]
+        );
+
+        if (existingFriendship) {
+          if (existingFriendship.status === 'accepted') {
+            return reply.status(400).send({ error: "Already friends" });
+          } else if (existingFriendship.status === 'pending') {
+            return reply.status(400).send({ error: "Friend request already pending" });
+          }
+        }
+
+        // Create friend request
+        await runAsync(
+          `INSERT INTO Friends (requesterId, receiverId, status, requestedAt)
+          VALUES (?, ?, 'pending', ?)`,
+          [userId, targetUser.idUser, new Date().toISOString()]
+        );
+
+        return reply.status(200).send({ message: "Friend request sent successfully" });
+
+      } catch (error) {
+        console.error("Error sending friend request:", error);
+        return reply.status(500).send({ error: "Internal server error" });
+      }
+    }
+  );
+
+  // Accept friend request
+  app.post(
+    "/friends/request/:userId/accept",
+    { preHandler: [(app as any).authenticate] },
+    async (request, reply) => {
+      const userId = (request.user as any).sub as number;
+      const { userId: requesterId } = request.params as { userId: string };
+      const requesterIdNum = parseInt(requesterId);
+
+      try {
+        console.log(">> Accepting friend request from", requesterIdNum, "to", userId);
+
+        // Check if pending request exists
+        const pendingRequest = await getAsync<{ idFriendship: number }>(
+          `SELECT idFriendship FROM Friends 
+          WHERE requesterId = ? AND receiverId = ? AND status = 'pending'`,
+          [requesterIdNum, userId]
+        );
+
+        if (!pendingRequest) {
+          return reply.status(404).send({ error: "Friend request not found" });
+        }
+
+        // Update status to accepted
+        await runAsync(
+          `UPDATE Friends SET status = 'accepted', acceptedAt = ?
+          WHERE requesterId = ? AND receiverId = ? AND status = 'pending'`,
+          [new Date().toISOString(), requesterIdNum, userId]
+        );
+
+        return reply.status(200).send({ message: "Friend request accepted" });
+
+      } catch (error) {
+        console.error("Error accepting friend request:", error);
+        return reply.status(500).send({ error: "Internal server error" });
+      }
+    }
+  );
+
+  // Decline friend request
+  app.post(
+    "/friends/request/:userId/decline",
+    { preHandler: [(app as any).authenticate] },
+    async (request, reply) => {
+      const userId = (request.user as any).sub as number;
+      const { userId: requesterId } = request.params as { userId: string };
+      const requesterIdNum = parseInt(requesterId);
+
+      try {
+        console.log(">> Declining friend request from", requesterIdNum, "to", userId);
+
+        // Check if pending request exists
+        const pendingRequest = await getAsync<{ idFriendship: number }>(
+          `SELECT idFriendship FROM Friends 
+          WHERE requesterId = ? AND receiverId = ? AND status = 'pending'`,
+          [requesterIdNum, userId]
+        );
+
+        if (!pendingRequest) {
+          return reply.status(404).send({ error: "Friend request not found" });
+        }
+
+        // Delete the request
+        await runAsync(
+          `DELETE FROM Friends 
+          WHERE requesterId = ? AND receiverId = ? AND status = 'pending'`,
+          [requesterIdNum, userId]
+        );
+
+        return reply.status(200).send({ message: "Friend request declined" });
+
+      } catch (error) {
+        console.error("Error declining friend request:", error);
+        return reply.status(500).send({ error: "Internal server error" });
+      }
+    }
+  );
+
+  // Cancel friend request (for sent requests)
+  app.delete(
+    "/friends/request/:userId/cancel",
+    { preHandler: [(app as any).authenticate] },
+    async (request, reply) => {
+      const userId = (request.user as any).sub as number;
+      const { userId: receiverId } = request.params as { userId: string };
+      const receiverIdNum = parseInt(receiverId);
+
+      try {
+        console.log(">> Cancelling friend request from", userId, "to", receiverIdNum);
+
+        // Check if pending request exists
+        const pendingRequest = await getAsync<{ idFriendship: number }>(
+          `SELECT idFriendship FROM Friends 
+          WHERE requesterId = ? AND receiverId = ? AND status = 'pending'`,
+          [userId, receiverIdNum]
+        );
+
+        if (!pendingRequest) {
+          return reply.status(404).send({ error: "Friend request not found" });
+        }
+
+        // Delete the request
+        await runAsync(
+          `DELETE FROM Friends 
+          WHERE requesterId = ? AND receiverId = ? AND status = 'pending'`,
+          [userId, receiverIdNum]
+        );
+
+        return reply.status(200).send({ message: "Friend request cancelled" });
+
+      } catch (error) {
+        console.error("Error cancelling friend request:", error);
+        return reply.status(500).send({ error: "Internal server error" });
+      }
+    }
+  );
+
+  // Remove friend
+  app.delete(
+    "/friends/:userId",
+    { preHandler: [(app as any).authenticate] },
+    async (request, reply) => {
+      const userId = (request.user as any).sub as number;
+      const { userId: friendId } = request.params as { userId: string };
+      const friendIdNum = parseInt(friendId);
+
+      try {
+        console.log(">> Removing friend", friendIdNum, "from user", userId);
+
+        // Check if friendship exists
+        const friendship = await getAsync<{ idFriendship: number }>(
+          `SELECT idFriendship FROM Friends 
+          WHERE ((requesterId = ? AND receiverId = ?) OR (requesterId = ? AND receiverId = ?)) 
+          AND status = 'accepted'`,
+          [userId, friendIdNum, friendIdNum, userId]
+        );
+
+        if (!friendship) {
+          return reply.status(404).send({ error: "Friendship not found" });
+        }
+
+        // Delete the friendship
+        await runAsync(
+          `DELETE FROM Friends 
+          WHERE ((requesterId = ? AND receiverId = ?) OR (requesterId = ? AND receiverId = ?)) 
+          AND status = 'accepted'`,
+          [userId, friendIdNum, friendIdNum, userId]
+        );
+
+        return reply.status(200).send({ message: "Friend removed successfully" });
+
+      } catch (error) {
+        console.error("Error removing friend:", error);
+        return reply.status(500).send({ error: "Internal server error" });
+      }
+    }
+  );
 }
 
 export async function createGame(

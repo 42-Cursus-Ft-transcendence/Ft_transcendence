@@ -114,6 +114,20 @@ db.serialize(() => {
       FOREIGN KEY(userId) REFERENCES User(idUser)
     );
   `);
+  db.run(`
+    CREATE TABLE IF NOT EXISTS Friends (
+      idFriendship      INTEGER PRIMARY KEY AUTOINCREMENT,
+      requesterId       INTEGER NOT NULL, 
+      receiverId        INTEGER NOT NULL, 
+      status            TEXT NOT NULL DEFAULT 'pending', 
+      requestedAt       TEXT NOT NULL,
+      acceptedAt        TEXT,
+      FOREIGN KEY(requesterId) REFERENCES User(idUser),
+      FOREIGN KEY(receiverId) REFERENCES User(idUser),
+      UNIQUE(requesterId, receiverId),
+      CHECK(requesterId != receiverId)
+    );
+  `);
   // Create default user with generated wallet
   const defaultWallet = generateUserWallet();
   db.run(

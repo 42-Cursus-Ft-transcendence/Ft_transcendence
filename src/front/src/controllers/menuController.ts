@@ -10,6 +10,7 @@ export type ScreenChoise =
   | "profile"
   | "settings"
   | "blockexplorer"
+  | "friends"
   | "login";
 
 // Convert difficulty setting to numeric value
@@ -71,6 +72,10 @@ export function renderMenu(
   container.querySelector("#btnProfile")!.addEventListener("click", () => {
     zoomIn();
     onSelect("profile");
+  });
+  container.querySelector("#btnFriends")!.addEventListener("click", () => {
+    zoomIn();
+    onSelect("friends");
   });
   container.querySelector("#btnSettings")!.addEventListener("click", () => {
     zoomIn();

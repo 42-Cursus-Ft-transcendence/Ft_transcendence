@@ -3,6 +3,7 @@ import { renderLogin } from "./controllers/loginController.js";
 import { renderMenu } from "./controllers/menuController.js";
 import { renderPong } from "./controllers/pongController.js";
 import { renderProfile } from "./controllers/profileController.js";
+import { renderFriends } from "./controllers/friendsControllers.js";
 import { renderSettings } from "./controllers/settingsController.js";
 import { renderBlockExplorer } from "./controllers/blockExplorerController.js";
 import { arcadeTemplate } from "./templates/arcadeTemplate.js";
@@ -18,6 +19,7 @@ export type Screen =
   | "online"
   | "ranked"
   | "profile"
+  | "friends"
   | "settings"
   | "blockexplorer";
 
@@ -67,6 +69,9 @@ function doRender(screen: Screen) {
         break;
       case "profile":
         renderProfile(app, () => navigate("menu"));
+        break;
+      case "friends":
+        renderFriends(app, () => navigate("menu"));
         break;
       case "settings":
         renderSettings(app, () => navigate("menu"));

@@ -6,13 +6,13 @@ export const settingsTemplate = `
   <!-- Onglets (fixes en haut) -->
   <div class="sticky top-0 w-full  z-10 border-b border-pink-500">
     <nav class="flex space-x-4 justify-center py-2" aria-label="Tabs">
-      <button type="button" data-tab="account" class="tab-btn py-2 px-4 text-blue-300 border-b-2 border-transparent hover:text-blue-200 transition-colors hover:cursor-pointer">
+      <button type="button" data-tab="account" class="tab-btn py-2 px-4 text-cyan-300 border-b-2 border-transparent hover:text-pink-400 hover:border-pink-400 transition-all hover:cursor-pointer">
         Account
       </button>
-      <button type="button" data-tab="gameplay" class="tab-btn py-2 px-4 text-blue-300 border-b-2 border-transparent hover:text-blue-200 transition-colors hover:cursor-pointer">
+      <button type="button" data-tab="gameplay" class="tab-btn py-2 px-4 text-cyan-300 border-b-2 border-transparent hover:text-pink-400 hover:border-pink-400 transition-all hover:cursor-pointer">
         Gameplay
       </button>
-      <button type="button" data-tab="security" class="tab-btn py-2 px-4 text-blue-300 border-b-2 border-transparent hover:text-blue-200 transition-colors hover:cursor-pointer">
+      <button type="button" data-tab="security" class="tab-btn py-2 px-4 text-cyan-300 border-b-2 border-transparent hover:text-pink-400 hover:border-pink-400 transition-all hover:cursor-pointer">
         Security
       </button>
     </nav>

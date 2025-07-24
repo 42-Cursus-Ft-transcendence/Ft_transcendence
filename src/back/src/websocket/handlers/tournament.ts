@@ -563,7 +563,7 @@ async function getPlayerRank(userId: number): Promise<number> {
 export async function getLeaderboard(limit: number = 10): Promise<any[]> {
   return new Promise((resolve, reject) => {
     db.all(
-      `SELECT u.userName, pr.elo, pr.wins, pr.losses, pr.gamesPlayed 
+      `SELECT u.idUser as userId, u.userName, u.avatarURL, pr.elo, pr.wins, pr.losses, pr.gamesPlayed 
        FROM PlayerRanking pr 
        JOIN User u ON pr.userId = u.idUser 
        ORDER BY pr.elo DESC 

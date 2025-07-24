@@ -28,7 +28,8 @@ export const profileTemplate = `
         <div class="flex flex-col items-center mb-6">
           <div class="relative mb-4">
             <img id="profile-avatar" src="assets/icone/Lucian.webp" alt="Avatar" 
-                 class="w-24 h-24 rounded-full border-4 border-pink-400 shadow-lg shadow-pink-400/60" />
+                 class="w-24 h-24 rounded-full border-4 border-pink-400 shadow-lg shadow-pink-400/60"
+                 onerror="this.src='assets/icone/Lucian.webp'" />
           </div>
           <h2 id="profile-username" class="text-2xl font-bold text-white mb-1 drop-shadow-lg">Loading...</h2>
         </div>
@@ -164,7 +165,7 @@ export function createLeaderboardEntry(entry: {
   losses: number;
   elo: number;
 }): string {
-  // Define color classes based on rank position (special colors for top 3 only)
+  // Define color classes based on rank position (special colors for top 1 only)
   const getRankColors = (rank: number) => {
     switch (rank) {
       case 1: return {
@@ -172,20 +173,10 @@ export function createLeaderboardEntry(entry: {
         border: 'border-yellow-400',
         text: 'text-yellow-400'
       };
-      case 2: return {
+      default: return {
         bg: 'bg-gray-400',
         border: 'border-gray-300',
         text: 'text-gray-300'
-      };
-      case 3: return {
-        bg: 'bg-orange-600',
-        border: 'border-orange-400',
-        text: 'text-orange-400'
-      };
-      default: return {
-        bg: 'bg-purple-500',
-        border: 'border-purple-400',
-        text: 'text-purple-400'
       };
     }
   };
@@ -204,13 +195,13 @@ export function createLeaderboardEntry(entry: {
           
           <!-- Avatar -->
           <img src="${entry.avatarURL || 'assets/icone/Lucian.webp'}" alt="Avatar" 
-               class="w-12 h-12 rounded-full border-2 ${colors.border} shadow-lg" />
+               class="w-12 h-12 rounded-full border-2 ${colors.border} shadow-lg"
+               onerror="this.src='assets/icone/Lucian.webp'" />
           
           <!-- User info -->
           <div class="flex flex-col">
             <div class="text-white font-semibold text-lg flex items-center font-arcade">
               <span class="truncate max-w-32">${entry.userName}</span>
-              ${entry.isCurrentUser ? '<span class="ml-2 text-xs bg-green-500 text-black px-2 py-1 rounded-full font-sans">YOU</span>' : ''}
             </div>
             <div class="text-gray-400 text-sm">
               <span class="text-cyan-400">${entry.wins}</span> wins • 
