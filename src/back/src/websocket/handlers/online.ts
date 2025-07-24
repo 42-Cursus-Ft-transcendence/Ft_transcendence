@@ -13,6 +13,7 @@ export type Session = {
         p2: { sub: number; userName: string };
     };
     loopTimer: NodeJS.Timeout;
+    matchSaved?: boolean; // Flag to prevent duplicate saves
 };
 
 export type WaitingItem = {
@@ -103,10 +104,19 @@ export function handleOnlineStart(
 
 async function handleOnlineMatchEnd(session: Session): Promise<void> {
     try {
+        // Prevent duplicate saves
+        if (session.matchSaved) {
+            console.log("Match already saved, skipping");
+            return;
+        }
+
         console.log("Online match ended, saving to database");
 
         const { p1, p2 } = session.players;
         const [score1, score2] = session.game.score;
+
+        // Mark as saved before attempting to save to prevent race conditions
+        session.matchSaved = true;
 
         // Save the match to the database using the existing createGame function
         const gameId = await createGame(p1.sub, p2.sub, score1, score2);
@@ -114,6 +124,8 @@ async function handleOnlineMatchEnd(session: Session): Promise<void> {
 
     } catch (err) {
         console.error("Failed to save online match to database:", err);
+        // Reset flag on error so retry is possible
+        session.matchSaved = false;
     }
 }
 
@@ -131,17 +143,23 @@ export async function cleanupOnlineSocket(socket: WebSocket): Promise<void> {
     if (sess) {
         console.log(`🎮 Player disconnected from online match: ${sess.id}`);
         
-        // Save the match to database with current scores
-        try {
-            const gameId = await createGame(
-                sess.players.p1.sub,
-                sess.players.p2.sub,
-                sess.game.score[0],
-                sess.game.score[1]
-            );
-            console.log(`Disconnected online match saved to database with ID: ${gameId}`);
-        } catch (err) {
-            console.error("Failed to save disconnected online match to database:", err);
+        // Save the match to database with current scores (only if not already saved)
+        if (!sess.matchSaved) {
+            try {
+                sess.matchSaved = true; // Mark as saved before attempting
+                const gameId = await createGame(
+                    sess.players.p1.sub,
+                    sess.players.p2.sub,
+                    sess.game.score[0],
+                    sess.game.score[1]
+                );
+                console.log(`Disconnected online match saved to database with ID: ${gameId}`);
+            } catch (err) {
+                console.error("Failed to save disconnected online match to database:", err);
+                sess.matchSaved = false; // Reset flag on error
+            }
+        } else {
+            console.log("Match already saved, skipping save for disconnect");
         }
         
         // Notify the other player

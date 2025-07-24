@@ -99,7 +99,7 @@ db.serialize(() => {
     );
   `);
   db.run(`
-    CREATE TABLE IF NOT EXISTS \`Transaction\` (
+    CREATE TABLE IF NOT EXISTS BlockchainTransactions (
       idTransaction     INTEGER PRIMARY KEY AUTOINCREMENT,
       hash              TEXT UNIQUE NOT NULL,
       block_number      INTEGER,

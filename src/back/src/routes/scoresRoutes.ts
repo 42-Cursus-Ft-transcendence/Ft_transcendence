@@ -178,7 +178,7 @@ export default async function scoresRoutes(app: FastifyInstance) {
         const rows = await new Promise<any[]>((resolve, reject) => {
           db.all(
             `SELECT t.*, u.userName 
-             FROM \`Transaction\` t
+             FROM BlockchainTransactions t
              LEFT JOIN User u ON t.userId = u.idUser
              ORDER BY t.timestamp DESC 
              LIMIT ? OFFSET ?`,

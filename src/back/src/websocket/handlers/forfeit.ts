@@ -19,17 +19,23 @@ export async function handleForfeit(socket: WebSocket): Promise<void> {
         const forfeitingPlayer = onlineSession.sockets.p1 === socket ? onlineSession.players.p1.userName : onlineSession.players.p2.userName;
         const otherSocket = onlineSession.sockets.p1 === socket ? onlineSession.sockets.p2 : onlineSession.sockets.p1;
         
-        // Save the match to database with current scores (forfeit doesn't change scores for online matches)
-        try {
-            const gameId = await createGame(
-                onlineSession.players.p1.sub,
-                onlineSession.players.p2.sub,
-                onlineSession.game.score[0],
-                onlineSession.game.score[1]
-            );
-            console.log(`Forfeited online match saved to database with ID: ${gameId}`);
-        } catch (err) {
-            console.error("Failed to save forfeited online match to database:", err);
+        // Save the match to database with current scores (only if not already saved)
+        if (!onlineSession.matchSaved) {
+            try {
+                onlineSession.matchSaved = true; // Mark as saved before attempting
+                const gameId = await createGame(
+                    onlineSession.players.p1.sub,
+                    onlineSession.players.p2.sub,
+                    onlineSession.game.score[0],
+                    onlineSession.game.score[1]
+                );
+                console.log(`Forfeited online match saved to database with ID: ${gameId}`);
+            } catch (err) {
+                console.error("Failed to save forfeited online match to database:", err);
+                onlineSession.matchSaved = false; // Reset flag on error
+            }
+        } else {
+            console.log("Match already saved, skipping save for forfeit");
         }
         
         // Notify the other player

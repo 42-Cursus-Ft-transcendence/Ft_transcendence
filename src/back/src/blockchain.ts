@@ -84,7 +84,7 @@ export async function postScore(
   // Store transaction in database immediately after submission
   const timestamp = new Date().toISOString();
   db.run(
-    `INSERT INTO \`Transaction\` (hash, game_id, player_address, userId, score, timestamp, status) 
+    `INSERT INTO BlockchainTransactions (hash, game_id, player_address, userId, score, timestamp, status) 
          VALUES (?, ?, ?, ?, ?, ?, ?)`,
     [tx.hash, gameId, player, userId || null, score, timestamp, "pending"]
   );
@@ -93,7 +93,7 @@ export async function postScore(
   const receipt = await tx.wait();
   if (receipt) {
     db.run(
-      `UPDATE \`Transaction\` 
+      `UPDATE BlockchainTransactions 
              SET status = ?, block_number = ?, gas_used = ?, gas_price = ? 
              WHERE hash = ?`,
       [

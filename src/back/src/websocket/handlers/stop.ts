@@ -31,18 +31,24 @@ export async function handleStop(socket: WebSocket): Promise<void> {
     onlineSocketToSession.delete(sess.sockets.p1);
     onlineSocketToSession.delete(sess.sockets.p2);
 
-    // Save online match to database instead of blockchain
-    try {
-      console.log("Saving online match to database");
-      const gameId = await createGame(
-        sess.players.p1.sub, 
-        sess.players.p2.sub, 
-        sess.game.score[0], 
-        sess.game.score[1]
-      );
-      console.log(`Online match saved to database with ID: ${gameId}`);
-    } catch (err) {
-      console.error("Failed to save online match to database:", err);
+    // Save online match to database instead of blockchain (only if not already saved)
+    if (!sess.matchSaved) {
+      try {
+        console.log("Saving online match to database");
+        sess.matchSaved = true; // Mark as saved before attempting
+        const gameId = await createGame(
+          sess.players.p1.sub, 
+          sess.players.p2.sub, 
+          sess.game.score[0], 
+          sess.game.score[1]
+        );
+        console.log(`Online match saved to database with ID: ${gameId}`);
+      } catch (err) {
+        console.error("Failed to save online match to database:", err);
+        sess.matchSaved = false; // Reset flag on error
+      }
+    } else {
+      console.log("Match already saved, skipping save for stop");
     }
 
     const result = JSON.stringify({
