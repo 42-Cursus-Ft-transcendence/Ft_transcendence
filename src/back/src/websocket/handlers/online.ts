@@ -117,7 +117,7 @@ async function handleOnlineMatchEnd(session: Session): Promise<void> {
     }
 }
 
-export function cleanupOnlineSocket(socket: WebSocket): void {
+export async function cleanupOnlineSocket(socket: WebSocket): Promise<void> {
     // Remove from waiting queue
     const idx = waiting.findIndex((w) => w.socket === socket);
     if (idx >= 0) {

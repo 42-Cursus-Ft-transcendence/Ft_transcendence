@@ -36,6 +36,14 @@ export function renderPong(container, socket, onBack) {
             cleanup();
             onBack();
         }
+        else if (msg.type === 'matchOver') {
+            console.log('Match ended:', msg);
+            if (msg.message) {
+                alert(msg.message); // Show forfeit/disconnect message to user
+            }
+            cleanup();
+            onBack();
+        }
         else if (msg.type === "rankedMatchFound") {
             console.log('🏆 Ranked match found message received:', msg);
             const yourP = msg.youAre;
@@ -135,8 +143,18 @@ export function renderPong(container, socket, onBack) {
     // Bind cancel button immediately since we start with waitingTemplate
     bindCancel();
     window.addEventListener('popstate', (event) => {
+        if (isGameActive) {
+            socket.send(JSON.stringify({ type: 'forfeit' }));
+        }
         cleanup();
     });
+    // Handle page refresh/close during active game
+    const handleBeforeUnload = (event) => {
+        if (isGameActive) {
+            socket.send(JSON.stringify({ type: 'forfeit' }));
+        }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
     function bindGame(initial) {
         const CW = 500, CH = 300, PW = 10, PH = 60, BR = 6;
         const canvasEl = container.querySelector('#pongCanvas');
@@ -186,24 +204,26 @@ export function renderPong(container, socket, onBack) {
                 if (!isGameActive)
                     return;
                 let ply = null, dir = null;
-                // Compare with the actual key without lowercasing to preserve ArrowUp, ArrowDown, etc.
-                if (e.key === settings.p1UpKey) {
+                const k = e.key.toLowerCase();
+                if (k === settings.p1UpKey) {
                     ply = 'p1';
                     dir = 'up';
                 }
-                else if (e.key === settings.p1DownKey) {
+                else if (k === settings.p1DownKey) {
                     ply = 'p1';
                     dir = 'down';
                 }
-                else if (e.key === settings.p2UpKey) {
+                else if (k === settings.p2UpKey) {
                     ply = 'p2';
                     dir = 'up';
                 }
-                else if (e.key === settings.p2DownKey) {
+                else if (k === settings.p2DownKey) {
                     ply = 'p2';
                     dir = 'down';
                 }
-                else if (e.key === 'Escape') {
+                else if (k === 'escape') {
+                    // Send forfeit message for active games instead of stop
+                    socket.send(JSON.stringify({ type: 'forfeit' }));
                     cleanup();
                     onBack();
                     return;
@@ -216,10 +236,10 @@ export function renderPong(container, socket, onBack) {
                 if (!isGameActive)
                     return;
                 let ply = null;
-                // Compare with the actual key without lowercasing
-                if (e.key === settings.p1UpKey || e.key === settings.p1DownKey)
+                const k = e.key.toLowerCase();
+                if (k === settings.p1UpKey || k === settings.p1DownKey)
                     ply = 'p1';
-                else if (e.key === settings.p2UpKey || e.key === settings.p2DownKey)
+                else if (k === settings.p2UpKey || k === settings.p2DownKey)
                     ply = 'p2';
                 if (ply) {
                     socket.send(JSON.stringify({ type: 'input', player: ply, dir: 'stop' }));
@@ -245,7 +265,9 @@ export function renderPong(container, socket, onBack) {
             window.removeEventListener('keyup', onUp);
             keyHandlersAdded = false;
         }
-        // Send stop message
+        // Remove beforeunload handler
+        window.removeEventListener('beforeunload', handleBeforeUnload);
+        // Send stop message (only if game wasn't forfeited already)
         socket.send(JSON.stringify({ type: 'stop' }));
     }
     // Expose cleanup for external use
