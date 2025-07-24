@@ -23,14 +23,11 @@ export function renderPong(container: HTMLElement, socket: WebSocket, onBack: ()
         } else if (msg.type === 'state') {
             if (!isGameActive) {
                 isGameActive = true;
-                container.innerHTML = pongTemplate;
-
-                // Force update labels immediately after template is set
-                // Use both setTimeout and immediate call to ensure labels are updated
-                updatePlayerLabels();
-                setTimeout(() => {
-                    updatePlayerLabels();
-                }, 0);
+                // Generate template with current player names
+                const dynamicTemplate = pongTemplate
+                    .replace('Player 1', player1Name)
+                    .replace('Player 2', player2Name);
+                container.innerHTML = dynamicTemplate;
 
                 bindGame(msg);
             } else {
@@ -75,7 +72,7 @@ export function renderPong(container: HTMLElement, socket: WebSocket, onBack: ()
                 isGameActive
             });
 
-            // Always try to update labels - if DOM isn't ready, the setTimeout in state handler will catch it
+            // Update labels if DOM is ready, otherwise they'll be set when template is rendered
             updatePlayerLabels();
         } else if (msg.type === "matchFound") {
             console.log('🎮 matchFound message received:', msg);
@@ -104,7 +101,7 @@ export function renderPong(container: HTMLElement, socket: WebSocket, onBack: ()
                     isGameActive
                 });
 
-                // Always try to update labels - if DOM isn't ready, the setTimeout in state handler will catch it
+                // Update labels if DOM is ready, otherwise they'll be set when template is rendered
                 updatePlayerLabels();
             } else {
                 console.log('❌ Missing player names in matchFound message:', {
