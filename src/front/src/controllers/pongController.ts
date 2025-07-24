@@ -26,6 +26,8 @@ export function renderPong(container: HTMLElement, socket: WebSocket, onBack: ()
                 container.innerHTML = pongTemplate;
 
                 // Force update labels immediately after template is set
+                // Use both setTimeout and immediate call to ensure labels are updated
+                updatePlayerLabels();
                 setTimeout(() => {
                     updatePlayerLabels();
                 }, 0);
@@ -73,17 +75,15 @@ export function renderPong(container: HTMLElement, socket: WebSocket, onBack: ()
                 isGameActive
             });
 
-            // Update labels if game is already active
-            if (isGameActive) {
-                updatePlayerLabels();
-            }
+            // Always try to update labels - if DOM isn't ready, the setTimeout in state handler will catch it
+            updatePlayerLabels();
         } else if (msg.type === "matchFound") {
             console.log('🎮 matchFound message received:', msg);
             const yourP = msg.youAre;
             console.log('Online match found, you are:', yourP, 'your name:', msg.yourName, 'opponent:', msg.opponent?.userName);
 
             // If player names are included
-            if (msg.yourName && msg.opponent) {
+            if (msg.yourName && msg.opponent && msg.opponent.userName) {
                 console.log('🏷️ Setting online player names:', {
                     yourP,
                     yourName: msg.yourName,
@@ -104,35 +104,41 @@ export function renderPong(container: HTMLElement, socket: WebSocket, onBack: ()
                     isGameActive
                 });
 
-                // Update labels if game is already active
-                if (isGameActive) {
-                    console.log('Updating player labels:', player1Name, player2Name);
-                    updatePlayerLabels();
-                }
+                // Always try to update labels - if DOM isn't ready, the setTimeout in state handler will catch it
+                updatePlayerLabels();
             } else {
-                console.log('❌ Missing player names in matchFound message');
+                console.log('❌ Missing player names in matchFound message:', {
+                    yourName: msg.yourName,
+                    opponent: msg.opponent,
+                    opponentUserName: msg.opponent?.userName
+                });
             }
         }
     };
 
     // Function to update player labels
     function updatePlayerLabels() {
-        console.log('🏷️ updatePlayerLabels called with:', { player1Name, player2Name });
+        console.log('🏷️ updatePlayerLabels called with:', { player1Name, player2Name, isGameActive });
         const player1Label = container.querySelector<HTMLElement>('#player1Label');
         const player2Label = container.querySelector<HTMLElement>('#player2Label');
 
         console.log('🏷️ Found label elements:', {
             player1Label: !!player1Label,
-            player2Label: !!player2Label
+            player2Label: !!player2Label,
+            containerHTML: container.innerHTML.includes('player1Label')
         });
 
         if (player1Label) {
             player1Label.textContent = player1Name;
             console.log('🏷️ Set player1Label to:', player1Name);
+        } else {
+            console.log('❌ player1Label element not found');
         }
         if (player2Label) {
             player2Label.textContent = player2Name;
             console.log('🏷️ Set player2Label to:', player2Name);
+        } else {
+            console.log('❌ player2Label element not found');
         }
     }
 
