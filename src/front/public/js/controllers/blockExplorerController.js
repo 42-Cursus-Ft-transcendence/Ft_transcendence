@@ -2,59 +2,62 @@ import { blockExplorerTemplate } from "../templates/blockExplorerTemplate.js";
 export function renderBlockExplorer(container, onBack) {
     container.innerHTML = blockExplorerTemplate;
     // Get DOM elements
-    const backBtn = container.querySelector('#backBtn');
-    const searchBtn = container.querySelector('#searchBtn');
-    const searchInput = container.querySelector('#searchInput');
-    const latestBlocksContainer = container.querySelector('#latestBlocks');
-    const tournamentScoresContainer = container.querySelector('#tournamentScores');
-    const blockModal = container.querySelector('#blockModal');
-    const closeModalBtn = container.querySelector('#closeModal');
-    const blockDetailsContainer = container.querySelector('#blockDetails');
+    const backBtn = container.querySelector("#backBtn");
+    const searchBtn = container.querySelector("#searchBtn");
+    const searchInput = container.querySelector("#searchInput");
+    const latestBlocksContainer = container.querySelector("#latestBlocks");
+    const tournamentScoresContainer = container.querySelector("#tournamentScores");
+    const blockModal = container.querySelector("#blockModal");
+    const closeModalBtn = container.querySelector("#closeModal");
+    const blockDetailsContainer = container.querySelector("#blockDetails");
     // Stats elements
-    const latestBlockNumberEl = container.querySelector('#latestBlockNumber');
-    const totalTournamentsEl = container.querySelector('#totalTournaments');
+    const latestBlockNumberEl = container.querySelector("#latestBlockNumber");
+    const totalTournamentsEl = container.querySelector("#totalTournaments");
     // Event listeners
-    backBtn.addEventListener('click', () => onBack());
-    searchBtn.addEventListener('click', () => handleSearch());
-    searchInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
+    backBtn.addEventListener("click", () => onBack());
+    searchBtn.addEventListener("click", () => handleSearch());
+    searchInput.addEventListener("keypress", (e) => {
+        if (e.key === "Enter") {
             handleSearch();
         }
     });
-    closeModalBtn.addEventListener('click', () => {
-        blockModal.classList.add('hidden');
+    closeModalBtn.addEventListener("click", () => {
+        blockModal.classList.add("hidden");
     });
     // Close modal when clicking outside
-    blockModal.addEventListener('click', (e) => {
+    blockModal.addEventListener("click", (e) => {
         if (e.target === blockModal) {
-            blockModal.classList.add('hidden');
+            blockModal.classList.add("hidden");
         }
     });
     // Add keyboard navigation for containers
     const addKeyboardNavigation = (container) => {
-        container.addEventListener('keydown', (e) => {
+        container.addEventListener("keydown", (e) => {
             const scrollAmount = 100;
             switch (e.key) {
-                case 'ArrowUp':
+                case "ArrowUp":
                     e.preventDefault();
-                    container.scrollBy({ top: -scrollAmount, behavior: 'smooth' });
+                    container.scrollBy({ top: -scrollAmount, behavior: "smooth" });
                     break;
-                case 'ArrowDown':
+                case "ArrowDown":
                     e.preventDefault();
-                    container.scrollBy({ top: scrollAmount, behavior: 'smooth' });
+                    container.scrollBy({ top: scrollAmount, behavior: "smooth" });
                     break;
-                case 'Home':
+                case "Home":
                     e.preventDefault();
-                    container.scrollTo({ top: 0, behavior: 'smooth' });
+                    container.scrollTo({ top: 0, behavior: "smooth" });
                     break;
-                case 'End':
+                case "End":
                     e.preventDefault();
-                    container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+                    container.scrollTo({
+                        top: container.scrollHeight,
+                        behavior: "smooth",
+                    });
                     break;
             }
         });
         // Make containers focusable
-        container.setAttribute('tabindex', '0');
+        container.setAttribute("tabindex", "0");
     };
     // Add keyboard navigation to both containers
     addKeyboardNavigation(latestBlocksContainer);
@@ -66,19 +69,19 @@ export function renderBlockExplorer(container, onBack) {
             const scrollPercentage = (scrollTop / (scrollHeight - clientHeight)) * 100;
             // Add visual feedback for scroll position
             if (scrollTop === 0) {
-                container.classList.add('scroll-top');
-                container.classList.remove('scroll-bottom', 'scroll-middle');
+                container.classList.add("scroll-top");
+                container.classList.remove("scroll-bottom", "scroll-middle");
             }
             else if (scrollTop + clientHeight >= scrollHeight - 1) {
-                container.classList.add('scroll-bottom');
-                container.classList.remove('scroll-top', 'scroll-middle');
+                container.classList.add("scroll-bottom");
+                container.classList.remove("scroll-top", "scroll-middle");
             }
             else {
-                container.classList.add('scroll-middle');
-                container.classList.remove('scroll-top', 'scroll-bottom');
+                container.classList.add("scroll-middle");
+                container.classList.remove("scroll-top", "scroll-bottom");
             }
         };
-        container.addEventListener('scroll', updateScrollIndicators);
+        container.addEventListener("scroll", updateScrollIndicators);
         updateScrollIndicators(); // Initial check
     };
     addScrollIndicators(latestBlocksContainer);
@@ -87,8 +90,8 @@ export function renderBlockExplorer(container, onBack) {
     async function fetchTransactions(page = 1, limit = 20) {
         try {
             const response = await fetch(`/api/transactions?page=${page}&limit=${limit}`, {
-                method: 'GET',
-                credentials: 'include'
+                method: "GET",
+                credentials: "include",
             });
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
@@ -96,15 +99,18 @@ export function renderBlockExplorer(container, onBack) {
             return await response.json();
         }
         catch (error) {
-            console.error('Error fetching transactions:', error);
-            return { transactions: [], pagination: { page: 1, limit: 20, total: 0, totalPages: 0 } };
+            console.error("Error fetching transactions:", error);
+            return {
+                transactions: [],
+                pagination: { page: 1, limit: 20, total: 0, totalPages: 0 },
+            };
         }
     }
     async function fetchTransactionByHash(hash) {
         try {
             const response = await fetch(`/api/transactions/${hash}`, {
-                method: 'GET',
-                credentials: 'include'
+                method: "GET",
+                credentials: "include",
             });
             if (!response.ok) {
                 if (response.status === 404) {
@@ -115,7 +121,7 @@ export function renderBlockExplorer(container, onBack) {
             return await response.json();
         }
         catch (error) {
-            console.error('Error fetching transaction by hash:', error);
+            console.error("Error fetching transaction by hash:", error);
             return null;
         }
     }
@@ -123,7 +129,7 @@ export function renderBlockExplorer(container, onBack) {
     function transactionsToBlocks(transactions) {
         // Group transactions by block number (use 0 for pending transactions)
         const blockGroups = {};
-        transactions.forEach(tx => {
+        transactions.forEach((tx) => {
             const blockNum = tx.block_number || 0; // Use 0 for pending transactions
             if (!blockGroups[blockNum]) {
                 blockGroups[blockNum] = [];
@@ -136,12 +142,14 @@ export function renderBlockExplorer(container, onBack) {
             const blockNum = parseInt(blockNumber);
             return {
                 number: blockNum,
-                hash: txs[0]?.hash || 'N/A',
+                hash: txs[0]?.hash || "N/A",
                 timestamp: new Date(txs[0]?.timestamp || Date.now()).getTime(),
                 transactions: txs.length,
-                gasUsed: txs.reduce((sum, tx) => sum + (tx.gas_used || 0), 0).toString(),
+                gasUsed: txs
+                    .reduce((sum, tx) => sum + (tx.gas_used || 0), 0)
+                    .toString(),
                 gasLimit: "8000000",
-                miner: blockNum === 0 ? "Pending" : "Local Testnet"
+                miner: blockNum === 0 ? "Pending" : "Local Testnet",
             };
         })
             .sort((a, b) => {
@@ -156,14 +164,15 @@ export function renderBlockExplorer(container, onBack) {
     // Convert database transactions to tournament format for display
     function transactionsToTournaments(transactions) {
         return transactions
-            .filter(tx => tx.status === 'confirmed')
-            .map(tx => ({
+            .filter((tx) => tx.status === "confirmed")
+            .map((tx) => ({
             id: tx.game_id,
-            winner: tx.userName || (tx.player_address.slice(0, 6) + '...' + tx.player_address.slice(-4)),
+            winner: tx.userName ||
+                tx.player_address.slice(0, 6) + "..." + tx.player_address.slice(-4),
             score: tx.score.toString(),
             participants: [tx.player_address],
             timestamp: new Date(tx.timestamp).getTime(),
-            blockHash: tx.hash
+            blockHash: tx.hash,
         }))
             .sort((a, b) => b.timestamp - a.timestamp);
     }
@@ -176,12 +185,14 @@ export function renderBlockExplorer(container, onBack) {
         try {
             const data = await fetchTransactions(1, 100); // Get more transactions for better block grouping
             // Handle both array and object responses
-            currentTransactions = Array.isArray(data) ? data : (data.transactions || []);
+            currentTransactions = Array.isArray(data)
+                ? data
+                : data.transactions || [];
             currentBlocks = transactionsToBlocks(currentTransactions);
             currentTournaments = transactionsToTournaments(currentTransactions);
         }
         catch (error) {
-            console.error('Error loading blockchain data:', error);
+            console.error("Error loading blockchain data:", error);
             // Fallback to empty arrays if API fails
             currentTransactions = [];
             currentBlocks = [];
@@ -197,14 +208,19 @@ export function renderBlockExplorer(container, onBack) {
         }
         return hash;
     }
-    function renderLatestBlocks() {
+    async function renderLatestBlocks() {
         if (currentBlocks.length === 0) {
-            latestBlocksContainer.innerHTML = '<div class="text-center text-gray-400 py-4">No blockchain data available</div>';
+            latestBlocksContainer.innerHTML =
+                '<div class="text-center text-gray-400 py-4">No blockchain data available</div>';
             return;
         }
-        latestBlocksContainer.innerHTML = currentBlocks.slice(0, 10).map(block => {
-            const blockLabel = block.number === 0 ? 'Pending' : `#${block.number}`;
-            const blockClass = block.number === 0 ? 'border-yellow-400 hover:border-yellow-500' : 'border-pink-400 hover:border-pink-500';
+        latestBlocksContainer.innerHTML = currentBlocks
+            .slice(0, 10)
+            .map((block) => {
+            const blockLabel = block.number === 0 ? "Pending" : `#${block.number}`;
+            const blockClass = block.number === 0
+                ? "border-yellow-400 hover:border-yellow-500"
+                : "border-pink-400 hover:border-pink-500";
             return `
         <div class="bg-black/30 border ${blockClass} rounded p-2 cursor-pointer block-item transition" data-block='${JSON.stringify(block)}'>
           <div class="flex justify-between items-center mb-1">
@@ -216,25 +232,29 @@ export function renderBlockExplorer(container, onBack) {
           </div>
           <div class="flex justify-between text-xs">
             <span class="text-green-400">${block.transactions} txns</span>
-            <span class="text-blue-300">${parseInt(block.gasUsed || '0').toLocaleString()} gas</span>
+            <span class="text-blue-300">${parseInt(block.gasUsed || "0").toLocaleString()} gas</span>
           </div>
         </div>
       `;
-        }).join('');
+        })
+            .join("");
         // Add click listeners to blocks
-        latestBlocksContainer.querySelectorAll('.block-item').forEach(item => {
-            item.addEventListener('click', () => {
-                const blockData = JSON.parse(item.getAttribute('data-block'));
+        latestBlocksContainer.querySelectorAll(".block-item").forEach((item) => {
+            item.addEventListener("click", () => {
+                const blockData = JSON.parse(item.getAttribute("data-block"));
                 showBlockDetails(blockData);
             });
         });
     }
-    function renderTournamentScores() {
+    async function renderTournamentScores() {
         if (currentTournaments.length === 0) {
-            tournamentScoresContainer.innerHTML = '<div class="text-center text-gray-400 py-4">No tournament data available</div>';
+            tournamentScoresContainer.innerHTML =
+                '<div class="text-center text-gray-400 py-4">No tournament data available</div>';
             return;
         }
-        tournamentScoresContainer.innerHTML = currentTournaments.slice(0, 10).map(tournament => `
+        tournamentScoresContainer.innerHTML = currentTournaments
+            .slice(0, 10)
+            .map((tournament) => `
       <div class="bg-black/30 border border-pink-400 hover:border-pink-500 rounded p-2 transition">
         <div class="flex justify-between items-center mb-1">
           <div class="text-accent font-arcade text-xs">Game ${tournament.id}</div>
@@ -249,7 +269,8 @@ export function renderBlockExplorer(container, onBack) {
           ${formatHash(tournament.blockHash)}
         </div>
       </div>
-    `).join('');
+    `)
+            .join("");
     }
     function showBlockDetails(block) {
         blockDetailsContainer.innerHTML = `
@@ -265,18 +286,19 @@ export function renderBlockExplorer(container, onBack) {
           <div class="bg-black/50 rounded h-4 border border-accent/30">
             <div class="bg-accent h-full rounded" style="width: ${(parseInt(block.gasUsed) / parseInt(block.gasLimit)) * 100}%"></div>
           </div>
-          <div class="text-xs mt-1">${((parseInt(block.gasUsed) / parseInt(block.gasLimit)) * 100).toFixed(1)}% used</div>
+          <div class="text-xs mt-1">${((parseInt(block.gasUsed) / parseInt(block.gasLimit)) *
+            100).toFixed(1)}% used</div>
         </div>
       </div>
     `;
-        blockModal.classList.remove('hidden');
+        blockModal.classList.remove("hidden");
     }
     async function handleSearch() {
         const query = searchInput.value.trim();
         if (!query) {
             return;
         }
-        if (query.startsWith('0x')) {
+        if (query.startsWith("0x")) {
             // Searching for transaction hash
             const transaction = await fetchTransactionByHash(query);
             if (transaction) {
@@ -285,51 +307,82 @@ export function renderBlockExplorer(container, onBack) {
                     hash: transaction.hash,
                     timestamp: new Date(transaction.timestamp).getTime(),
                     transactions: 1,
-                    gasUsed: transaction.gas_used?.toString() || '0',
+                    gasUsed: transaction.gas_used?.toString() || "0",
                     gasLimit: "8000000",
-                    miner: "Local Testnet"
+                    miner: "Local Testnet",
                 };
                 showBlockDetails(block);
             }
             else {
-                alert('Transaction not found in local blockchain database.');
+                alert("Transaction not found in local blockchain database.");
             }
         }
         else if (!isNaN(parseInt(query))) {
             // Searching for block number
             const blockNumber = parseInt(query);
-            const block = currentBlocks.find(b => b.number === blockNumber);
+            const block = currentBlocks.find((b) => b.number === blockNumber);
             if (block) {
                 showBlockDetails(block);
             }
             else {
-                alert('Block not found in local blockchain database.');
+                alert("Block not found in local blockchain database.");
             }
         }
         else {
-            alert('Invalid search query. Please enter a transaction hash (0x...) or block number.');
+            alert("Invalid search query. Please enter a transaction hash (0x...) or block number.");
         }
-        searchInput.value = '';
+        searchInput.value = "";
     }
     // Update stats
-    function updateStats() {
-        latestBlockNumberEl.textContent = currentBlocks[0]?.number.toString() || 'N/A';
+    async function updateStats() {
+        latestBlockNumberEl.textContent =
+            currentBlocks[0]?.number.toString() || "N/A";
         totalTournamentsEl.textContent = currentTournaments.length.toString();
     }
     // Initialize the component
-    async function initializeBlockExplorer() {
-        await loadBlockchainData();
-        updateStats();
-        renderLatestBlocks();
-        renderTournamentScores();
+    function initializeBlockExplorer() {
+        return loadBlockchainData()
+            .then(() => {
+            console.log("✅ Blockchain data loaded");
+            return updateStats();
+        })
+            .then(() => {
+            console.log("✅ Stats updated");
+            return renderLatestBlocks();
+        })
+            .then(() => {
+            console.log("✅ Latest blocks rendered");
+            return renderTournamentScores();
+        })
+            .then(() => {
+            console.log("✅ Tournament scores rendered");
+        })
+            .catch((err) => {
+            console.error("❌ Error during initialization:", err);
+        });
     }
     // Auto-refresh every 30 seconds to get latest blockchain data
-    const refreshInterval = setInterval(async () => {
-        await loadBlockchainData();
-        updateStats();
-        renderLatestBlocks();
-        renderTournamentScores();
-    }, 30000);
+    const refreshInterval = setInterval(() => {
+        loadBlockchainData()
+            .then(() => {
+            console.log("🔄 Refresh: Blockchain data loaded");
+            return updateStats();
+        })
+            .then(() => {
+            console.log("🔄 Refresh: Stats updated");
+            return renderLatestBlocks();
+        })
+            .then(() => {
+            console.log("🔄 Refresh: Latest blocks rendered");
+            return renderTournamentScores();
+        })
+            .then(() => {
+            console.log("🔄 Refresh: Tournament scores rendered");
+        })
+            .catch((err) => {
+            console.error("❌ Error during refresh:", err);
+        });
+    }, 30_000);
     // Initialize with real data
     initializeBlockExplorer();
     // Cleanup function (would be called when component unmounts)

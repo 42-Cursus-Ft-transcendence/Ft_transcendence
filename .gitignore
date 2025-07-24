@@ -4,3 +4,5 @@ node_modules
 src/back/dist
 *.env
 *.env.*
+
+/docker/volumes

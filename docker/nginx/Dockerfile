@@ -1,6 +1,6 @@
 FROM nginx:1.25-alpine
 
-RUN apk add --no-cache openssl
+RUN apk add --no-cache openssl apache2-utils
 
 # generate certs…
 RUN mkdir -p /etc/nginx/certs \
@@ -10,11 +10,22 @@ RUN mkdir -p /etc/nginx/certs \
       -out /etc/nginx/certs/server.crt \
       -subj "/C=FR/ST=Paris/L=Paris/O=MyOrg/OU=Dev/CN=localhost"
 
+ARG NGINX_USER_NAME
+ARG NGINX_USER_PASSWORD
+
+# create .htpasswd
+RUN htpasswd -cb /etc/nginx/.htpasswd ${NGINX_USER_NAME} ${NGINX_USER_PASSWORD}
+
 # copy the default.conf from its true location
-COPY src/docker/nginx/default.conf /etc/nginx/conf.d/default.conf
+COPY ./docker/nginx/nginx.conf /etc/nginx/conf.d/default.conf
+
+COPY ./docker/nginx/conf.d/default.conf /etc/nginx/conf.d/default.conf
 
 # remove default static files
 RUN rm -rf /usr/share/nginx/html/*
 
 # copy your built front-end from the project tree
-COPY src/front/public /usr/share/nginx/html
+COPY /src/front/public /usr/share/nginx/html
+
+EXPOSE 80 443
+CMD ["nginx", "-g", "daemon off;"]
