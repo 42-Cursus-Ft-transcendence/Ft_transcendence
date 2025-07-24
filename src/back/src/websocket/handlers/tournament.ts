@@ -480,8 +480,8 @@ async function handleRankedMatchEnd(session: RankedSession): Promise<void> {
             await new Promise<void>((resolve, reject) => {
               db.run(
                 `INSERT OR REPLACE INTO BlockchainTransactions 
-                 (gameId, playerId, playerAddress, score, transactionHash, gameType, createdAt) 
-                 VALUES (?, ?, ?, ?, ?, 'ranked', datetime('now'))`,
+                 (game_id, userId, player_address, score, hash, timestamp, status) 
+                 VALUES (?, ?, ?, ?, ?, datetime('now'), 'confirmed')`,
                 [session.id, session.players.p1.sub, row1.address, score1, tx1],
                 (err) => err ? reject(err) : resolve()
               );
@@ -490,8 +490,8 @@ async function handleRankedMatchEnd(session: RankedSession): Promise<void> {
             await new Promise<void>((resolve, reject) => {
               db.run(
                 `INSERT OR REPLACE INTO BlockchainTransactions 
-                 (gameId, playerId, playerAddress, score, transactionHash, gameType, createdAt) 
-                 VALUES (?, ?, ?, ?, ?, 'ranked', datetime('now'))`,
+                 (game_id, userId, player_address, score, hash, timestamp, status) 
+                 VALUES (?, ?, ?, ?, ?, datetime('now'), 'confirmed')`,
                 [session.id, session.players.p2.sub, row2.address, score2, tx2],
                 (err) => err ? reject(err) : resolve()
               );
