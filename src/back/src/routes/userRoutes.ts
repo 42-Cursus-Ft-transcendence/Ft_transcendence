@@ -46,7 +46,6 @@ export default async function userRoutes(app: FastifyInstance) {
     { preHandler: [(app as any).authenticate] },
     async (request, reply) => {
       const idUser = (request.user as any).sub as number;
-      const userName = (request.user as any).userName as string;
       try {
         const res = await getAsync<{
           userName: string;

@@ -6,6 +6,9 @@ export function renderPong(container, socket, onBack) {
     const settings = loadGameplaySettings();
     let isGameActive = false;
     let keyHandlersAdded = false;
+    // Store player names for display
+    let player1Name = "P1";
+    let player2Name = "P2";
     // Single message handler for the entire session
     const messageHandler = (ev) => {
         const msg = JSON.parse(ev.data);
@@ -17,6 +20,10 @@ export function renderPong(container, socket, onBack) {
             if (!isGameActive) {
                 isGameActive = true;
                 container.innerHTML = pongTemplate;
+                // Force update labels immediately after template is set
+                setTimeout(() => {
+                    updatePlayerLabels();
+                }, 0);
                 bindGame(msg);
             }
             else {
@@ -29,7 +36,88 @@ export function renderPong(container, socket, onBack) {
             cleanup();
             onBack();
         }
+        else if (msg.type === "rankedMatchFound") {
+            console.log('🏆 Ranked match found message received:', msg);
+            const yourP = msg.youAre;
+            const yourName = msg.yourName;
+            const opponent = msg.opponent;
+            console.log('🏷️ Setting ranked player names:', {
+                yourP,
+                yourName,
+                opponentName: opponent.userName
+            });
+            // Set player names based on position
+            if (yourP === "p1") {
+                player1Name = yourName;
+                player2Name = opponent.userName;
+            }
+            else {
+                player1Name = opponent.userName;
+                player2Name = yourName;
+            }
+            console.log('🏷️ Final ranked player names set:', {
+                player1Name,
+                player2Name,
+                isGameActive
+            });
+            // Update labels if game is already active
+            if (isGameActive) {
+                updatePlayerLabels();
+            }
+        }
+        else if (msg.type === "matchFound") {
+            console.log('🎮 matchFound message received:', msg);
+            const yourP = msg.youAre;
+            console.log('Online match found, you are:', yourP, 'your name:', msg.yourName, 'opponent:', msg.opponent?.userName);
+            // If player names are included
+            if (msg.yourName && msg.opponent) {
+                console.log('🏷️ Setting online player names:', {
+                    yourP,
+                    yourName: msg.yourName,
+                    opponentName: msg.opponent.userName
+                });
+                if (yourP === "p1") {
+                    player1Name = msg.yourName;
+                    player2Name = msg.opponent.userName;
+                }
+                else {
+                    player1Name = msg.opponent.userName;
+                    player2Name = msg.yourName;
+                }
+                console.log('🏷️ Final online player names set:', {
+                    player1Name,
+                    player2Name,
+                    isGameActive
+                });
+                // Update labels if game is already active
+                if (isGameActive) {
+                    console.log('Updating player labels:', player1Name, player2Name);
+                    updatePlayerLabels();
+                }
+            }
+            else {
+                console.log('❌ Missing player names in matchFound message');
+            }
+        }
     };
+    // Function to update player labels
+    function updatePlayerLabels() {
+        console.log('🏷️ updatePlayerLabels called with:', { player1Name, player2Name });
+        const player1Label = container.querySelector('#player1Label');
+        const player2Label = container.querySelector('#player2Label');
+        console.log('🏷️ Found label elements:', {
+            player1Label: !!player1Label,
+            player2Label: !!player2Label
+        });
+        if (player1Label) {
+            player1Label.textContent = player1Name;
+            console.log('🏷️ Set player1Label to:', player1Name);
+        }
+        if (player2Label) {
+            player2Label.textContent = player2Name;
+            console.log('🏷️ Set player2Label to:', player2Name);
+        }
+    }
     socket.addEventListener('message', messageHandler);
     let render;
     let onDown;
@@ -142,7 +230,9 @@ export function renderPong(container, socket, onBack) {
             keyHandlersAdded = true;
         }
         backBtn.addEventListener('click', () => { cleanup(); onBack(); });
-        quitBtn.addEventListener('click', () => { cleanup(); onBack(); });
+        if (quitBtn) {
+            quitBtn.addEventListener('click', () => { cleanup(); onBack(); });
+        }
     }
     function cleanup() {
         console.log('🧹 Cleaning up pong controller...');
