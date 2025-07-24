@@ -150,11 +150,11 @@ services:
     environment:
       - ES_JAVA_OPTS=-Xms2g -Xmx2g # Memory settings
     volumes:
-      - es-data:/usr/share/elasticsearch/data
       - /etc/localtime:/etc/localtime:ro
-      - ./docker/volumes/es-ca:/usr/share/elasticsearch/config/shared/ca
-      - ./docker/volumes/es-certs:/usr/share/elasticsearch/config/shared/certs
-      - ./docker/volumes/es-tokens:/usr/share/elasticsearch/config/shared/tokens
+      - es-data:/usr/share/elasticsearch/data
+      - es-ca:/usr/share/elasticsearch/config/shared/ca
+      - es-certs-logstash:/usr/share/elasticsearch/config/shared/certs/logstash
+      - es-certs-kibana:/usr/share/elasticsearch/config/shared/certs/kibana
     healthcheck:
       test:
         [
@@ -184,8 +184,8 @@ services:
       - .env
     volumes:
       - /etc/localtime:/etc/localtime:ro
-      - ./docker/volumes/es-ca:/usr/share/logstash/ca:ro
-      - ./docker/volumes/es-certs/logstash:/usr/share/logstash/certs:ro
+      - es-ca:/usr/share/logstash/ca:ro
+      - es-certs-logstash:/usr/share/logstash/certs:ro
     restart: on-failure
     networks:
       - elknet
@@ -222,9 +222,8 @@ services:
       - .env
     volumes:
       - /etc/localtime:/etc/localtime:ro
-      - ./docker/volumes/es-ca:/usr/share/kibana/ca:ro
-      - ./docker/volumes/es-certs/kibana:/usr/share/kibana/certs:ro
-      - ./docker/volumes/es-tokens/kibana:/usr/share/kibana/tokens:ro
+      - es-ca:/usr/share/kibana/ca:ro
+      - es-certs-kibana:/usr/share/kibana/certs:ro
     restart: on-failure
     depends_on:
       elasticsearch:
@@ -247,3 +246,6 @@ networks:
 volumes:
   grafana-data:
   es-data:
+  es-ca:
+  es-certs-logstash:
+  es-certs-kibana:

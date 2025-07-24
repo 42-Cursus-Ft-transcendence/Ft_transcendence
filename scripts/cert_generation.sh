@@ -64,6 +64,7 @@ if [ ! -f "$KIBANA_DIR/kibana.crt" ]; then
     rm -rf $KIBANA_DIR/kibana.zip && \
     chmod 600 $KIBANA_DIR/kibana.key && \
     chmod 644 $KIBANA_DIR/kibana.crt
+    chown 1000:1000 $KIBANA_DIR/kibana.key $KIBANA_DIR/kibana.crt
   "
   echo "✅ Kibana cert generated"
 fi
@@ -86,6 +87,7 @@ if [ ! -f "$LOGSTASH_DIR/logstash.crt" ]; then
     rm -rf '$LOGSTASH_DIR/logstash.zip' && \
     chmod 600 '$LOGSTASH_DIR/logstash.key' && \
     chmod 644 '$LOGSTASH_DIR/logstash.crt'
+    chown 1000:1000 $LOGSTASH_DIR/logstash.key $LOGSTASH_DIR/logstash.crt
   "
 
   echo "✅ Logstash cert generated"

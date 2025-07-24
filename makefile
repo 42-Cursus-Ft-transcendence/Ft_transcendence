@@ -10,8 +10,7 @@ COMPOSE_FILES       = -f $(COMPOSE_BASE) $(if $(filter aarch64,$(ARCH)),-f $(COM
 EXTRA_FLAGS         = $(if $(filter aarch64,$(ARCH)),--remove-orphans,)
 BACK_ENV            = src/back/.env.backend
 CONTAINERS_TO_CLEAN = anvil transcendence
-VOLUMES		   		:= grafana-data es-data
-VOLUMES_DIR			:= docker/volumes
+VOLUMES		   		:= grafana-data es-data es-certs es-ca es-tokens
 
 .DEFAULT_GOAL 	    := up
 
@@ -101,7 +100,7 @@ compose-exec-nginx: compose-up
 # 4. ADVANCED PIPELINE (Anvil → Foundry → Full stack)                         #
 ###############################################################################
 .PHONY: detect-arch clean-zombies anvil-up deploy-contracts stack-up \
-        up down remove-volumes logs re start-es setup-lk
+        up down remove-volumes logs re start-es setup-lk clean
 
 # 4‑a. Detect architecture and persist to .env
 detect-arch:
@@ -169,17 +168,22 @@ stack-up: start-es setup-lk deploy-contracts
 
 # Shortcuts
 up: stack-up
+
 down:
 	@echo "🔽 Stopping and removing all services…"
+	docker compose $(COMPOSE_FILES) down --remove-orphans
+	@echo "✅ All services stopped"
+
+clean:
+	@echo "🔽 Stopping and removing all services…"
+	@echo "🗑️  Removing containers, networks & volumes…"
 	docker compose $(COMPOSE_FILES) down -v --remove-orphans
-	@echo "✅ All services stopped and removed"
-	@echo "🗑️  Removing volumes…"
-	@rm -rf $(VOLUMES_DIR)
-	@echo "✅ Volumes removed"
+	@echo "✅ All containers, networks and volumes removed"
+
 logs:
 	docker compose $(COMPOSE_FILES) logs -f
 
-re: down up
+re: clean up
 	@echo "🔄 Full stack has been recreated."
 
 ###############################################################################
