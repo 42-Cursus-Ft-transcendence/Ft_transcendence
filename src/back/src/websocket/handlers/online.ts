@@ -34,6 +34,7 @@ export function handleOnlineStart(
         const p1 = opponent.payload;
         const p2 = payload;
         const gameId = crypto.randomUUID();
+
         const sessionGame = new Game();
         sessionGame.mode = "online";
 
@@ -48,29 +49,26 @@ export function handleOnlineStart(
         socketToSession.set(opponent.socket, session);
         socketToSession.set(socket, session);
 
-        // Send matchFound messages FIRST to avoid race condition
-        console.log('🎮 Sending matchFound to p1 (opponent):', {
-            userName: p1.userName,
-            opponentName: p2.userName
+        // Send matchFound messages
+        const p1Message = JSON.stringify({
+            type: "matchFound",
+            gameId,
+            youAre: "p1",
+            yourName: p1.userName,
+            opponent: {
+                userName: p2.userName
+            }
         });
-        opponent.socket.send(
-            JSON.stringify({
-                type: "matchFound",
-                gameId,
-                youAre: "p1",
-                yourName: p1.userName,
-                opponent: {
-                    userName: p2.userName
-                }
-            })
-        );
 
-        console.log('🎮 Sending matchFound to p2 (socket):', {
-            userName: p2.userName,
-            opponentName: p1.userName
-        });
-        socket.send(
-            JSON.stringify({
+        try {
+            opponent.socket.send(p1Message);
+        } catch (err) {
+            console.error('Failed to send P1 match message:', err);
+        }
+
+        // Small delay between messages to avoid any potential race condition
+        setTimeout(() => {
+            const p2Message = JSON.stringify({
                 type: "matchFound",
                 gameId,
                 youAre: "p2",
@@ -78,8 +76,14 @@ export function handleOnlineStart(
                 opponent: {
                     userName: p1.userName
                 }
-            })
-        );
+            });
+
+            try {
+                socket.send(p2Message);
+            } catch (err) {
+                console.error('Failed to send P2 match message:', err);
+            }
+        }, 10);
 
         // Small delay to ensure matchFound messages are processed before game starts
         setTimeout(() => {
@@ -114,7 +118,7 @@ export function handleOnlineStart(
 
             // Update session with the actual timer
             session.loopTimer = loopTimer;
-        }, 50); // 50ms delay to ensure message order
+        }, 100); // Reduced back to 100ms since timing wasn't the issue
     } else {
         waiting.push({ socket, payload });
         socket.send(JSON.stringify({ type: "waiting" }));
@@ -161,7 +165,7 @@ export async function cleanupOnlineSocket(socket: WebSocket): Promise<void> {
     const sess = socketToSession.get(socket);
     if (sess) {
         console.log(`🎮 Player disconnected from online match: ${sess.id}`);
-        
+
         // Save the match to database with current scores (only if not already saved)
         if (!sess.matchSaved) {
             try {
@@ -180,11 +184,11 @@ export async function cleanupOnlineSocket(socket: WebSocket): Promise<void> {
         } else {
             console.log("Match already saved, skipping save for disconnect");
         }
-        
+
         // Notify the other player
         const disconnectedPlayer = sess.sockets.p1 === socket ? sess.players.p1.userName : sess.players.p2.userName;
         const otherSocket = sess.sockets.p1 === socket ? sess.sockets.p2 : sess.sockets.p1;
-        
+
         try {
             otherSocket.send(JSON.stringify({
                 type: "matchOver",
