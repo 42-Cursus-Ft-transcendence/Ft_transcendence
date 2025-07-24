@@ -18,7 +18,9 @@ export async function handleStop(socket: WebSocket): Promise<void> {
   // Handle online session
   const sess = socketToSession.get(socket);
   if (sess) {
-    clearInterval(sess.loopTimer);
+    if (sess.loopTimer) {
+      clearInterval(sess.loopTimer);
+    }
     sess.sockets.p1.send(
       JSON.stringify({
         type: "STOP",

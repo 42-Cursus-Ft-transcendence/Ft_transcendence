@@ -12,7 +12,7 @@ export type Session = {
         p1: { sub: number; userName: string };
         p2: { sub: number; userName: string };
     };
-    loopTimer: NodeJS.Timeout;
+    loopTimer: NodeJS.Timeout | null;
     matchSaved?: boolean; // Flag to prevent duplicate saves
 };
 
@@ -37,46 +37,18 @@ export function handleOnlineStart(
         const sessionGame = new Game();
         sessionGame.mode = "online";
 
-        const loopTimer = setInterval(async () => {
-            sessionGame.update();
-            const state = JSON.stringify(sessionGame.getState());
-            opponent.socket.send(state);
-            socket.send(state);
-
-            // Check if game is over and auto-end
-            if (sessionGame.isGameOver) {
-                clearInterval(loopTimer);
-
-                // Send match over message to both players
-                const matchOverMsg = JSON.stringify({
-                    type: "matchOver",
-                    winner: sessionGame.winner,
-                    finalScore: sessionGame.score
-                });
-                opponent.socket.send(matchOverMsg);
-                socket.send(matchOverMsg);
-
-                // Post scores to blockchain
-                await handleOnlineMatchEnd(session);
-
-                // Clean up session
-                sessions.delete(gameId);
-                socketToSession.delete(opponent.socket);
-                socketToSession.delete(socket);
-            }
-        }, 1000 / 60);
-
         const session: Session = {
             id: gameId,
             game: sessionGame,
             sockets: { p1: opponent.socket, p2: socket },
             players: { p1, p2 },
-            loopTimer,
+            loopTimer: null as any, // Will be set after matchFound messages
         };
         sessions.set(gameId, session);
         socketToSession.set(opponent.socket, session);
         socketToSession.set(socket, session);
-        // Notify players - ensure both get correct names
+
+        // Send matchFound messages FIRST to avoid race condition
         console.log('🎮 Sending matchFound to p1 (opponent):', {
             userName: p1.userName,
             opponentName: p2.userName
@@ -108,6 +80,41 @@ export function handleOnlineStart(
                 }
             })
         );
+
+        // Small delay to ensure matchFound messages are processed before game starts
+        setTimeout(() => {
+            const loopTimer = setInterval(async () => {
+                sessionGame.update();
+                const state = JSON.stringify(sessionGame.getState());
+                opponent.socket.send(state);
+                socket.send(state);
+
+                // Check if game is over and auto-end
+                if (sessionGame.isGameOver) {
+                    clearInterval(loopTimer);
+
+                    // Send match over message to both players
+                    const matchOverMsg = JSON.stringify({
+                        type: "matchOver",
+                        winner: sessionGame.winner,
+                        finalScore: sessionGame.score
+                    });
+                    opponent.socket.send(matchOverMsg);
+                    socket.send(matchOverMsg);
+
+                    // Post scores to blockchain
+                    await handleOnlineMatchEnd(session);
+
+                    // Clean up session
+                    sessions.delete(gameId);
+                    socketToSession.delete(opponent.socket);
+                    socketToSession.delete(socket);
+                }
+            }, 1000 / 60);
+
+            // Update session with the actual timer
+            session.loopTimer = loopTimer;
+        }, 50); // 50ms delay to ensure message order
     } else {
         waiting.push({ socket, payload });
         socket.send(JSON.stringify({ type: "waiting" }));
@@ -192,7 +199,9 @@ export async function cleanupOnlineSocket(socket: WebSocket): Promise<void> {
         }
 
         // Clean up session
-        clearInterval(sess.loopTimer);
+        if (sess.loopTimer) {
+            clearInterval(sess.loopTimer);
+        }
         sessions.delete(sess.id);
         socketToSession.delete(sess.sockets.p1);
         socketToSession.delete(sess.sockets.p2);

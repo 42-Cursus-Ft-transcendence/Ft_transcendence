@@ -31,7 +31,7 @@ export interface RankedSession {
         p1: RankedPlayer;
         p2: RankedPlayer;
     };
-    loopTimer: NodeJS.Timeout;
+    loopTimer: NodeJS.Timeout | null;
     startTime: number;
     isRanked: true;
 }
@@ -293,25 +293,12 @@ export async function handleRankedStart(
             sessionGame.mode = "online";
             sessionGame.setMaxScore(10); // Set target to 10 for ranked matches
 
-            const loopTimer = setInterval(async () => {
-                sessionGame.update();
-                const state = JSON.stringify(sessionGame.getState());
-                opponent.socket.send(state);
-                socket.send(state);
-
-                // Check if game is over and auto-end match
-                if (sessionGame.isGameOver) {
-                    clearInterval(loopTimer);
-                    await handleRankedMatchEnd(session);
-                }
-            }, 1000 / 60);
-
             const session: RankedSession = {
                 id: gameId,
                 game: sessionGame,
                 sockets: { p1: opponent.socket, p2: socket },
                 players: { p1: opponent.payload, p2: rankedPlayer },
-                loopTimer,
+                loopTimer: null as any, // Will be set after rankedMatchFound messages
                 startTime: Date.now(),
                 isRanked: true,
             };
@@ -320,7 +307,7 @@ export async function handleRankedStart(
             socketToRankedSession.set(opponent.socket, session);
             socketToRankedSession.set(socket, session);
 
-            // Notify players - ensure message structure is consistent with online
+            // Send rankedMatchFound messages FIRST to avoid race condition
             console.log('🎯 Sending rankedMatchFound to p1 (opponent):', {
                 userName: opponent.payload.userName,
                 opponentName: rankedPlayer.userName
@@ -356,6 +343,25 @@ export async function handleRankedStart(
                     },
                 })
             );
+
+            // Small delay to ensure rankedMatchFound messages are processed before game starts
+            setTimeout(() => {
+                const loopTimer = setInterval(async () => {
+                    sessionGame.update();
+                    const state = JSON.stringify(sessionGame.getState());
+                    opponent.socket.send(state);
+                    socket.send(state);
+
+                    // Check if game is over and auto-end match
+                    if (sessionGame.isGameOver) {
+                        clearInterval(loopTimer);
+                        await handleRankedMatchEnd(session);
+                    }
+                }, 1000 / 60);
+
+                // Update session with the actual timer
+                session.loopTimer = loopTimer;
+            }, 50); // 50ms delay to ensure message order
         } else {
             // Add to waiting queue
             rankedWaiting.push(newWaitingItem);
@@ -398,7 +404,9 @@ export async function handleRankedStop(socket: WebSocket): Promise<void> {
 // ─────────────────────────────────────────────────────────────────────────────
 async function handleRankedMatchEnd(session: RankedSession): Promise<void> {
     try {
-        clearInterval(session.loopTimer);
+        if (session.loopTimer) {
+            clearInterval(session.loopTimer);
+        }
 
         const score1 = session.game.score[0];
         const score2 = session.game.score[1];
@@ -613,7 +621,9 @@ export async function cleanupRankedSocket(socket: WebSocket): Promise<void> {
         // Check if disconnect was already handled
         if ((session as any).disconnectHandled) {
             console.log("Disconnect already handled, just cleaning up session");
-            clearInterval(session.loopTimer);
+            if (session.loopTimer) {
+                clearInterval(session.loopTimer);
+            }
             rankedSessions.delete(session.id);
             socketToRankedSession.delete(session.sockets.p1);
             socketToRankedSession.delete(session.sockets.p2);
@@ -633,7 +643,9 @@ export async function cleanupRankedSocket(socket: WebSocket): Promise<void> {
         } else {
             // Game was already over, just clean up
             console.log(`Game already over, cleaning up ranked session: ${session.id}`);
-            clearInterval(session.loopTimer);
+            if (session.loopTimer) {
+                clearInterval(session.loopTimer);
+            }
             rankedSessions.delete(session.id);
             socketToRankedSession.delete(session.sockets.p1);
             socketToRankedSession.delete(session.sockets.p2);

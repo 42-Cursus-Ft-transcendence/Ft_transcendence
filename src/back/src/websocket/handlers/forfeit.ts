@@ -53,7 +53,9 @@ export async function handleForfeit(socket: WebSocket): Promise<void> {
         }
 
         // Clean up the session
-        clearInterval(onlineSession.loopTimer);
+        if (onlineSession.loopTimer) {
+            clearInterval(onlineSession.loopTimer);
+        }
         sessions.delete(onlineSession.id);
         socketToSession.delete(onlineSession.sockets.p1);
         socketToSession.delete(onlineSession.sockets.p2);
