@@ -320,7 +320,7 @@ export async function handleRankedStart(
             socketToRankedSession.set(opponent.socket, session);
             socketToRankedSession.set(socket, session);
 
-            // Notify players
+            // Notify players - ensure message structure is consistent with online
             console.log('🎯 Sending rankedMatchFound to p1 (opponent):', {
                 userName: opponent.payload.userName,
                 opponentName: rankedPlayer.userName

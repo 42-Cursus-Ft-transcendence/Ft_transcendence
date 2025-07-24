@@ -76,9 +76,15 @@ export function handleOnlineStart(
         sessions.set(gameId, session);
         socketToSession.set(opponent.socket, session);
         socketToSession.set(socket, session);
+        // Notify players - ensure both get correct names
+        console.log('🎮 Sending matchFound to p1 (opponent):', {
+            userName: p1.userName,
+            opponentName: p2.userName
+        });
         opponent.socket.send(
             JSON.stringify({
                 type: "matchFound",
+                gameId,
                 youAre: "p1",
                 yourName: p1.userName,
                 opponent: {
@@ -86,9 +92,15 @@ export function handleOnlineStart(
                 }
             })
         );
+
+        console.log('🎮 Sending matchFound to p2 (socket):', {
+            userName: p2.userName,
+            opponentName: p1.userName
+        });
         socket.send(
             JSON.stringify({
                 type: "matchFound",
+                gameId,
                 youAre: "p2",
                 yourName: p2.userName,
                 opponent: {
