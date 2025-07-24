@@ -75,12 +75,25 @@ export function handleOnlineStart(
         sessions.set(gameId, session);
         socketToSession.set(opponent.socket, session);
         socketToSession.set(socket, session);
-
         opponent.socket.send(
-            JSON.stringify({ type: "matchFound", gameId, youAre: "p1" })
+            JSON.stringify({
+                type: "matchFound",
+                youAre: "p1",
+                yourName: p1.userName,
+                opponent: {
+                    userName: p2.userName
+                }
+            })
         );
         socket.send(
-            JSON.stringify({ type: "matchFound", gameId, youAre: "p2" })
+            JSON.stringify({
+                type: "matchFound",
+                youAre: "p2",
+                yourName: p2.userName,
+                opponent: {
+                    userName: p1.userName
+                }
+            })
         );
     } else {
         waiting.push({ socket, payload });
