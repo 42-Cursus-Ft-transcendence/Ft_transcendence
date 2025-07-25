@@ -12,14 +12,16 @@ set +o allexport
 echo "Starting ELK stack setup..."
 
 # 1) Wait for Elasticsearch to be healthy
-echo "Waiting for Elasticsearch to be healthy..."
+echo -n "Waiting for Elasticsearch"
 until docker compose ${COMPOSE_FILES} exec -T elasticsearch \
-  sh -c "curl -k -u elastic:${ELASTIC_PASSWORD} 'https://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=1s' >/dev/null 2>&1"
+     sh -c "curl -sk -u elastic:${ELASTIC_PASSWORD} 'https://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=1s' > /dev/null 2>&1" \
+     > /dev/null 2>&1
 do
   printf "."
   sleep 2
 done
-echo "Elasticsearch is ready."
+
+echo " Elasticsearch is ready!"
 
 # 2) Generate certs (if missing)
 ./scripts/cert_generation.sh "${ENV_FILE}"
