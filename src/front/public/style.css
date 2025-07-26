@@ -13,6 +13,7 @@
     --color-yellow-500: oklch(79.5% 0.184 86.047);
     --color-green-300: oklch(87.1% 0.15 154.449);
     --color-green-400: oklch(79.2% 0.209 151.711);
+    --color-green-500: oklch(72.3% 0.219 149.579);
     --color-green-600: oklch(62.7% 0.194 149.214);
     --color-cyan-500: oklch(71.5% 0.143 215.221);
     --color-blue-200: oklch(88.2% 0.059 254.128);
@@ -39,6 +40,8 @@
     --text-2xl--line-height: calc(2 / 1.5);
     --text-3xl: 1.875rem;
     --text-3xl--line-height: calc(2.25 / 1.875);
+    --text-6xl: 3.75rem;
+    --text-6xl--line-height: 1;
     --font-weight-medium: 500;
     --font-weight-semibold: 600;
     --font-weight-bold: 700;
@@ -68,7 +71,9 @@
   html, :host {
     line-height: 1.5;
     -webkit-text-size-adjust: 100%;
-    tab-size: 4;
+    -moz-tab-size: 4;
+      -o-tab-size: 4;
+         tab-size: 4;
     font-family: var(--default-font-family, ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji");
     font-feature-settings: var(--default-font-feature-settings, normal);
     font-variation-settings: var(--default-font-variation-settings, normal);
@@ -160,10 +165,19 @@
   ::file-selector-button {
     margin-inline-end: 4px;
   }
+  ::-moz-placeholder {
+    opacity: 1;
+  }
   ::placeholder {
     opacity: 1;
   }
   @supports (not (-webkit-appearance: -apple-pay-button))  or (contain-intrinsic-size: 1px) {
+    ::-moz-placeholder {
+      color: currentcolor;
+      @supports (color: color-mix(in lab, red, red)) {
+        color: color-mix(in oklab, currentcolor 50%, transparent);
+      }
+    }
     ::placeholder {
       color: currentcolor;
       @supports (color: color-mix(in lab, red, red)) {
@@ -194,7 +208,9 @@
     box-shadow: none;
   }
   button, input:where([type="button"], [type="reset"], [type="submit"]), ::file-selector-button {
-    appearance: button;
+    -webkit-appearance: button;
+       -moz-appearance: button;
+            appearance: button;
   }
   ::-webkit-inner-spin-button, ::-webkit-outer-spin-button {
     height: auto;
@@ -263,6 +279,9 @@
   }
   .z-50 {
     z-index: 50;
+  }
+  .z-60 {
+    z-index: 60;
   }
   .container {
     width: 100%;
@@ -456,6 +475,15 @@
   .flex-1 {
     flex: 1;
   }
+  .origin-center {
+    transform-origin: center;
+  }
+  .scale-\[1\.6\] {
+    scale: 1.6;
+  }
+  .transform {
+    transform: var(--tw-rotate-x,) var(--tw-rotate-y,) var(--tw-rotate-z,) var(--tw-skew-x,) var(--tw-skew-y,);
+  }
   .cursor-pointer {
     cursor: pointer;
   }
@@ -525,7 +553,8 @@
     }
   }
   .gap-x-3 {
-    column-gap: calc(var(--spacing) * 3);
+    -moz-column-gap: calc(var(--spacing) * 3);
+         column-gap: calc(var(--spacing) * 3);
   }
   .space-x-1 {
     :where(& > :not(:last-child)) {
@@ -550,6 +579,9 @@
   }
   .overflow-hidden {
     overflow: hidden;
+  }
+  .overflow-visible {
+    overflow: visible;
   }
   .overflow-y-auto {
     overflow-y: auto;
@@ -648,6 +680,9 @@
       background-color: color-mix(in oklab, var(--color-black) 80%, transparent);
     }
   }
+  .bg-green-300 {
+    background-color: var(--color-green-300);
+  }
   .bg-transparent {
     background-color: transparent;
   }
@@ -710,6 +745,10 @@
     font-size: var(--text-3xl);
     line-height: var(--tw-leading, var(--text-3xl--line-height));
   }
+  .text-6xl {
+    font-size: var(--text-6xl);
+    line-height: var(--tw-leading, var(--text-6xl--line-height));
+  }
   .text-lg {
     font-size: var(--text-lg);
     line-height: var(--tw-leading, var(--text-lg--line-height));
@@ -769,6 +808,9 @@
     text-transform: uppercase;
   }
   .placeholder-green-600 {
+    &::-moz-placeholder {
+      color: var(--color-green-600);
+    }
     &::placeholder {
       color: var(--color-green-600);
     }
@@ -847,6 +889,13 @@
       }
     }
   }
+  .hover\:bg-green-400 {
+    &:hover {
+      @media (hover: hover) {
+        background-color: var(--color-green-400);
+      }
+    }
+  }
   .hover\:bg-pink-500\/30 {
     &:hover {
       @media (hover: hover) {
@@ -916,6 +965,11 @@
       box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
     }
   }
+  .focus\:ring-green-500 {
+    &:focus {
+      --tw-ring-color: var(--color-green-500);
+    }
+  }
   .focus\:ring-pink-500 {
     &:focus {
       --tw-ring-color: var(--color-pink-500);
@@ -966,19 +1020,19 @@
         cursor: pointer;
       }
     }
-    box-shadow: 0 0.5rem 0 #784BA0;
+    box-shadow: 0 0.5rem 0 #784ba0;
   }
   .threeD-button-set:hover {
     --tw-scale-x: 105%;
     --tw-scale-y: 105%;
     --tw-scale-z: 105%;
     scale: var(--tw-scale-x) var(--tw-scale-y);
-    box-shadow: 0 1rem 0 #2B86C5;
+    box-shadow: 0 1rem 0 #2b86c5;
   }
   .threeD-button-set:active {
     --tw-translate-y: calc(var(--spacing) * 2);
     translate: var(--tw-translate-x) var(--tw-translate-y);
-    box-shadow: 0 0.25rem 0 #FF3CAC;
+    box-shadow: 0 0.25rem 0 #ff3cac;
   }
   .zoomable {
     transform-origin: 50% 50%;
@@ -1063,16 +1117,16 @@
   }
   @keyframes gradient-border {
     0% {
-      border-color: #2B86C5;
+      border-color: #2b86c5;
     }
     33% {
-      border-color: #FF3CAC;
+      border-color: #ff3cac;
     }
     66% {
-      border-color: #784BA0;
+      border-color: #784ba0;
     }
     100% {
-      border-color: #2B86C5;
+      border-color: #2b86c5;
     }
   }
   .animated-border {
@@ -1082,19 +1136,14 @@
   }
   @keyframes l3 {
     25% {
-      background-position: 0 0,    
-      100% 100%, 
-      100% calc(100% - 5px) ;
+      background-position: 0 0,  100% 100%,
+         100% calc(100% - 5px) ;
     }
     50% {
-      background-position: 0 100%, 
-      100% 100%, 
-      0    calc(100% - 5px);
+      background-position: 0 100%, 100% 100%, 0 calc(100% - 5px);
     }
     75% {
-      background-position: 0 100%, 
-      100% 0, 
-      100% 5px;
+      background-position: 0 100%, 100% 0, 100% 5px;
     }
   }
   .loader {
@@ -1105,12 +1154,12 @@
     border-width: 2px;
     border-color: var(--color-cyan-500);
     padding: 0 8px;
-    background: linear-gradient(#0ff 0 0) 0    0/8px 20px,
+    background: linear-gradient(#0ff 0 0) 0 0/8px
+        20px,
+       linear-gradient(#0ff 0 0) 100% 0/8px 20px,
       
-      linear-gradient(#0ff 0 0) 100% 0/8px 20px,
-      
-      radial-gradient(farthest-side, #f0f 90%, transparent) 0 5px/8px 8px content-box,
-      
+        radial-gradient(farthest-side, #f0f 90%, transparent) 0 5px/8px 8px
+        content-box,
        transparent;
     background-repeat: no-repeat;
     animation: l3 2s infinite linear;
@@ -1124,41 +1173,137 @@
     background-color: #080808 !important;
   }
   .bg-primary {
-    background-color: #00FF00 !important;
+    background-color: #00ff00 !important;
   }
   .bg-accent {
-    background-color: #FFD700 !important;
+    background-color: #ffd700 !important;
   }
   .hover\:bg-background:hover {
     background-color: #080808 !important;
   }
   .hover\:bg-primary:hover {
-    background-color: #00FF00 !important;
+    background-color: #00ff00 !important;
   }
   .hover\:bg-accent:hover {
-    background-color: #FFD700 !important;
+    background-color: #ffd700 !important;
   }
   .text-background {
     color: #080808 !important;
   }
   .text-primary {
-    color: #00FF00 !important;
+    color: #00ff00 !important;
   }
   .text-accent {
-    color: #FFD700 !important;
+    color: #ffd700 !important;
   }
   .hover\:text-background:hover {
     color: #080808 !important;
   }
   .hover\:text-primary:hover {
-    color: #00FF00 !important;
+    color: #00ff00 !important;
   }
   .hover\:text-accent:hover {
-    color: #FFD700 !important;
+    color: #ffd700 !important;
+  }
+  .glitch {
+    position: relative;
+  }
+  .glitch::before,
+  .glitch::after {
+    content: attr(data-text);
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0.8;
+    clip: rect(0, 0, 0, 0);
+  }
+  .glitch::before {
+    left: 2px;
+    text-shadow: -2px 0 red;
+    animation: glitch-anim-1 2s infinite linear alternate-reverse;
+  }
+  .glitch::after {
+    left: -2px;
+    text-shadow: -2px 0 blue;
+    animation: glitch-anim-2 1.5s infinite linear alternate-reverse;
+  }
+  .animate-glitch {
+    animation: glitch-anim-1 2s infinite linear alternate-reverse,
+      glitch-anim-2 1.5s infinite linear alternate-reverse;
+  }
+  .animate-flicker {
+    animation: flicker 1.5s infinite;
+  }
+  .animate-text-glitch {
+    animation: text-glitch 1.5s infinite;
+  }
+  @keyframes flicker {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    10%,
+    30%,
+    50%,
+    70% {
+      opacity: 0.4;
+    }
+    20%,
+    40%,
+    60%,
+    80% {
+      opacity: 0.7;
+    }
+  }
+  @keyframes glitch-anim-1 {
+    0% {
+      clip: rect(10px, 9999px, 20px, 0);
+    }
+    50% {
+      clip: rect(80px, 9999px, 90px, 0);
+    }
+    100% {
+      clip: rect(10px, 9999px, 20px, 0);
+    }
+  }
+  @keyframes glitch-anim-2 {
+    0% {
+      clip: rect(30px, 9999px, 40px, 0);
+    }
+    50% {
+      clip: rect(50px, 9999px, 60px, 0);
+    }
+    100% {
+      clip: rect(30px, 9999px, 40px, 0);
+    }
+  }
+  @keyframes text-glitch {
+    0%,
+    100% {
+      color: var(--color-green-300);
+    }
+    10% {
+      color: var(--color-pink-400);
+    }
+    30% {
+      color: var(--color-yellow-500);
+    }
+    50% {
+      color: var(--color-cyan-500);
+    }
+    70% {
+      color: var(--color-pink-200);
+    }
+    90% {
+      color: var(--color-green-400);
+    }
   }
 }
 @layer base {
-  html, body {
+  html,
+  body {
     overflow: hidden;
   }
 }
@@ -1167,6 +1312,26 @@
     scrollbar-color: initial;
     scrollbar-width: initial;
   }
+}
+@property --tw-rotate-x {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-rotate-y {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-rotate-z {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-skew-x {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-skew-y {
+  syntax: "*";
+  inherits: false;
 }
 @property --tw-space-y-reverse {
   syntax: "*";
@@ -1428,6 +1593,11 @@
 @layer properties {
   @supports ((-webkit-hyphens: none) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color:rgb(from red r g b)))) {
     *, ::before, ::after, ::backdrop {
+      --tw-rotate-x: initial;
+      --tw-rotate-y: initial;
+      --tw-rotate-z: initial;
+      --tw-skew-x: initial;
+      --tw-skew-y: initial;
       --tw-space-y-reverse: 0;
       --tw-space-x-reverse: 0;
       --tw-border-style: solid;
