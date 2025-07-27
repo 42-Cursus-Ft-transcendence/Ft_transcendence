@@ -68,21 +68,21 @@ export const friendsTemplate = `
 
 // Template function for friend card
 export function createFriendCard(friend: {
-    userId: number;
-    userName: string;
-    avatarURL: string;
-    status: 'online' | 'offline' | 'in-game';
-    lastSeen?: string;
-    isOnline: boolean;
+  userId: number;
+  userName: string;
+  avatarURL: string;
+  status: 'online' | 'offline' | 'in-game';
+  lastSeen?: string;
+  isOnline: boolean;
 }): string {
-    const statusColor = friend.status === 'online' ? 'bg-green-500' :
-        friend.status === 'in-game' ? 'bg-yellow-500' : 'bg-gray-500';
+  const statusColor = friend.status === 'online' ? 'bg-green-500' :
+    friend.status === 'in-game' ? 'bg-yellow-500' : 'bg-gray-500';
 
-    const statusText = friend.status === 'online' ? 'Online' :
-        friend.status === 'in-game' ? 'In Game' :
-            friend.lastSeen ? `Last seen ${friend.lastSeen}` : 'Offline';
+  const statusText = friend.status === 'online' ? 'Online' :
+    friend.status === 'in-game' ? 'In Game' :
+      friend.lastSeen ? `Last seen ${friend.lastSeen}` : 'Offline';
 
-    return `
+  return `
     <div class="bg-gradient-to-br from-purple-900/40 via-pink-900/30 to-black/50 backdrop-blur-sm border border-purple-400/50 rounded-2xl p-4 shadow-lg shadow-purple-500/30 hover:shadow-pink-500/30 transition-all duration-300 group">
       <!-- Friend Avatar -->
       <div class="flex flex-col items-center mb-3">
@@ -110,22 +110,12 @@ export function createFriendCard(friend: {
 
       <!-- Action Buttons -->
       <div class="flex flex-col gap-1">
-        ${friend.status === 'online' ? `
-          <button 
-            class="friend-action-btn w-full py-1.5 px-3 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white rounded-lg transition-all text-xs font-medium"
-            data-action="invite" 
-            data-user-id="${friend.userId}"
-          >
-            <i class="bx bx-game mr-1"></i>Invite
-          </button>
-        ` : ''}
-        
         <button 
           class="friend-action-btn w-full py-1.5 px-3 bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-700 hover:to-pink-700 text-white rounded-lg transition-all text-xs font-medium"
           data-action="remove" 
           data-user-id="${friend.userId}"
         >
-          <i class="bx bx-user-minus mr-1"></i>Remove
+          <i class="bx bx-user mr-1"></i>Remove
         </button>
       </div>
     </div>
@@ -134,15 +124,15 @@ export function createFriendCard(friend: {
 
 // Template function for pending friend request
 export function createPendingRequestCard(request: {
-    userId: number;
-    userName: string;
-    avatarURL: string;
-    requestedAt: string;
-    type: 'sent' | 'received';
+  userId: number;
+  userName: string;
+  avatarURL: string;
+  requestedAt: string;
+  type: 'sent' | 'received';
 }): string {
-    const timeAgo = getTimeAgo(new Date(request.requestedAt));
+  const timeAgo = getTimeAgo(new Date(request.requestedAt));
 
-    return `
+  return `
     <div class="bg-gradient-to-br from-yellow-900/40 via-orange-900/30 to-black/50 backdrop-blur-sm border border-yellow-400/50 rounded-2xl p-4 shadow-lg shadow-yellow-500/30 transition-all duration-300">
       <!-- Request Avatar -->
       <div class="flex flex-col items-center mb-3">
@@ -203,19 +193,19 @@ export function createPendingRequestCard(request: {
 
 // Helper function for time formatting
 function getTimeAgo(date: Date): string {
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / (1000 * 60));
-    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / (1000 * 60));
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
-    if (diffMins < 60) {
-        return diffMins <= 1 ? 'just now' : `${diffMins} minutes ago`;
-    } else if (diffHours < 24) {
-        return diffHours === 1 ? '1 hour ago' : `${diffHours} hours ago`;
-    } else if (diffDays < 7) {
-        return diffDays === 1 ? 'yesterday' : `${diffDays} days ago`;
-    } else {
-        return date.toLocaleDateString('en-US');
-    }
+  if (diffMins < 60) {
+    return diffMins <= 1 ? 'just now' : `${diffMins} minutes ago`;
+  } else if (diffHours < 24) {
+    return diffHours === 1 ? '1 hour ago' : `${diffHours} hours ago`;
+  } else if (diffDays < 7) {
+    return diffDays === 1 ? 'yesterday' : `${diffDays} days ago`;
+  } else {
+    return date.toLocaleDateString('en-US');
+  }
 }

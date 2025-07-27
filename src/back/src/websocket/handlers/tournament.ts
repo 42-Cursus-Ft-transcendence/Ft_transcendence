@@ -191,16 +191,19 @@ async function saveRankedMatch(
   player2: RankedPlayer,
   score1: number,
   score2: number,
-  eloChanges: { p1Update: EloUpdate; p2Update: EloUpdate }
+  eloChanges: { p1Update: EloUpdate; p2Update: EloUpdate },
+  matchDuration: number
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     const winnerId =
       score1 > score2 ? player1.sub : score2 > score1 ? player2.sub : null;
 
+    const matchDate = new Date().toISOString();
+
     db.run(
       `INSERT INTO RankedMatch (matchId, player1Id, player2Id, player1Score, player2Score, 
-       winnerId, player1EloChange, player2EloChange, matchDate) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
+       winnerId, player1EloChange, player2EloChange, matchDate, matchDuration) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         matchId,
         player1.sub,
@@ -210,6 +213,8 @@ async function saveRankedMatch(
         winnerId,
         eloChanges.p1Update.eloChange,
         eloChanges.p2Update.eloChange,
+        matchDate,
+        matchDuration,
       ],
       (err) => {
         if (err) reject(err);
@@ -448,6 +453,10 @@ async function handleRankedMatchEnd(session: RankedSession): Promise<void> {
     await updatePlayerRanking(eloChanges.p1Update, score1 > score2);
     await updatePlayerRanking(eloChanges.p2Update, score2 > score1);
 
+    // Calculate match duration in seconds
+    const matchDurationMs = Date.now() - session.startTime;
+    const matchDurationSeconds = Math.round(matchDurationMs / 1000);
+
     // Save match to database
     await saveRankedMatch(
       session.id,
@@ -455,7 +464,8 @@ async function handleRankedMatchEnd(session: RankedSession): Promise<void> {
       session.players.p2,
       score1,
       score2,
-      eloChanges
+      eloChanges,
+      matchDurationSeconds
     );
 
     // Post scores to blockchain (only if not already posted due to disconnect)
@@ -477,12 +487,14 @@ async function handleRankedMatchEnd(session: RankedSession): Promise<void> {
 
           // Store transaction hashes in database for blockchain explorer
           try {
+            const currentTimestamp = new Date().toISOString();
+
             await new Promise<void>((resolve, reject) => {
               db.run(
                 `INSERT OR REPLACE INTO BlockchainTransactions 
-                 (game_id, userId, player_address, score, hash, timestamp, status) 
-                 VALUES (?, ?, ?, ?, ?, datetime('now'), 'confirmed')`,
-                [session.id, session.players.p1.sub, row1.address, score1, tx1],
+                 (game_id, player_address, score, hash, timestamp, status) 
+                 VALUES (?, ?, ?, ?, ?, ?, 'confirmed')`,
+                [session.id, session.players.p1.sub, row1.address, score1, tx1, currentTimestamp],
                 (err) => err ? reject(err) : resolve()
               );
             });
@@ -491,8 +503,8 @@ async function handleRankedMatchEnd(session: RankedSession): Promise<void> {
               db.run(
                 `INSERT OR REPLACE INTO BlockchainTransactions 
                  (game_id, userId, player_address, score, hash, timestamp, status) 
-                 VALUES (?, ?, ?, ?, ?, datetime('now'), 'confirmed')`,
-                [session.id, session.players.p2.sub, row2.address, score2, tx2],
+                 VALUES (?, ?, ?, ?, ?, ?, 'confirmed')`,
+                [session.id, session.players.p2.sub, row2.address, score2, tx2, currentTimestamp],
                 (err) => err ? reject(err) : resolve()
               );
             });

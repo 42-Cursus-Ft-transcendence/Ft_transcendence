@@ -1,5 +1,9 @@
 import { friendsTemplate, createFriendCard, createPendingRequestCard } from "../templates/friendsTemplate.js";
 
+// Store the current WebSocket and container for friends notifications
+let currentSocket: WebSocket | null = null;
+let currentContainer: HTMLElement | null = null;
+
 // API interfaces for friends functionality
 interface Friend {
     userId: number;
@@ -24,11 +28,14 @@ interface FriendListResponse {
     pendingRequests: FriendRequest[];
 }
 
-export async function renderFriends(container: HTMLElement, onBack: () => void) {
+export async function renderFriends(container: HTMLElement, socket: WebSocket, onBack: () => void) {
     container.innerHTML = friendsTemplate;
 
     // Bind back button
     bindBackButton(container, onBack);
+
+    // Setup WebSocket message handling for friends
+    setupFriendsWebSocketHandling(socket, container);
 
     // Load friends data and bind content
     await bindFriendsContent(container);
@@ -40,6 +47,7 @@ export async function renderFriends(container: HTMLElement, onBack: () => void) 
 function bindBackButton(container: HTMLElement, onBack: () => void) {
     const backBtn = container.querySelector<HTMLButtonElement>('#backBtn')!;
     backBtn.addEventListener('click', () => {
+        cleanupFriendsWebSocketHandling();
         onBack();
     });
 }
@@ -167,10 +175,18 @@ function bindFriendsInteractions(container: HTMLElement) {
         const requestBtn = target.closest('.request-action-btn') as HTMLButtonElement;
 
         if (actionBtn) {
-            const action = actionBtn.dataset.action;
             const userId = parseInt(actionBtn.dataset.userId!);
 
-            await handleFriendAction(action!, userId, container);
+            // Only remove action is available now
+            if (confirm('Are you sure you want to remove this friend?')) {
+                try {
+                    await removeFriend(userId);
+                    await bindFriendsContent(container);
+                } catch (error: any) {
+                    console.error('Friend action error:', error);
+                    alert(error.message || 'Failed to remove friend');
+                }
+            }
         }
 
         if (requestBtn) {
@@ -190,28 +206,6 @@ function bindFriendsInteractions(container: HTMLElement) {
     function clearError() {
         errorElement.textContent = '';
         errorElement.classList.add('hidden');
-    }
-}
-
-async function handleFriendAction(action: string, userId: number, container: HTMLElement) {
-    try {
-        switch (action) {
-            case 'invite':
-                // TODO: Implement game invitation
-                console.log('Inviting user to game:', userId);
-                alert('Game invitation feature coming soon!');
-                break;
-
-            case 'remove':
-                if (confirm('Are you sure you want to remove this friend?')) {
-                    await removeFriend(userId);
-                    await bindFriendsContent(container);
-                }
-                break;
-        }
-    } catch (error: any) {
-        console.error('Friend action error:', error);
-        alert(error.message || 'Failed to perform action');
     }
 }
 
@@ -371,4 +365,111 @@ function showError(container: HTMLElement, message: string) {
             <p class="text-red-300 text-sm">${message}</p>
         </div>
     `;
+}
+
+function setupFriendsWebSocketHandling(socket: WebSocket, container: HTMLElement) {
+    // Store references for message handling
+    currentSocket = socket;
+    currentContainer = container;
+
+    // Add message listener for friends notifications
+    socket.addEventListener('message', handleWebSocketMessage);
+
+    console.log('✅ Friends WebSocket handling setup complete');
+}
+
+function handleWebSocketMessage(event: MessageEvent) {
+    if (!currentContainer) return;
+
+    try {
+        const message = JSON.parse(event.data);
+        handleFriendsWebSocketMessage(message, currentContainer);
+    } catch (error) {
+        // Not all messages are for friends
+    }
+}
+
+function handleFriendsWebSocketMessage(message: any, container: HTMLElement) {
+    switch (message.type) {
+        case 'friend_system_ready':
+            console.log('Friend notification system ready');
+            break;
+
+        case 'friend_notification':
+            handleFriendNotification(message.notification, container);
+            break;
+
+        default:
+            // Ignore other message types
+            break;
+    }
+}
+
+async function handleFriendNotification(notification: any, container: HTMLElement) {
+    console.log('📱 Friend notification received:', notification);
+
+    switch (notification.type) {
+        case 'friend_request_received':
+            // New friend request received - refresh the page
+            await bindFriendsContent(container);
+            break;
+
+        case 'friend_request_accepted':
+            // Friend request was accepted - refresh the page
+            await bindFriendsContent(container);
+            break;
+
+        case 'friend_request_declined':
+            // Friend request was declined - refresh the page
+            await bindFriendsContent(container);
+            break;
+
+        case 'friend_removed':
+            // You were removed as a friend - refresh the page
+            await bindFriendsContent(container);
+            break;
+
+        case 'friend_online':
+            // Friend came online - update their status
+            updateFriendStatus(notification.data.userId, 'online', container);
+            break;
+
+        case 'friend_offline':
+            // Friend went offline - update their status
+            updateFriendStatus(notification.data.userId, 'offline', container);
+            break;
+    }
+}
+
+function updateFriendStatus(userId: number, status: 'online' | 'offline', container: HTMLElement) {
+    const friendCards = container.querySelectorAll('.friend-action-btn');
+    friendCards.forEach(card => {
+        if (parseInt(card.getAttribute('data-user-id') || '0') === userId) {
+            const friendCard = card.closest('.bg-gradient-to-br');
+            if (friendCard) {
+                // Update status indicator
+                const statusIndicator = friendCard.querySelector('.w-4.h-4');
+                if (statusIndicator) {
+                    statusIndicator.className = `absolute -bottom-1 -right-1 w-4 h-4 ${status === 'online' ? 'bg-green-500' : 'bg-gray-500'
+                        } rounded-full border-2 border-black shadow-lg`;
+                }
+
+                // Update status text
+                const statusText = friendCard.querySelector('.text-xs.text-purple-300');
+                if (statusText) {
+                    statusText.textContent = status === 'online' ? 'Online' : 'Offline';
+                }
+            }
+        }
+    });
+}
+
+// Cleanup function to remove WebSocket message listener when leaving the friends page
+function cleanupFriendsWebSocketHandling() {
+    if (currentSocket) {
+        currentSocket.removeEventListener('message', handleWebSocketMessage);
+        currentSocket = null;
+    }
+    currentContainer = null;
+    console.log('🧹 Friends WebSocket handling cleaned up');
 }

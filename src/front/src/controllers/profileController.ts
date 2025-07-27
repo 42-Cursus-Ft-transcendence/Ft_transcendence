@@ -411,6 +411,11 @@ function getTimeAgo(date: Date): string {
     const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
     const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
+    // Handle future dates (clock skew)
+    if (diffMs < 0) {
+        return 'Just now';
+    }
+
     if (diffMins < 60) {
         return diffMins <= 1 ? 'Just now' : `${diffMins} minutes ago`;
     } else if (diffHours < 24) {

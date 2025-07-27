@@ -9,6 +9,7 @@ import {
   validateUnique,
   ValidationError,
 } from "../utils/userValidation";
+import { sendFriendNotification } from "../websocket/handlers/friends";
 
 export default async function userRoutes(app: FastifyInstance) {
   app.post("/signup", async (request, reply): Promise<void> => {
@@ -217,7 +218,6 @@ export default async function userRoutes(app: FastifyInstance) {
         idUser: number;
         email: string;
         password: string;
-        connectionStatus: number;
         isTotpEnabled: number;
         avatarURL?: string;
       }>(
@@ -225,7 +225,6 @@ export default async function userRoutes(app: FastifyInstance) {
          idUser, 
          email, 
          password, 
-         connectionStatus, 
          isTotpEnabled, 
          avatarURL
        FROM User
@@ -241,9 +240,6 @@ export default async function userRoutes(app: FastifyInstance) {
         return reply
           .status(401)
           .send({ error: "Invalid username or password" });
-      await runAsync(`UPDATE User SET connectionStatus = 1 WHERE idUser = ?`, [
-        user.idUser,
-      ]);
       if (user.isTotpEnabled === 1) {
         const pre2faToken = app.jwt.sign(
           { sub: user.idUser, pre2fa: true },
@@ -305,10 +301,6 @@ export default async function userRoutes(app: FastifyInstance) {
         // secure:   true
       };
       try {
-        await runAsync(
-          `UPDATE User SET connectionStatus = 0 WHERE idUser = ?`,
-          [idUser]
-        );
         app.onUserLogout();
         return reply
           .clearCookie("token", {
@@ -622,7 +614,7 @@ export default async function userRoutes(app: FastifyInstance) {
     { preHandler: [(app as any).authenticate] },
     async (request, reply) => {
       const userId = (request.user as any).sub as number;
-      
+
       try {
         console.log(">> Getting friends for user:", userId);
 
@@ -778,6 +770,26 @@ export default async function userRoutes(app: FastifyInstance) {
           [userId, targetUser.idUser, new Date().toISOString()]
         );
 
+        // Get requester info for notification
+        const requesterInfo = await getAsync<{ userName: string; avatarURL?: string }>(
+          `SELECT userName, avatarURL FROM User WHERE idUser = ?`,
+          [userId]
+        );
+
+        // Send real-time notification to target user
+        if (requesterInfo) {
+          sendFriendNotification(targetUser.idUser, {
+            type: 'friend_request_received',
+            data: {
+              userId: userId,
+              userName: requesterInfo.userName,
+              avatarURL: requesterInfo.avatarURL,
+              requestedAt: new Date().toISOString(),
+              type: 'received'
+            }
+          });
+        }
+
         return reply.status(200).send({ message: "Friend request sent successfully" });
 
       } catch (error) {
@@ -816,6 +828,25 @@ export default async function userRoutes(app: FastifyInstance) {
           WHERE requesterId = ? AND receiverId = ? AND status = 'pending'`,
           [new Date().toISOString(), requesterIdNum, userId]
         );
+
+        // Get user info for notification
+        const accepterInfo = await getAsync<{ userName: string; avatarURL?: string }>(
+          `SELECT userName, avatarURL FROM User WHERE idUser = ?`,
+          [userId]
+        );
+
+        // Send real-time notification to the original requester
+        if (accepterInfo) {
+          sendFriendNotification(requesterIdNum, {
+            type: 'friend_request_accepted',
+            data: {
+              userId: userId,
+              userName: accepterInfo.userName,
+              avatarURL: accepterInfo.avatarURL,
+              status: 'accepted'
+            }
+          });
+        }
 
         return reply.status(200).send({ message: "Friend request accepted" });
 
@@ -935,6 +966,23 @@ export default async function userRoutes(app: FastifyInstance) {
           AND status = 'accepted'`,
           [userId, friendIdNum, friendIdNum, userId]
         );
+
+        // Get user info for notification
+        const removerInfo = await getAsync<{ userName: string }>(
+          `SELECT userName FROM User WHERE idUser = ?`,
+          [userId]
+        );
+
+        // Send real-time notification to the removed friend
+        if (removerInfo) {
+          sendFriendNotification(friendIdNum, {
+            type: 'friend_removed',
+            data: {
+              userId: userId,
+              userName: removerInfo.userName
+            }
+          });
+        }
 
         return reply.status(200).send({ message: "Friend removed successfully" });
 

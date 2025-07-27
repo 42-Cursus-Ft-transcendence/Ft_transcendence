@@ -54,7 +54,7 @@ function doRender(screen) {
                 renderProfile(app, () => navigate("menu"));
                 break;
             case "friends":
-                renderFriends(app, () => navigate("menu"));
+                renderFriends(app, socket, () => navigate("menu"));
                 break;
             case "settings":
                 renderSettings(app, () => navigate("menu"));

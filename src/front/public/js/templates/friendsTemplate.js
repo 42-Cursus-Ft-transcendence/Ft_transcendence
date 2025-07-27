@@ -100,22 +100,12 @@ export function createFriendCard(friend) {
 
       <!-- Action Buttons -->
       <div class="flex flex-col gap-1">
-        ${friend.status === 'online' ? `
-          <button 
-            class="friend-action-btn w-full py-1.5 px-3 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white rounded-lg transition-all text-xs font-medium"
-            data-action="invite" 
-            data-user-id="${friend.userId}"
-          >
-            <i class="bx bx-game mr-1"></i>Invite
-          </button>
-        ` : ''}
-        
         <button 
           class="friend-action-btn w-full py-1.5 px-3 bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-700 hover:to-pink-700 text-white rounded-lg transition-all text-xs font-medium"
           data-action="remove" 
           data-user-id="${friend.userId}"
         >
-          <i class="bx bx-user-minus mr-1"></i>Remove
+          <i class="bx bx-user mr-1"></i>Remove
         </button>
       </div>
     </div>
