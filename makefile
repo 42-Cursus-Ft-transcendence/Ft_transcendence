@@ -10,10 +10,19 @@ COMPOSE_FILES       = -f $(COMPOSE_BASE) $(if $(filter aarch64,$(ARCH)),-f $(COM
 EXTRA_FLAGS         = $(if $(filter aarch64,$(ARCH)),--remove-orphans,)
 BACK_ENV            = src/back/.env.backend
 CONTAINERS_TO_CLEAN = anvil transcendence
-VOLUMES		   		:= grafana-data es-data es-certs es-ca es-tokens
+VOLUMES		   		:= grafana-data es-data es-ca es-certs-logstash \
+					es-certs-kibana	es-certs-filebeat ft_logs
 
 .DEFAULT_GOAL 	    := up
-
+POST_ES_SERVICES 	:= backend \
+						nginx \
+						nginx-prometheus-exporter \
+						prometheus \
+						grafana \
+						pushgateway \
+						logstash \
+						kibana \
+						filebeat
 ###############################################################################
 # 1. HELP                                                                     #
 ###############################################################################
@@ -161,9 +170,7 @@ setup-lk:
 stack-up: start-es setup-lk deploy-contracts
 	@echo "🔄 Bringing up backend, nginx, exporters, Prometheus & Grafana & pushgateway \
 			logstash, kibana"
-	docker compose $(COMPOSE_FILES) up --build --force-recreate $(EXTRA_FLAGS) -d \
-	  backend nginx nginx-prometheus-exporter prometheus grafana pushgateway \
-	  logstash kibana
+	docker compose $(COMPOSE_FILES) up --build --force-recreate $(EXTRA_FLAGS) -d $(POST_ES_SERVICES)
 	@echo "✅ All services running"
 	@echo "🔧 Importing Kibana dashboards inside the Kibana container"
 	@docker compose exec kibana bash -lc "\

@@ -6,3 +6,5 @@ src/back/dist
 *.env.*
 
 /docker/volumes
+log
+logs

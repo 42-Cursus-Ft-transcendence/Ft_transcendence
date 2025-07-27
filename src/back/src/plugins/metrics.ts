@@ -149,7 +149,8 @@ const metricsPlugin: FastifyPluginAsync = async (app, opts) => {
     done();
   });
 
-  const pushgatewayUrl = process.env.PUSHGATEWAY_URL;
+  const pushgatewayUrl =
+    process.env.PUSHGATEWAY_URL || "http://pushgateway:9091";
   if (!pushgatewayUrl) {
     app.log.error("PUSHGATEWAY_URL is not set in env");
   } else {

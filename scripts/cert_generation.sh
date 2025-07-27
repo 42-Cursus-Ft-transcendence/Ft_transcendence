@@ -1,94 +1,124 @@
 #!/usr/bin/env bash
+# -----------------------------------------------------------------------------
+# regenerate_certs.sh
+# Always (re)generates Kibana / Logstash / Filebeat TLS cert‑key pairs
+# using the shared CA inside the Elasticsearch container.
+# If a previous certificate exists it is replaced and a clear message is printed.
+# -----------------------------------------------------------------------------
 set -euo pipefail
 
 ENV_FILE=${ENV_FILE:-.env}
 
-set -o allexport
-source "${ENV_FILE}"
-set +o allexport
+# shellcheck source=/dev/null
+[ -f "$ENV_FILE" ] && source "$ENV_FILE"
 
-: "${ELASTIC_PASSWORD:?Need ELASTIC_PASSWORD to be set in ${ENV_FILE}}"
+: "${ELASTIC_PASSWORD:?ELASTIC_PASSWORD must be set in ${ENV_FILE}}"
 
-echo "🔐 Bootstrapping ${ENV_FILE} (enrollment & encryption)…"
-[ -f "${ENV_FILE}" ] && echo "DEBUG: ${ENV_FILE} exists" || echo "DEBUG: ${ENV_FILE} does NOT exist"
+SHARED=/usr/share/elasticsearch/config/shared
+CERT_DIR="$SHARED/certs"
+CA_DIR="$SHARED/ca"
 
-
-# helper: key creating function
+# -----------------------------------------------------------------------------
+# helper ─ update or insert a key=value in .env
+# -----------------------------------------------------------------------------
 upsert() {
   local var=$1 val=$2
-  if grep -q "^${var}=" "${ENV_FILE}"; then
-    # Linux와 macOS 모두 대응
-    if sed --version >/dev/null 2>&1; then
-      sed -i "s|^${var}=.*|${var}=${val}|" "${ENV_FILE}"
-    else
-      sed -i '' "s|^${var}=.*|${var}=${val}|" "${ENV_FILE}"
-    fi
+  if grep -q "^${var}=" "$ENV_FILE"; then
+    # GNU/BSD‑sed compatible in‑place edit
+    sed -i'' -e "s|^${var}=.*|${var}=${val}|" "$ENV_FILE"
   else
-    echo "${var}=${val}" >> "${ENV_FILE}"
+    echo "${var}=${val}" >>"$ENV_FILE"
   fi
 }
 
-# 1) KIBANA_ENCRYPTION_KEY
-if ! grep -q '^KIBANA_ENCRYPTION_KEY=' "${ENV_FILE}" \
-    || [ -z "$(grep '^KIBANA_ENCRYPTION_KEY=' "${ENV_FILE}" | cut -d'=' -f2-)" ]; then
-  printf "  • Generating KIBANA_ENCRYPTION_KEY… "
-  KEY="$(openssl rand -hex 32)"
+# ensure we have a Kibana encryption key
+if ! grep -q '^KIBANA_ENCRYPTION_KEY=' "$ENV_FILE" \
+   || [ -z "$(grep '^KIBANA_ENCRYPTION_KEY=' "$ENV_FILE" | cut -d= -f2-)" ]; then
+  KEY=$(openssl rand -hex 32)
   upsert KIBANA_ENCRYPTION_KEY "$KEY"
-  echo "done"
-else
-  echo "  • KIBANA_ENCRYPTION_KEY exists, skipping"
+  echo "🔑  Generated new KIBANA_ENCRYPTION_KEY"
 fi
 
-echo "✅ Elasticsearch users created and passwords stored in .env"
+wait_for_ca() {
+  local max_wait=30 
+  local ca_path=/usr/share/elasticsearch/config/shared/ca/ca.crt
 
-SHARED=/usr/share/elasticsearch/config/shared
-CERT_DIR=$SHARED/certs
-CA_DIR=$SHARED/ca
-KIBANA_DIR="$CERT_DIR/kibana"
-LOGSTASH_DIR="$CERT_DIR/logstash"
+  while ! docker compose exec -T elasticsearch \
+        bash -c "[ -f $ca_path ]" 2>/dev/null; do
+    if [ $max_wait -le 0 ]; then
+      echo "❌  CA is still missing after timeout – abort"
+      exit 1
+    fi
+    echo "⏳  Waiting for CA inside container … (remaining ${max_wait}s)"
+    sleep 1
+    max_wait=$((max_wait-1))
+  done
 
-# 3) Create Kibana cert if missing
-if [ ! -f "$KIBANA_DIR/kibana.crt" ]; then
-  echo "🔐 Generating Kibana cert..."
-  docker compose exec elasticsearch sh -c "
-    mkdir -p $KIBANA_DIR && \
-    elasticsearch-certutil cert --silent --pem \
-      --ca-cert $CA_DIR/ca.crt \
-      --ca-key $CA_DIR/ca.key \
-      --name kibana --dns kibana \
-      --out $KIBANA_DIR/kibana.zip && \
-    unzip -o $KIBANA_DIR/kibana.zip -d $KIBANA_DIR && \
-    mv $KIBANA_DIR/kibana/kibana.crt $KIBANA_DIR/ && \
-    mv $KIBANA_DIR/kibana/kibana.key $KIBANA_DIR/ && \
-    rm -rf $KIBANA_DIR/kibana && \
-    rm -rf $KIBANA_DIR/kibana.zip && \
-    chmod 600 $KIBANA_DIR/kibana.key && \
-    chmod 644 $KIBANA_DIR/kibana.crt
-    chown 1000:1000 $KIBANA_DIR/kibana.key $KIBANA_DIR/kibana.crt
-  "
-  echo "✅ Kibana cert generated"
-fi
+  echo "✅  CA detected in Elasticsearch container"
+}
 
-# 4) Create Logstash cert if missing
-if [ ! -f "$LOGSTASH_DIR/logstash.crt" ]; then
-  echo "🔐 Generating Logstash cert..."
-  docker compose exec elasticsearch sh -c "
-    mkdir -p '$LOGSTASH_DIR' && \
-    elasticsearch-certutil cert --silent --pem \
-      --ca-cert '$CA_DIR/ca.crt' \
-      --ca-key '$CA_DIR/ca.key' \
-      --name logstash \
-      --dns logstash \
-      --out '$LOGSTASH_DIR/logstash.zip' && \
-    unzip -o '$LOGSTASH_DIR/logstash.zip' -d '$LOGSTASH_DIR' && \
-    mv '$LOGSTASH_DIR/logstash/logstash.crt' '$LOGSTASH_DIR/' && \
-    mv '$LOGSTASH_DIR/logstash/logstash.key' '$LOGSTASH_DIR/' && \
-    rm -rf '$LOGSTASH_DIR/logstash' && \
-    rm -rf '$LOGSTASH_DIR/logstash.zip' && \
-    chmod 600 '$LOGSTASH_DIR/logstash.key' && \
-    chmod 644 '$LOGSTASH_DIR/logstash.crt'
-    chown 1000:1000 $LOGSTASH_DIR/logstash.key $LOGSTASH_DIR/logstash.crt
-  "
 
-  echo "✅ Logstash cert generated"
-fi
+# -----------------------------------------------------------------------------
+# function ─ issue or replace a certificate/key pair
+# -----------------------------------------------------------------------------
+issue_cert() {
+  local name=$1          # kibana | logstash | filebeat
+  local dir=$2           # full target directory
+  local crt="$dir/$name.crt"
+  local key="$dir/$name.key"
+
+  local action="created"
+  if [[ -f $crt ]]; then
+    action="replaced"
+    echo "⚠️  $name certificate already exists → will be replaced"
+  fi
+
+  docker compose exec -T elasticsearch sh -s <<SH
+set -e
+name="${name}" dir="${dir}" 
+mkdir -p "$dir"
+rm -f "$crt" "$key"   # remove old certs if they exist
+elasticsearch-certutil cert --silent --pem \
+  --ca-cert "$CA_DIR/ca.crt" \
+  --ca-key  "$CA_DIR/ca.key" \
+  --name "$name" --dns "$name" \
+  --out "$dir/${name}.zip"
+unzip -qo "\$dir/\${name}.zip" -d "\$dir"
+mv -f "$dir/$name/$name.crt" "$dir/"
+mv -f "$dir/$name/$name.key" "$dir/"
+rm -rf "$dir/$name" "$dir/${name}.zip"
+chmod 600 "$key" && chmod 644 "$crt"
+chown 1000:1000 "$key" "$crt"
+SH
+
+  echo "✅  $name certificate $action successfully"
+}
+
+safe_restart () {
+  # Restart services only if they are running
+  for svc in "$@"; do
+    if docker compose ps --services --filter "status=running" | grep -qx "$svc"; then
+      echo "🔄  Restarting $svc ..."
+      docker compose restart -t 30 "$svc"
+    else
+      echo "⏩  $svc is not running – skip restart"
+    fi
+  done
+}
+
+# -----------------------------------------------------------------------------
+# main
+# -----------------------------------------------------------------------------
+main() {
+  issue_cert kibana   "$CERT_DIR/kibana"
+  issue_cert logstash "$CERT_DIR/logstash"
+  issue_cert filebeat "$CERT_DIR/filebeat"
+
+  echo "🔄  Restarting Logstash & Filebeat to load fresh certs…"
+  safe_restart logstash filebeat  
+
+  echo "🎉  All certificates are up to date and services reloaded."
+}
+
+wait_for_ca
+main

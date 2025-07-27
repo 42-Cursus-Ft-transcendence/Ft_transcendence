@@ -1,0 +1,14 @@
+filebeat.inputs:
+  - type: log
+    enabled: true
+    paths:
+      - /var/log/ft_transcendence/*.log # Directory where the application writes its log files
+    # Additional options available: multiline, exclude_files, etc.
+
+output.logstash:
+  hosts: ["logstash:5044"]
+  # If TLS is enabled on the Logstash input, configure the certificate authority below.
+  ssl.enabled: true
+  ssl.certificate_authorities: ["/usr/share/filebeat/ca/ca.crt"]
+  ssl.certificate: /usr/share/filebeat/certs/filebeat.crt
+  ssl.key: /usr/share/filebeat/certs/filebeat.key

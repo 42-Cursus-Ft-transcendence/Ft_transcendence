@@ -106,7 +106,7 @@ API_JSON=$(docker exec -i es sh -c '\
       "name": "logstash_api_key",
       "role_descriptors": {
         "logstash_writer": {
-          "cluster": ["monitor"],
+          "cluster": ["monitor", "manage_index_templates"],
           "index": [
             {
               "names": ["ft_transcende-logs-*"],
