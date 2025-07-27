@@ -1,6 +1,7 @@
 import { settingsTemplate } from "../templates/settingsTemplate.js";
 import { notificationTemplate } from "../templates/notificationTemplate.js";
 import { fetchUserProfile } from "../utils/auth.js";
+import { backgroundMusic } from "../utils/backgroundMusic.js";
 
 export interface GameplaySettings {
   difficulty: "Easy" | "Normal" | "Hard";
@@ -15,6 +16,8 @@ export interface GameplaySettings {
   p1DownKey: string;
   p2UpKey: string;
   p2DownKey: string;
+  musicVolume: number;
+  musicPlaying: boolean;
 }
 
 export const defaultGameplaySettings: GameplaySettings = {
@@ -30,13 +33,22 @@ export const defaultGameplaySettings: GameplaySettings = {
   p1DownKey: "s",
   p2UpKey: "arrowup",
   p2DownKey: "arrowdown",
+  musicVolume: 30,
+  musicPlaying: true,
 };
 
 export function loadGameplaySettings(): GameplaySettings {
   const raw = localStorage.getItem("gameplaySettings");
   if (raw) {
     try {
-      return JSON.parse(raw) as GameplaySettings;
+      const settings = JSON.parse(raw) as Partial<GameplaySettings>;
+      // Merge with defaults to handle missing properties (like musicVolume and musicPlaying)
+      return {
+        ...defaultGameplaySettings,
+        ...settings,
+        musicVolume: settings.musicVolume ?? defaultGameplaySettings.musicVolume,
+        musicPlaying: settings.musicPlaying ?? defaultGameplaySettings.musicPlaying,
+      };
     } catch {
       /* ignore parse errors */
     }
@@ -50,6 +62,24 @@ export function loadGameplaySettings(): GameplaySettings {
 
 export function saveGameplaySettings(s: GameplaySettings) {
   localStorage.setItem("gameplaySettings", JSON.stringify(s));
+}
+
+// Function to update music volume and apply it immediately
+export function updateMusicVolumeFromSettings() {
+  const settings = loadGameplaySettings();
+  backgroundMusic.setVolume(settings.musicVolume / 100);
+}
+
+// Function to apply music state from settings (volume and play/pause)
+export function applyMusicStateFromSettings() {
+  const settings = loadGameplaySettings();
+  backgroundMusic.setVolume(settings.musicVolume / 100);
+
+  if (settings.musicPlaying && !backgroundMusic.isCurrentlyPlaying()) {
+    backgroundMusic.play();
+  } else if (!settings.musicPlaying && backgroundMusic.isCurrentlyPlaying()) {
+    backgroundMusic.pause();
+  }
 }
 
 const palettes = {
@@ -383,6 +413,11 @@ function bindGameplaySection(container: HTMLElement) {
   const p2DownInput =
     form.querySelector<HTMLInputElement>('[name="p2DownKey"]')!;
 
+  // Audio controls
+  const musicVolumeRange = form.elements.namedItem("musicVolume") as HTMLInputElement;
+  const musicToggleBtn = container.querySelector<HTMLButtonElement>("#music-toggle")!;
+  const musicIcon = container.querySelector<HTMLElement>("#music-icon")!;
+
   // Pre-fill stored settings
   Object.assign(difficultySel, { value: settings.difficulty });
   Object.assign(colorThemeSel, { value: settings.colorTheme });
@@ -402,6 +437,27 @@ function bindGameplaySection(container: HTMLElement) {
   p2UpInput.setAttribute('data-real-key', settings.p2UpKey);
   p2DownInput.value = getKeyDisplayName(settings.p2DownKey);
   p2DownInput.setAttribute('data-real-key', settings.p2DownKey);
+
+  // Initialize audio controls
+  musicVolumeRange.value = String(settings.musicVolume);
+
+  // Apply saved music state
+  backgroundMusic.setVolume(settings.musicVolume / 100);
+  if (settings.musicPlaying && !backgroundMusic.isCurrentlyPlaying()) {
+    backgroundMusic.play();
+  } else if (!settings.musicPlaying && backgroundMusic.isCurrentlyPlaying()) {
+    backgroundMusic.pause();
+  }
+
+  // Update music toggle button state
+  const updateMusicToggleState = () => {
+    if (backgroundMusic.isCurrentlyPlaying()) {
+      musicIcon.className = "bx bx-pause";
+    } else {
+      musicIcon.className = "bx bx-play";
+    }
+  };
+  updateMusicToggleState();
 
   // Bind color theme change: sync palette
   colorThemeSel.addEventListener("change", () =>
@@ -429,6 +485,26 @@ function bindGameplaySection(container: HTMLElement) {
     )
   );
 
+  // Audio control event listeners
+  musicVolumeRange.addEventListener("input", () => {
+    const volume = Number(musicVolumeRange.value);
+    backgroundMusic.setVolume(volume / 100);
+    settings.musicVolume = volume;
+  });
+
+  musicToggleBtn.addEventListener("click", () => {
+    if (backgroundMusic.isCurrentlyPlaying()) {
+      backgroundMusic.pause();
+    } else {
+      backgroundMusic.play();
+    }
+    // Update icon after a short delay to ensure audio state has changed
+    setTimeout(() => {
+      updateMusicToggleState();
+      settings.musicPlaying = backgroundMusic.isCurrentlyPlaying();
+    }, 50);
+  });
+
   // Form submission: save to localStorage
   form.addEventListener("submit", (e) => {
     e.preventDefault();
@@ -446,6 +522,10 @@ function bindGameplaySection(container: HTMLElement) {
     settings.p1DownKey = p1DownInput.getAttribute('data-real-key') || settings.p1DownKey;
     settings.p2UpKey = p2UpInput.getAttribute('data-real-key') || settings.p2UpKey;
     settings.p2DownKey = p2DownInput.getAttribute('data-real-key') || settings.p2DownKey;
+
+    // Save music volume and playing state
+    settings.musicVolume = Number(musicVolumeRange.value);
+    settings.musicPlaying = backgroundMusic.isCurrentlyPlaying();
 
     saveGameplaySettings(settings);
     showNotification("Gameplay settings saved");

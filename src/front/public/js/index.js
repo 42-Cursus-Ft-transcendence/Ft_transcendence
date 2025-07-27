@@ -9,6 +9,8 @@ import { renderBlockExplorer } from "./controllers/blockExplorerController.js";
 import { renderErrors } from "./controllers/errorController.js";
 import { arcadeTemplate } from "./templates/arcadeTemplate.js";
 import { checkAuth } from "./utils/auth.js";
+import { backgroundMusic } from "./utils/backgroundMusic.js";
+import { applyMusicStateFromSettings } from "./controllers/settingsController.js";
 export let socket;
 const root = document.getElementById("root");
 function doRender(screen) {
@@ -17,15 +19,21 @@ function doRender(screen) {
         renderErrors(root, "404");
         return;
     }
-    if (screen === "signup")
+    if (screen === "signup") {
+        backgroundMusic.pause(); // Stop music for signup/login screens
         renderSignup(root, () => navigate("login"));
-    else if (screen === "login")
+    }
+    else if (screen === "login") {
+        backgroundMusic.pause(); // Stop music for signup/login screens
         renderLogin(root, () => navigate("menu"));
+    }
     else if (screen === "blockexplorer") {
-        // Block explorer renders fullscreen without arcade frame
+        applyMusicStateFromSettings();
         renderBlockExplorer(root, () => navigate("menu"));
     }
     else {
+        // Apply saved music settings (volume and play/pause state)
+        applyMusicStateFromSettings();
         ensureArcadeFrame();
         const app = document.getElementById("app");
         if (!app)
@@ -184,5 +192,9 @@ export function initSocket(url) {
 // If you need to access the socket elsewhere
 export function getSocket() {
     return socket;
+}
+// Function to update background music volume
+export function updateMusicVolume(volume) {
+    backgroundMusic.setVolume(volume / 100); // Convert percentage to 0-1 range
 }
 //# sourceMappingURL=index.js.map

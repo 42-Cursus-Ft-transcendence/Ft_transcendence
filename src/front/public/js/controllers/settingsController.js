@@ -1,6 +1,7 @@
 import { settingsTemplate } from "../templates/settingsTemplate.js";
 import { notificationTemplate } from "../templates/notificationTemplate.js";
 import { fetchUserProfile } from "../utils/auth.js";
+import { backgroundMusic } from "../utils/backgroundMusic.js";
 export const defaultGameplaySettings = {
     difficulty: "Normal",
     colorTheme: "Vaporwave",
@@ -14,12 +15,21 @@ export const defaultGameplaySettings = {
     p1DownKey: "s",
     p2UpKey: "arrowup",
     p2DownKey: "arrowdown",
+    musicVolume: 30,
+    musicPlaying: true,
 };
 export function loadGameplaySettings() {
     const raw = localStorage.getItem("gameplaySettings");
     if (raw) {
         try {
-            return JSON.parse(raw);
+            const settings = JSON.parse(raw);
+            // Merge with defaults to handle missing properties (like musicVolume and musicPlaying)
+            return {
+                ...defaultGameplaySettings,
+                ...settings,
+                musicVolume: settings.musicVolume ?? defaultGameplaySettings.musicVolume,
+                musicPlaying: settings.musicPlaying ?? defaultGameplaySettings.musicPlaying,
+            };
         }
         catch {
             /* ignore parse errors */
@@ -30,6 +40,22 @@ export function loadGameplaySettings() {
 }
 export function saveGameplaySettings(s) {
     localStorage.setItem("gameplaySettings", JSON.stringify(s));
+}
+// Function to update music volume and apply it immediately
+export function updateMusicVolumeFromSettings() {
+    const settings = loadGameplaySettings();
+    backgroundMusic.setVolume(settings.musicVolume / 100);
+}
+// Function to apply music state from settings (volume and play/pause)
+export function applyMusicStateFromSettings() {
+    const settings = loadGameplaySettings();
+    backgroundMusic.setVolume(settings.musicVolume / 100);
+    if (settings.musicPlaying && !backgroundMusic.isCurrentlyPlaying()) {
+        backgroundMusic.play();
+    }
+    else if (!settings.musicPlaying && backgroundMusic.isCurrentlyPlaying()) {
+        backgroundMusic.pause();
+    }
 }
 const palettes = {
     Vaporwave: {
@@ -310,6 +336,10 @@ function bindGameplaySection(container) {
     const p1DownInput = form.querySelector('[name="p1DownKey"]');
     const p2UpInput = form.querySelector('[name="p2UpKey"]');
     const p2DownInput = form.querySelector('[name="p2DownKey"]');
+    // Audio controls
+    const musicVolumeRange = form.elements.namedItem("musicVolume");
+    const musicToggleBtn = container.querySelector("#music-toggle");
+    const musicIcon = container.querySelector("#music-icon");
     // Pre-fill stored settings
     Object.assign(difficultySel, { value: settings.difficulty });
     Object.assign(colorThemeSel, { value: settings.colorTheme });
@@ -328,6 +358,26 @@ function bindGameplaySection(container) {
     p2UpInput.setAttribute('data-real-key', settings.p2UpKey);
     p2DownInput.value = getKeyDisplayName(settings.p2DownKey);
     p2DownInput.setAttribute('data-real-key', settings.p2DownKey);
+    // Initialize audio controls
+    musicVolumeRange.value = String(settings.musicVolume);
+    // Apply saved music state
+    backgroundMusic.setVolume(settings.musicVolume / 100);
+    if (settings.musicPlaying && !backgroundMusic.isCurrentlyPlaying()) {
+        backgroundMusic.play();
+    }
+    else if (!settings.musicPlaying && backgroundMusic.isCurrentlyPlaying()) {
+        backgroundMusic.pause();
+    }
+    // Update music toggle button state
+    const updateMusicToggleState = () => {
+        if (backgroundMusic.isCurrentlyPlaying()) {
+            musicIcon.className = "bx bx-pause";
+        }
+        else {
+            musicIcon.className = "bx bx-play";
+        }
+    };
+    updateMusicToggleState();
     // Bind color theme change: sync palette
     colorThemeSel.addEventListener("change", () => applyPalette(colorThemeSel.value, settings, {
         ballColorInput,
@@ -344,6 +394,25 @@ function bindGameplaySection(container) {
         [p2UpInput, "p2UpKey"],
         [p2DownInput, "p2DownKey"],
     ].forEach(([input, prop]) => bindKeyCapture(input, prop, settings));
+    // Audio control event listeners
+    musicVolumeRange.addEventListener("input", () => {
+        const volume = Number(musicVolumeRange.value);
+        backgroundMusic.setVolume(volume / 100);
+        settings.musicVolume = volume;
+    });
+    musicToggleBtn.addEventListener("click", () => {
+        if (backgroundMusic.isCurrentlyPlaying()) {
+            backgroundMusic.pause();
+        }
+        else {
+            backgroundMusic.play();
+        }
+        // Update icon after a short delay to ensure audio state has changed
+        setTimeout(() => {
+            updateMusicToggleState();
+            settings.musicPlaying = backgroundMusic.isCurrentlyPlaying();
+        }, 50);
+    });
     // Form submission: save to localStorage
     form.addEventListener("submit", (e) => {
         e.preventDefault();
@@ -360,6 +429,9 @@ function bindGameplaySection(container) {
         settings.p1DownKey = p1DownInput.getAttribute('data-real-key') || settings.p1DownKey;
         settings.p2UpKey = p2UpInput.getAttribute('data-real-key') || settings.p2UpKey;
         settings.p2DownKey = p2DownInput.getAttribute('data-real-key') || settings.p2DownKey;
+        // Save music volume and playing state
+        settings.musicVolume = Number(musicVolumeRange.value);
+        settings.musicPlaying = backgroundMusic.isCurrentlyPlaying();
         saveGameplaySettings(settings);
         showNotification("Gameplay settings saved");
     });
