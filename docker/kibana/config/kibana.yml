@@ -3,7 +3,8 @@
 server.port: 5601
 server.host: 0.0.0.0
 server.basePath: "/kibana"
-server.rewriteBasePath: true
+server.rewriteBasePath: false
+server.publicBaseUrl: "https://localhost:8443/kibana"
 server.defaultRoute: "/app/home"
 
 elasticsearch.serviceAccountToken: ${ELASTICSEARCH_SERVICE_ACCOUNT_TOKEN}

@@ -26,27 +26,7 @@ upsert() {
   fi
 }
 
-# 1) Create Kibana Token using elsasti/kibana(service account) account if it doesn't already exist
-# docker compose exec elasticsearch sh -euxc '
-#   # ---- create file token ---------------------------------------------
-#   RAW=$(bin/elasticsearch-service-tokens create elastic/kibana kibana-token)
-
-#   TOKEN=$(printf "%s\n" "$RAW" | awk -F"= " '\''/SERVICE_TOKEN/ {print $2}'\'')
-
-#   if [ -z "$TOKEN" ]; then
-#     echo "❌ token parsing failure: $RAW" >&2
-#     exit 1
-#   fi
-
-#   # ---- write to shared volume ----------------------------------------
-#   # Strip any trailing LF/CR and write the token without a newline
-#   CLEAN_TOKEN=$(printf "%s" "$TOKEN" | tr -d "\r\n")
-#   DEST=/usr/share/elasticsearch/config/shared/tokens/kibana
-#   mkdir -p "$DEST"
-#   printf "%s" "$CLEAN_TOKEN" > "$DEST/service.token"
-#   chmod 600 "$DEST/service.token"
-#   echo "✔ Kibana service token saved to shared/tokens/kibana/service.token"
-docker compose exec -T elasticsearch sh -eux <<'EOS'
+docker compose exec -T elasticsearch sh -euo<<'EOS'
   # ---- create or recreate Kibana token -------------------------------
   API_JSON=$(curl -s -u "elastic:${ELASTIC_PASSWORD}" -k \
       --cacert /usr/share/elasticsearch/config/shared/ca/ca.crt \
@@ -96,16 +76,22 @@ docker compose exec -T elasticsearch sh -euo <<'EOS'
   echo "🔍 [DEBUG] Finished debug run."
 EOS
 
+# 2) Read the persisted token on elastic container and update .env
+if TOKEN_VALUE=$(docker compose exec -T elasticsearch \
+    sh -c 'cat /usr/share/elasticsearch/config/shared/tokens/kibana/service.token' 2>/dev/null); then
 
+  # get current value from .env (or empty if not set)
+  CURRENT_VALUE=$(grep -E '^KIBANA_SERVICE_TOKEN=' "${ENV_FILE}" | cut -d= -f2- || true)
 
-# 2) Read the persisted token back on the host and update .env
-KIBANA_TOKEN_PATH="./docker/volumes/es-tokens/kibana/service.token"
-if [ -f "$KIBANA_TOKEN_PATH" ]; then
-  TOKEN_VALUE=$(<"$KIBANA_TOKEN_PATH")
-  upsert KIBANA_SERVICE_TOKEN "$TOKEN_VALUE"
-  echo "✔ Updated KIBANA_SERVICE_TOKEN in .env"
+  if [ "$TOKEN_VALUE" != "$CURRENT_VALUE" ]; then
+    upsert KIBANA_SERVICE_TOKEN "$TOKEN_VALUE"
+    echo "✔ Updated KIBANA_SERVICE_TOKEN in .env"
+  else
+    echo "✔ KIBANA_SERVICE_TOKEN unchanged"
+  fi
+
 else
-  echo "❌ Token file not found at $KIBANA_TOKEN_PATH" >&2
+  echo "❌ Token file not found in elasticsearch container" >&2
   exit 1
 fi
 

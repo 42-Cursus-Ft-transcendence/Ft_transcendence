@@ -38,9 +38,18 @@ if [ ! -f "$NODE_DIR/elasticsearch.crt" ]; then
 fi
 
 chmod 600 "$NODE_DIR/elasticsearch.crt" "$NODE_DIR/elasticsearch.key" "$CA_DIR/ca.crt"
+chown 1000:1000 "$NODE_DIR/elasticsearch.crt" "$NODE_DIR/elasticsearch.key" "$CA_DIR/ca.crt"
+
+cp    "$CA_DIR/ca.crt" "$SHARED_CA_DIR/ca.crt"
+cp    "$CA_DIR/ca.key" "$SHARED_CA_DIR/ca.key"
 
 # 3) Copy CA cert to shared host-mounted dir (permission issues should be minimal now)
-cat "$CA_DIR/ca.crt" > "$SHARED_CA_DIR/ca.crt"
-cat "$CA_DIR/ca.key" > "$SHARED_CA_DIR/ca.key"
+cp "$CA_DIR/ca.crt" "$SHARED_CA_DIR/ca.crt"
+cp "$CA_DIR/ca.key" "$SHARED_CA_DIR/ca.key"
+chown 1000:1000 "$SHARED_CA_DIR/ca.crt" "$SHARED_CA_DIR/ca.key"
+chmod 644   "$SHARED_CA_DIR/ca.crt" "$SHARED_CA_DIR/ca.key"
+
+
 # 4) Hand off to official entrypoint
-exec /usr/local/bin/docker-entrypoint.sh "$@"
+# exec /usr/local/bin/docker-entrypoint.sh "$@"
+exec gosu elasticsearch /usr/local/bin/docker-entrypoint.sh "$@"

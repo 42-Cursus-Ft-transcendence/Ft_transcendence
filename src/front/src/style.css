@@ -8,15 +8,15 @@
            px-8 py-4 rounded-lg
            bg-gradient-to-r from-[#FF3CAC] via-[#784BA0] to-[#2B86C5]
            transition-transform duration-100 ease-out hover:cursor-pointer;
-    box-shadow: 0 0.5rem 0 #784BA0;
+    box-shadow: 0 0.5rem 0 #784ba0;
   }
   .threeD-button-set:hover {
     @apply scale-105;
-    box-shadow: 0 1rem 0 #2B86C5;
+    box-shadow: 0 1rem 0 #2b86c5;
   }
   .threeD-button-set:active {
     @apply translate-y-2;
-    box-shadow: 0 0.25rem 0 #FF3CAC;
+    box-shadow: 0 0.25rem 0 #ff3cac;
   }
   .zoomable {
     @apply transition-transform duration-300 ease-in-out origin-[50%_50%];
@@ -25,51 +25,51 @@
   .zoomed {
     transform: scale(1.8);
   }
-  
+
   /* Blockchain explorer scroll enhancements */
   .scroll-smooth {
     scroll-behavior: smooth;
   }
-  
+
   /* Custom scrollbar styling for blockchain explorer */
   .scrollbar-thin::-webkit-scrollbar {
     width: 8px;
   }
-  
+
   .scrollbar-thin::-webkit-scrollbar-track {
     background: transparent;
   }
-  
+
   .scrollbar-thin::-webkit-scrollbar-thumb {
     background-color: #ec4899;
     border-radius: 4px;
     border: 2px solid transparent;
     background-clip: content-box;
   }
-  
+
   .scrollbar-thin::-webkit-scrollbar-thumb:hover {
     background-color: #f97316;
   }
-  
+
   /* Hide scrollbar specifically for menu */
   .scrollable-menu::-webkit-scrollbar {
     width: 0px;
     background: transparent;
   }
-  
+
   .scrollable-menu::-webkit-scrollbar-track {
     background: transparent;
   }
-  
+
   .scrollable-menu::-webkit-scrollbar-thumb {
     background: transparent;
   }
-  
+
   .scrollable-menu {
     scrollbar-width: none; /* Firefox */
     -ms-overflow-style: none; /* IE and Edge */
   }
-  
+
   /* Scroll position indicators */
   .scroll-top::before {
     content: "▲";
@@ -80,7 +80,7 @@
     font-size: 12px;
     animation: fadeIn 0.3s ease-in-out;
   }
-  
+
   .scroll-bottom::after {
     content: "▼";
     position: absolute;
@@ -90,7 +90,7 @@
     font-size: 12px;
     animation: fadeIn 0.3s ease-in-out;
   }
-  
+
   .scroll-middle::before {
     content: "↕";
     position: absolute;
@@ -101,36 +101,46 @@
     font-size: 12px;
     animation: fadeIn 0.3s ease-in-out;
   }
-  
+
   @keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
   }
-    @keyframes gradient-border {
-    0%   { border-color: #2B86C5; }  /* cyan */
-    33%  { border-color: #FF3CAC; }  /* magenta */
-    66%  { border-color: #784BA0; }  /* violet */
-    100% { border-color: #2B86C5; }  /* retour au cyan */
+  @keyframes gradient-border {
+    0% {
+      border-color: #2b86c5;
+    } /* cyan */
+    33% {
+      border-color: #ff3cac;
+    } /* magenta */
+    66% {
+      border-color: #784ba0;
+    } /* violet */
+    100% {
+      border-color: #2b86c5;
+    } /* retour au cyan */
   }
 
   /* 2. Classe utilitaire pour la bordure animée */
   .animated-border {
-    @apply border-8;             /* largeur de la bordure */
+    @apply border-8; /* largeur de la bordure */
     animation: gradient-border 3s linear infinite;
   }
- @keyframes l3 {
-    25% { background-position: 
-      0 0,    /* paddle 1 haut */
-      100% 100%, /* paddle 2 bas */
-      100% calc(100% - 5px) /* balle coin */; }
-    50% { background-position: 
-      0 100%, 
-      100% 100%, 
-      0    calc(100% - 5px); }
-    75% { background-position: 
-      0 100%, 
-      100% 0, 
-      100% 5px; }
+  @keyframes l3 {
+    25% {
+      background-position: 0 0, /* paddle 1 haut */ 100% 100%,
+        /* paddle 2 bas */ 100% calc(100% - 5px) /* balle coin */;
+    }
+    50% {
+      background-position: 0 100%, 100% 100%, 0 calc(100% - 5px);
+    }
+    75% {
+      background-position: 0 100%, 100% 0, 100% 5px;
+    }
   }
 
   .loader {
@@ -139,14 +149,13 @@
 
     /* paddles en cyan, balle en magenta */
     background:
-      /* paddle gauche (cyan) */
-      linear-gradient(#0ff 0 0) 0    0/8px 20px,
-      /* paddle droite (cyan) */
-      linear-gradient(#0ff 0 0) 100% 0/8px 20px,
+      /* paddle gauche (cyan) */ linear-gradient(#0ff 0 0) 0 0/8px
+        20px,
+      /* paddle droite (cyan) */ linear-gradient(#0ff 0 0) 100% 0/8px 20px,
       /* balle (radial magenta) */
-      radial-gradient(farthest-side, #f0f 90%, transparent) 0 5px/8px 8px content-box,
-      /* fond */
-       transparent;
+        radial-gradient(farthest-side, #f0f 90%, transparent) 0 5px/8px 8px
+        content-box,
+      /* fond */ transparent;
     background-repeat: no-repeat;
     animation: l3 2s infinite linear;
   }
@@ -157,30 +166,151 @@
     font-family: "Press Start 2P", monospace;
   }
 
-   /* Backgrounds */
-  .bg-background { background-color: #080808 !important; }
-  .bg-primary    { background-color: #00FF00 !important; }
-  .bg-accent     { background-color: #FFD700 !important; }
+  /* Backgrounds */
+  .bg-background {
+    background-color: #080808 !important;
+  }
+  .bg-primary {
+    background-color: #00ff00 !important;
+  }
+  .bg-accent {
+    background-color: #ffd700 !important;
+  }
 
   /* Hover pour les backgrounds */
-  .hover\:bg-background:hover { background-color: #080808 !important; }
-  .hover\:bg-primary:hover    { background-color: #00FF00 !important; }
-  .hover\:bg-accent:hover     { background-color: #FFD700 !important; }
+  .hover\:bg-background:hover {
+    background-color: #080808 !important;
+  }
+  .hover\:bg-primary:hover {
+    background-color: #00ff00 !important;
+  }
+  .hover\:bg-accent:hover {
+    background-color: #ffd700 !important;
+  }
 
   /* Text colors */
-  .text-background { color: #080808 !important; }
-  .text-primary    { color: #00FF00 !important; }
-  .text-accent     { color: #FFD700 !important; }
+  .text-background {
+    color: #080808 !important;
+  }
+  .text-primary {
+    color: #00ff00 !important;
+  }
+  .text-accent {
+    color: #ffd700 !important;
+  }
 
   /* Hover pour les textes */
-  .hover\:text-background:hover { color: #080808 !important; }
-  .hover\:text-primary:hover    { color: #00FF00 !important; }
-  .hover\:text-accent:hover     { color: #FFD700 !important; }
+  .hover\:text-background:hover {
+    color: #080808 !important;
+  }
+  .hover\:text-primary:hover {
+    color: #00ff00 !important;
+  }
+  .hover\:text-accent:hover {
+    color: #ffd700 !important;
+  }
+
+  .glitch {
+    position: relative;
+  }
+  .glitch::before,
+  .glitch::after {
+    content: attr(data-text);
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0.8;
+    clip: rect(0, 0, 0, 0);
+  }
+  .glitch::before {
+    left: 2px;
+    text-shadow: -2px 0 red;
+    animation: glitch-anim-1 2s infinite linear alternate-reverse;
+  }
+  .glitch::after {
+    left: -2px;
+    text-shadow: -2px 0 blue;
+    animation: glitch-anim-2 1.5s infinite linear alternate-reverse;
+  }
+  .animate-glitch {
+    animation: glitch-anim-1 2s infinite linear alternate-reverse,
+      glitch-anim-2 1.5s infinite linear alternate-reverse;
+  }
+  .animate-flicker {
+    animation: flicker 1.5s infinite;
+  }
+  .animate-text-glitch {
+    animation: text-glitch 1.5s infinite;
+  }
+  @keyframes flicker {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    10%,
+    30%,
+    50%,
+    70% {
+      opacity: 0.4;
+    }
+    20%,
+    40%,
+    60%,
+    80% {
+      opacity: 0.7;
+    }
+  }
+  @keyframes glitch-anim-1 {
+    0% {
+      clip: rect(10px, 9999px, 20px, 0);
+    }
+    50% {
+      clip: rect(80px, 9999px, 90px, 0);
+    }
+    100% {
+      clip: rect(10px, 9999px, 20px, 0);
+    }
+  }
+  @keyframes glitch-anim-2 {
+    0% {
+      clip: rect(30px, 9999px, 40px, 0);
+    }
+    50% {
+      clip: rect(50px, 9999px, 60px, 0);
+    }
+    100% {
+      clip: rect(30px, 9999px, 40px, 0);
+    }
+  }
+  @keyframes text-glitch {
+    0%,
+    100% {
+      color: var(--color-green-300);
+    }
+    10% {
+      color: var(--color-pink-400);
+    }
+    30% {
+      color: var(--color-yellow-500);
+    }
+    50% {
+      color: var(--color-cyan-500);
+    }
+    70% {
+      color: var(--color-pink-200);
+    }
+    90% {
+      color: var(--color-green-400);
+    }
+  }
 }
 
 @layer base {
   /* Empêche tout scroll sur la page, même quand un enfant déborde */
-  html, body {
+  html,
+  body {
     overflow: hidden;
   }
 }

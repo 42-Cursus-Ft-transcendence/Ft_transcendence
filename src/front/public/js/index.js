@@ -6,11 +6,17 @@ import { renderProfile } from "./controllers/profileController.js";
 import { renderFriends } from "./controllers/friendsControllers.js";
 import { renderSettings } from "./controllers/settingsController.js";
 import { renderBlockExplorer } from "./controllers/blockExplorerController.js";
+import { renderErrors } from "./controllers/errorController.js";
 import { arcadeTemplate } from "./templates/arcadeTemplate.js";
 import { checkAuth } from "./utils/auth.js";
 export let socket;
 const root = document.getElementById("root");
 function doRender(screen) {
+    if (screen === "404") {
+        console.log("⚠️ rendering 404 template…", root);
+        renderErrors(root, "404");
+        return;
+    }
     if (screen === "signup")
         renderSignup(root, () => navigate("login"));
     else if (screen === "login")
@@ -60,7 +66,7 @@ function doRender(screen) {
                 renderSettings(app, () => navigate("menu"));
                 break;
             default:
-                renderSignup(root, () => navigate("menu"));
+                renderSettings(app, () => navigate("menu"));
                 break;
         }
     }
@@ -69,6 +75,28 @@ function doRender(screen) {
  * Change d'écran et met à jour l'historique
  */
 export async function navigate(screen) {
+    if (screen === "404") {
+        history.pushState({ screen: "404" }, "", `?screen=404`);
+        return doRender("404");
+    }
+    const validScreens = [
+        "signup",
+        "login",
+        "menu",
+        "2player",
+        "ia",
+        "online",
+        "ranked",
+        "profile",
+        "settings",
+        "blockexplorer",
+        "404",
+    ];
+    if (!validScreens.includes(screen)) {
+        // render in‑SPA 404
+        history.pushState({ screen: "404" }, "", `?screen=404`);
+        return doRender("404");
+    }
     if (screen !== "login" && screen !== "signup") {
         const isAuth = await checkAuth();
         if (!isAuth) {
@@ -83,20 +111,44 @@ export async function navigate(screen) {
 // Au chargement initial du document HTML
 window.addEventListener("DOMContentLoaded", () => {
     (async () => {
-        // Récupère l’écran demandé dans l’URL
         const params = new URLSearchParams(location.search);
-        let initialScreen = params.get("screen") || "menu";
-        if (initialScreen === "2player" || initialScreen === "ia" || initialScreen === "online" || initialScreen === "ranked")
-            initialScreen = "menu";
-        history.replaceState({ screen: initialScreen }, "", location.href);
-        navigate(initialScreen);
-        const protocol = location.protocol === "https:" ? "wss" : "ws";
-        const socket = initSocket(`${protocol}://${location.host}/ws`);
-        socket.addEventListener("close", (evt) => {
-            // 서버에서 401로 닫았다면, 화면 전환
-            navigate("login");
-        });
+        let initial = params.get("screen") || "menu";
+        if (["2player", "ia", "online", "ranked"].includes(initial)) {
+            initial = "menu";
+        }
+        // unknown param → 404 in‑SPA
+        const valid = [
+            "signup",
+            "login",
+            "menu",
+            "2player",
+            "ia",
+            "online",
+            "ranked",
+            "profile",
+            "settings",
+            "blockexplorer",
+            "404",
+        ];
+        if (initial !== "login" && initial !== "signup") {
+            const isAuth = await checkAuth();
+            if (!isAuth) {
+                initial = "login";
+            }
+        }
+        if (!valid.includes(initial)) {
+            initial = "404";
+        }
+        history.replaceState({ screen: initial }, "", `?screen=${initial}`);
+        navigate(initial);
     })();
+    // WebSocket setup follows…
+    const protocol = location.protocol === "https:" ? "wss" : "ws";
+    const socket = initSocket(`${protocol}://${location.host}/ws`);
+    socket.addEventListener("close", (evt) => {
+        // If the server closed with a 401, redirect to login
+        navigate("login");
+    });
 });
 // Lorsque l’utilisateur clique sur Précédent/Suivant
 window.addEventListener("popstate", async (event) => {
