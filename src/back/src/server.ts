@@ -24,6 +24,7 @@ import authPlugin from "./plugins/auth";
 import metricsPlugin from "./plugins/metrics";
 
 import { registerDbTimer } from "./db/dbTimer";
+import cliRoutes from "./routes/cli";
 
 (async () => {
   // ─────────────────────────────────────────────────────────────────────────────
@@ -117,6 +118,7 @@ import { registerDbTimer } from "./db/dbTimer";
   await app.register(oauthRoutes, { prefix: "/api" });
   await app.register(twofaRoutes, { prefix: "/api" });
   await app.register(scoresRoutes, { prefix: "/api" });
+  await app.register(cliRoutes, { prefix: "/api" });
 
   // ─────────────────────────────────────────────────────────────────────────────
   // Serve static frontend & SPA fallback (excluding /ws & /api)
