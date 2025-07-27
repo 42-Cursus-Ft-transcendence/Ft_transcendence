@@ -91,6 +91,7 @@ export function renderMenu(
     .querySelector<HTMLButtonElement>("#btnLogout")!
     .addEventListener("click", async () => {
       try {
+        socket.close();
         const res = await fetch("/api/logout", {
           method: "POST",
           credentials: "include",
