@@ -1,4 +1,17 @@
 Dockerfile
 .dockerignore
 
+# macOS / Finder
+.DS_Store
+.AppleDouble
 **/.DS_Store
+**/._*
+
+# 에디터 임시·백업 파일
+*.swp
+*.swo
+*~
+# VS Code 백업
+*.code-workspace
+.history/
+.vscode/

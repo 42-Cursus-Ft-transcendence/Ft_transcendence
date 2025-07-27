@@ -1,11 +1,20 @@
 FROM docker.elastic.co/logstash/logstash:8.17.2
 
-COPY /pipeline /usr/share/logstash/pipeline
-COPY ./config/logstash.yml /usr/share/logstash/config/logstash.yml
-COPY ./config/pipeline.yml ./usr/share/logstash/pipeline/pipeline.yml
+USER root
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends iproute2 lsof && \
+    rm -rf /var/lib/apt/lists/*
 
-RUN bin/logstash-plugin install logstash-filter-useragent
+COPY ./scripts/pull_chaine_generation.sh /usr/local/bin/pull_chaine_generation.sh
+RUN chmod +x /usr/local/bin/pull_chaine_generation.sh
+
+USER logstash
+COPY ./pipeline/ft_transcend.conf /usr/share/logstash/pipeline/
+COPY ./config/logstash.yml /usr/share/logstash/config/logstash.yml
+COPY ./config/pipelines.yml /usr/share/logstash/config/pipelines.yml
+# The above settings are additional when using multi-pipelines.
 
 EXPOSE 5044
 
+ENTRYPOINT ["/usr/local/bin/pull_chaine_generation.sh"]
 CMD ["bin/logstash"]

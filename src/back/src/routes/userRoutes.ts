@@ -98,7 +98,8 @@ export default async function userRoutes(app: FastifyInstance) {
           [idUser]
         );
 
-        if (!userRes) return reply.status(401).send({ error: "User not found" });
+        if (!userRes)
+          return reply.status(401).send({ error: "User not found" });
 
         // Get user ranking statistics (same query as leaderboard)
         const rankingRes = await getAsync<{
@@ -116,7 +117,9 @@ export default async function userRoutes(app: FastifyInstance) {
 
         // If no ranking data exists, create default entry (for ranked matches only)
         if (!rankingRes) {
-          console.log(`>> Creating default PlayerRanking entry for user ${idUser}`);
+          console.log(
+            `>> Creating default PlayerRanking entry for user ${idUser}`
+          );
           await runAsync(
             `INSERT INTO PlayerRanking (userId, elo, wins, losses, gamesPlayed) 
              VALUES (?, 1200, 0, 0, 0)`,
@@ -146,11 +149,15 @@ export default async function userRoutes(app: FastifyInstance) {
           wins: 0,
           losses: 0,
           gamesPlayed: 0,
-          lastMatchDate: null
+          lastMatchDate: null,
         };
 
         // Combine ranked and total statistics
-        const totalStats = totalMatchesRes || { totalWins: 0, totalLosses: 0, totalGamesPlayed: 0 };
+        const totalStats = totalMatchesRes || {
+          totalWins: 0,
+          totalLosses: 0,
+          totalGamesPlayed: 0,
+        };
 
         return reply.status(200).send({
           idUser,
@@ -168,7 +175,7 @@ export default async function userRoutes(app: FastifyInstance) {
           totalWins: totalStats.totalWins,
           totalLosses: totalStats.totalLosses,
           totalGamesPlayed: totalStats.totalGamesPlayed,
-          lastMatchDate: finalRankingRes.lastMatchDate
+          lastMatchDate: finalRankingRes.lastMatchDate,
         });
       } catch (err) {
         console.error(">> Error in /me route:", err);
@@ -185,7 +192,12 @@ export default async function userRoutes(app: FastifyInstance) {
         const idUser = (request.user as any).sub as number;
         const userName = (request.user as any).userName as string;
 
-        console.log(">> checkAuth successful for user:", userName, "ID:", idUser);
+        console.log(
+          ">> checkAuth successful for user:",
+          userName,
+          "ID:",
+          idUser
+        );
 
         return reply.status(200).send({
           authenticated: true,
@@ -544,11 +556,17 @@ export default async function userRoutes(app: FastifyInstance) {
 
         // Combiner et transformer les données
         const allMatches = [
-          ...rankedMatches.map(match => {
+          ...rankedMatches.map((match) => {
             const isPlayer1 = match.player1Id === idUser;
-            const playerScore = isPlayer1 ? match.player1Score : match.player2Score;
-            const opponentScore = isPlayer1 ? match.player2Score : match.player1Score;
-            const eloChange = isPlayer1 ? match.player1EloChange : match.player2EloChange;
+            const playerScore = isPlayer1
+              ? match.player1Score
+              : match.player2Score;
+            const opponentScore = isPlayer1
+              ? match.player2Score
+              : match.player1Score;
+            const eloChange = isPlayer1
+              ? match.player1EloChange
+              : match.player2EloChange;
             const won = match.winnerId === idUser;
 
             return {
@@ -560,34 +578,40 @@ export default async function userRoutes(app: FastifyInstance) {
               won: won,
               eloChange: eloChange,
               duration: match.matchDuration || 0,
-              type: 'ranked' as const
+              type: "ranked" as const,
             };
           }),
-          ...normalMatches.map(match => {
+          ...normalMatches.map((match) => {
             // Determine opponent name - it's the other player
-            const opponentName = match.player1Name === (request.user as any).userName ?
-              match.player2Name : match.player1Name;
+            const opponentName =
+              match.player1Name === (request.user as any).userName
+                ? match.player2Name
+                : match.player1Name;
 
             return {
               matchId: match.matchId.toString(),
               date: match.matchDate,
-              opponent: opponentName || 'Unknown',
+              opponent: opponentName || "Unknown",
               playerScore: match.player1Score, // Simplified for normal matches
               opponentScore: match.player2Score,
               won: match.winnerId === idUser,
               eloChange: 0, // No ELO change for normal matches
               duration: 0,
-              type: 'normal' as const
+              type: "normal" as const,
             };
-          })
+          }),
         ];
 
         // Trier par date et limiter à 50
         const sortedMatches = allMatches
-          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+          .sort(
+            (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+          )
           .slice(0, 50);
 
-        console.log(`>> Found ${sortedMatches.length} matches for user ${idUser} (${rankedMatches.length} ranked, ${normalMatches.length} normal)`);
+        console.log(
+          `>> Found ${sortedMatches.length} matches for user ${idUser} (${rankedMatches.length} ranked, ${normalMatches.length} normal)`
+        );
 
         return reply.status(200).send({
           matches: sortedMatches,
@@ -678,40 +702,39 @@ export default async function userRoutes(app: FastifyInstance) {
         );
 
         // Format friends data
-        const formattedFriends = friends.map(friend => ({
+        const formattedFriends = friends.map((friend) => ({
           userId: friend.userId,
           userName: friend.userName,
           avatarURL: friend.avatarURL || null,
-          status: friend.connectionStatus === 1 ? 'online' : 'offline',
+          status: friend.connectionStatus === 1 ? "online" : "offline",
           lastSeen: null, // Not available in current schema
-          isOnline: friend.connectionStatus === 1
+          isOnline: friend.connectionStatus === 1,
         }));
 
         // Format pending requests
         const pendingRequests = [
-          ...receivedRequests.map(req => ({
+          ...receivedRequests.map((req) => ({
             requestId: req.userId, // Using userId as requestId for simplicity
             userId: req.userId,
             userName: req.userName,
             avatarURL: req.avatarURL || null,
             requestedAt: req.requestedAt,
-            type: 'received' as const
+            type: "received" as const,
           })),
-          ...sentRequests.map(req => ({
+          ...sentRequests.map((req) => ({
             requestId: req.userId,
             userId: req.userId,
             userName: req.userName,
             avatarURL: req.avatarURL || null,
             requestedAt: req.requestedAt,
-            type: 'sent' as const
-          }))
+            type: "sent" as const,
+          })),
         ];
 
         return reply.status(200).send({
           friends: formattedFriends,
-          pendingRequests: pendingRequests
+          pendingRequests: pendingRequests,
         });
-
       } catch (error) {
         console.error("Error fetching friends:", error);
         return reply.status(500).send({ error: "Internal server error" });
@@ -732,7 +755,12 @@ export default async function userRoutes(app: FastifyInstance) {
       }
 
       try {
-        console.log(">> Sending friend request from user", userId, "to", username);
+        console.log(
+          ">> Sending friend request from user",
+          userId,
+          "to",
+          username
+        );
 
         // Find target user
         const targetUser = await getAsync<{ idUser: number }>(
@@ -745,7 +773,9 @@ export default async function userRoutes(app: FastifyInstance) {
         }
 
         if (targetUser.idUser === userId) {
-          return reply.status(400).send({ error: "Cannot send friend request to yourself" });
+          return reply
+            .status(400)
+            .send({ error: "Cannot send friend request to yourself" });
         }
 
         // Check if friendship already exists
@@ -756,10 +786,12 @@ export default async function userRoutes(app: FastifyInstance) {
         );
 
         if (existingFriendship) {
-          if (existingFriendship.status === 'accepted') {
+          if (existingFriendship.status === "accepted") {
             return reply.status(400).send({ error: "Already friends" });
-          } else if (existingFriendship.status === 'pending') {
-            return reply.status(400).send({ error: "Friend request already pending" });
+          } else if (existingFriendship.status === "pending") {
+            return reply
+              .status(400)
+              .send({ error: "Friend request already pending" });
           }
         }
 
@@ -771,27 +803,28 @@ export default async function userRoutes(app: FastifyInstance) {
         );
 
         // Get requester info for notification
-        const requesterInfo = await getAsync<{ userName: string; avatarURL?: string }>(
-          `SELECT userName, avatarURL FROM User WHERE idUser = ?`,
-          [userId]
-        );
+        const requesterInfo = await getAsync<{
+          userName: string;
+          avatarURL?: string;
+        }>(`SELECT userName, avatarURL FROM User WHERE idUser = ?`, [userId]);
 
         // Send real-time notification to target user
         if (requesterInfo) {
           sendFriendNotification(targetUser.idUser, {
-            type: 'friend_request_received',
+            type: "friend_request_received",
             data: {
               userId: userId,
               userName: requesterInfo.userName,
               avatarURL: requesterInfo.avatarURL,
               requestedAt: new Date().toISOString(),
-              type: 'received'
-            }
+              type: "received",
+            },
           });
         }
 
-        return reply.status(200).send({ message: "Friend request sent successfully" });
-
+        return reply
+          .status(200)
+          .send({ message: "Friend request sent successfully" });
       } catch (error) {
         console.error("Error sending friend request:", error);
         return reply.status(500).send({ error: "Internal server error" });
@@ -809,7 +842,12 @@ export default async function userRoutes(app: FastifyInstance) {
       const requesterIdNum = parseInt(requesterId);
 
       try {
-        console.log(">> Accepting friend request from", requesterIdNum, "to", userId);
+        console.log(
+          ">> Accepting friend request from",
+          requesterIdNum,
+          "to",
+          userId
+        );
 
         // Check if pending request exists
         const pendingRequest = await getAsync<{ idFriendship: number }>(
@@ -830,26 +868,25 @@ export default async function userRoutes(app: FastifyInstance) {
         );
 
         // Get user info for notification
-        const accepterInfo = await getAsync<{ userName: string; avatarURL?: string }>(
-          `SELECT userName, avatarURL FROM User WHERE idUser = ?`,
-          [userId]
-        );
+        const accepterInfo = await getAsync<{
+          userName: string;
+          avatarURL?: string;
+        }>(`SELECT userName, avatarURL FROM User WHERE idUser = ?`, [userId]);
 
         // Send real-time notification to the original requester
         if (accepterInfo) {
           sendFriendNotification(requesterIdNum, {
-            type: 'friend_request_accepted',
+            type: "friend_request_accepted",
             data: {
               userId: userId,
               userName: accepterInfo.userName,
               avatarURL: accepterInfo.avatarURL,
-              status: 'accepted'
-            }
+              status: "accepted",
+            },
           });
         }
 
         return reply.status(200).send({ message: "Friend request accepted" });
-
       } catch (error) {
         console.error("Error accepting friend request:", error);
         return reply.status(500).send({ error: "Internal server error" });
@@ -867,7 +904,12 @@ export default async function userRoutes(app: FastifyInstance) {
       const requesterIdNum = parseInt(requesterId);
 
       try {
-        console.log(">> Declining friend request from", requesterIdNum, "to", userId);
+        console.log(
+          ">> Declining friend request from",
+          requesterIdNum,
+          "to",
+          userId
+        );
 
         // Check if pending request exists
         const pendingRequest = await getAsync<{ idFriendship: number }>(
@@ -888,7 +930,6 @@ export default async function userRoutes(app: FastifyInstance) {
         );
 
         return reply.status(200).send({ message: "Friend request declined" });
-
       } catch (error) {
         console.error("Error declining friend request:", error);
         return reply.status(500).send({ error: "Internal server error" });
@@ -906,7 +947,12 @@ export default async function userRoutes(app: FastifyInstance) {
       const receiverIdNum = parseInt(receiverId);
 
       try {
-        console.log(">> Cancelling friend request from", userId, "to", receiverIdNum);
+        console.log(
+          ">> Cancelling friend request from",
+          userId,
+          "to",
+          receiverIdNum
+        );
 
         // Check if pending request exists
         const pendingRequest = await getAsync<{ idFriendship: number }>(
@@ -927,7 +973,6 @@ export default async function userRoutes(app: FastifyInstance) {
         );
 
         return reply.status(200).send({ message: "Friend request cancelled" });
-
       } catch (error) {
         console.error("Error cancelling friend request:", error);
         return reply.status(500).send({ error: "Internal server error" });
@@ -976,16 +1021,17 @@ export default async function userRoutes(app: FastifyInstance) {
         // Send real-time notification to the removed friend
         if (removerInfo) {
           sendFriendNotification(friendIdNum, {
-            type: 'friend_removed',
+            type: "friend_removed",
             data: {
               userId: userId,
-              userName: removerInfo.userName
-            }
+              userName: removerInfo.userName,
+            },
           });
         }
 
-        return reply.status(200).send({ message: "Friend removed successfully" });
-
+        return reply
+          .status(200)
+          .send({ message: "Friend removed successfully" });
       } catch (error) {
         console.error("Error removing friend:", error);
         return reply.status(500).send({ error: "Internal server error" });

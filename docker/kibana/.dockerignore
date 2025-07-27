@@ -1,4 +1,15 @@
 Dockerfile
 .dockerignore
 
+# macOS / Finder
+.DS_Store
+.AppleDouble
 **/.DS_Store
+**/._*
+
+*.swp
+*.swo
+*~
+*.code-workspace
+.history/
+.vscode/

@@ -30,6 +30,7 @@ services:
       - .env
     volumes:
       - ./contracts/out:/contracts/out
+      - ft-logs:/app/logs
     networks:
       - pongnet
 
@@ -155,6 +156,7 @@ services:
       - es-ca:/usr/share/elasticsearch/config/shared/ca
       - es-certs-logstash:/usr/share/elasticsearch/config/shared/certs/logstash
       - es-certs-kibana:/usr/share/elasticsearch/config/shared/certs/kibana
+      - es-certs-filebeat:/usr/share/elasticsearch/config/shared/certs/filebeat
     healthcheck:
       test:
         [
@@ -187,6 +189,37 @@ services:
       - es-ca:/usr/share/logstash/ca:ro
       - es-certs-logstash:/usr/share/logstash/certs:ro
     restart: on-failure
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'bash -c ''echo > /dev/tcp/localhost/5044 && echo "open" || echo "closed"''',
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - elknet
+
+  filebeat:
+    user: filebeat # filebeat starts as filebeat user(basically non-root in filebeat imagex)
+    group_add: # filebeat user needs to be in the root group to access logs
+      - 0
+    build:
+      context: ./docker/filebeat
+      dockerfile: Dockerfile
+    container_name: filebeat
+    volumes:
+      - ft-logs:/var/log/ft_transcendence:ro
+      - /etc/localtime:/etc/localtime:ro
+      - es-ca:/usr/share/filebeat/ca:ro
+      - es-certs-filebeat:/usr/share/filebeat/certs:ro
+    depends_on:
+      logstash:
+        condition: service_healthy
     networks:
       - elknet
 
@@ -234,6 +267,7 @@ services:
       pongnet:
         aliases:
           - kibana
+
 networks:
   pongnet:
     driver: bridge
@@ -250,3 +284,5 @@ volumes:
   es-ca:
   es-certs-logstash:
   es-certs-kibana:
+  es-certs-filebeat:
+  ft-logs:
