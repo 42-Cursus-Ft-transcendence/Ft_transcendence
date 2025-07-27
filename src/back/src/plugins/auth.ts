@@ -2,7 +2,7 @@ import fp from "fastify-plugin";
 import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import jwtLib from "jsonwebtoken";
 
-export default fp(async function (app: FastifyInstance) {
+async function authPlugin(app: FastifyInstance) {
   app.decorate(
     "authenticate",
     async function (
@@ -60,4 +60,10 @@ export default fp(async function (app: FastifyInstance) {
       (request as any).user = { id: payload.userId };
     }
   );
+}
+
+export default fp(authPlugin, {
+  name: "auth-plugin",
+  dependencies: [], // Ensure metricsPlugin is loaded first
+  fastify: "5.x",
 });

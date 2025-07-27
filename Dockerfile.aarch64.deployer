@@ -1,0 +1,39 @@
+# Dockerfile.aarch64.deployer
+# Based on Foundry official image for ARM64 deployment container
+FROM ghcr.io/foundry-rs/foundry:latest
+
+# ---------------------------------------------------------
+# 1) Switch to root user to install dependencies
+# ---------------------------------------------------------
+USER root
+
+# Install curl and CA certificates for fetching binaries
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends curl ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
+
+# ---------------------------------------------------------
+# 2) Download and install static ARM64 solc v0.8.29
+# ---------------------------------------------------------
+RUN curl -L https://github.com/0xidm/solc-bin/raw/master/linux-arm64/0.8.29/solc-static-linux \
+    -o /usr/local/bin/solc \
+ && chmod +x /usr/local/bin/solc
+
+# ---------------------------------------------------------
+# 3) Configure environment variables
+# ---------------------------------------------------------
+# Use system-installed solc instead of SVM-managed binary
+ENV FORGE_USE_SYSTEM_SOLC=1
+# Mute Foundry nightly build warnings
+ENV FOUNDRY_DISABLE_NIGHTLY_WARNING=1
+
+# ---------------------------------------------------------
+# 4) Revert to non-root user for container runtime
+# ---------------------------------------------------------
+USER 65532:65532
+
+# ---------------------------------------------------------
+# 5) Default command (set via docker-compose entrypoint)
+# ---------------------------------------------------------
+CMD ["forge"]
+

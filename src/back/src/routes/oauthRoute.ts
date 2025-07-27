@@ -53,13 +53,15 @@ export default async function oauthRoutes(app: FastifyInstance) {
          ) VALUES (?, ?, ?, ?, ?, ?, 0, ?, NULL, 0)`,
           [sub, userName, email, now, address, privKey, defaultAvatar]
         )) as number;
-
+        app.metrics.signupCounter.inc();
         userId = lastID;
       }
       const token = app.jwt.sign(
         { sub: userId, userName, email },
         { expiresIn: "2h" }
       );
+      app.onUserLogin();
+      app.metrics.loginSuccess.inc();
       return reply
         .setCookie("token", token, {
           // signed: true,
@@ -72,6 +74,7 @@ export default async function oauthRoutes(app: FastifyInstance) {
         .redirect("/?screen=menu");
     } catch (err: any) {
       app.log.error("Google OAuth error: ", err);
+      app.metrics.loginFailure.labels("Google OAuth Login Failure").inc();
       return reply.status(303).redirect("/?screen=login");
     }
   });

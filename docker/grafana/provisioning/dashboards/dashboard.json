@@ -1,0 +1,154 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": "-- Grafana --",
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "gnetId": null,
+  "graphTooltip": 0,
+  "title": "Transcendence Dashboard",
+  "uid": "Transcendence-dashboard",
+  "version": 6,
+  "schemaVersion": 30,
+  "style": "dark",
+  "time": { "from": "now-6h", "to": "now" },
+  "templating": { "list": [] },
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Active Logged‑in Users",
+      "id": 3,
+      "gridPos": { "x": 0, "y": 0, "w": 8, "h": 10 },
+      "options": {
+        "reduceOptions": { "calcs": ["last"], "values": false }
+      },
+      "targets": [
+        { "expr": "app_active_logged_in_users", "refId": "A", "instant": true }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Total HTTP Requests (rate)",
+      "id": 4,
+      "gridPos": { "x": 8, "y": 0, "w": 8, "h": 10 },
+      "options": {
+        "reduceOptions": { "calcs": ["last"], "values": false }
+      },
+      "targets": [
+        { "expr": "sum(rate(app_http_requests_total[5m]))", "refId": "A" }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "5xx Error Rate",
+      "id": 6,
+      "gridPos": { "x": 16, "y": 0, "w": 8, "h": 5 },
+      "options": {
+        "reduceOptions": { "calcs": ["last"], "values": false }
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(app_errors_total{status_code=~\"5..\"}[5m]))",
+          "refId": "A",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Active WS Connections",
+      "id": 8,
+      "gridPos": { "x": 0, "y": 6, "w": 4, "h": 5 },
+      "options": {
+        "reduceOptions": { "calcs": ["last"], "values": false }
+      },
+      "targets": [
+        { "expr": "app_ws_active_connections", "refId": "A", "instant": true }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Login Success Total",
+      "id": 10,
+      "gridPos": { "x": 4, "y": 6, "w": 4, "h": 5 },
+      "options": {
+        "reduceOptions": { "calcs": ["last"], "values": false }
+      },
+      "targets": [
+        { "expr": "app_login_success_total", "refId": "A", "instant": true }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Login Failure Total",
+      "id": 11,
+      "gridPos": { "x": 8, "y": 6, "w": 4, "h": 5 },
+      "options": {
+        "reduceOptions": { "calcs": ["last"], "values": false }
+      },
+      "targets": [
+        { "expr": "app_login_failure_total", "refId": "A", "instant": true }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Signup Total",
+      "id": 12,
+      "gridPos": { "x": 0, "y": 12, "w": 4, "h": 5 },
+      "options": {
+        "reduceOptions": { "calcs": ["last"], "values": false }
+      },
+      "targets": [{ "expr": "app_signup_total", "refId": "A", "instant": true }]
+    },
+    {
+      "type": "timeseries",
+      "title": "API Response Time (p95)",
+      "id": 5,
+      "gridPos": { "x": 4, "y": 12, "w": 8, "h": 9 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "gauge",
+      "title": "NGINX Connections Accepted",
+      "id": 2,
+      "gridPos": { "x": 0, "y": 22, "w": 4, "h": 9 },
+      "options": {
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "targets": [
+        {
+          "expr": "nginx_connections_accepted",
+          "refId": "A",
+          "format": "time_series"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "DB Query Duration (sec, p95)",
+      "id": 9,
+      "gridPos": { "x": 4, "y": 22, "w": 8, "h": 9 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(app_db_query_duration_seconds_bucket[5m])) by (le))",
+          "refId": "A"
+        }
+      ]
+    }
+  ]
+}

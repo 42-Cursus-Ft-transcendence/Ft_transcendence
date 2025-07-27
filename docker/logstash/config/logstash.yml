@@ -1,0 +1,15 @@
+api.http.host: "0.0.0.0"
+node.name: logstash
+
+xpack.monitoring.elasticsearch.hosts: ["https://elasticsearch:9200"]
+
+xpack.monitoring.elasticsearch.ssl.certificate_authority: "/usr/share/logstash/ca/ca.crt"
+xpack.monitoring.elasticsearch.ssl.verification_mode: "full"
+# xpack.monitoring.elasticsearch.ssl.certificate: "/usr/share/logstash/certs/logstash.crt"
+# xpack.monitoring.elasticsearch.ssl.key: "/usr/share/logstash/certs/logstash.key"
+
+xpack.monitoring.elasticsearch.api_key: "${LOGSTASH_MONITORING_API_KEY}"
+
+xpack.monitoring.enabled: true
+
+pipeline.buffer.type: heap

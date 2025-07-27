@@ -4,39 +4,79 @@ import { Wallet } from "ethers";
 
 import { runAsync, getAsync } from "../db";
 import { getRandomDefaultAvatar } from "../utils/avatar";
+import {
+  assertValidEmail,
+  validateUnique,
+  ValidationError,
+} from "../utils/userValidation";
 
 export default async function userRoutes(app: FastifyInstance) {
   app.post("/signup", async (request, reply): Promise<void> => {
-    console.log(">> Reçu POST /user");
-    // Récupère et valide le body
-    const { userName, email, password } = request.body as {
-      userName?: string;
-      email?: string;
-      password?: string;
-    };
-    if (!userName || !email || !password)
-      return reply
-        .status(400)
-        .send({ error: "userName, email and password required" });
-
     try {
-      const hashPass = await bcrypt.hash(password, 10);
-      const now = new Date().toString();
-      const userWallet = Wallet.createRandom();
-      const address = userWallet.address;
-      const privKey = userWallet.privateKey;
-      const defaultAvatar = getRandomDefaultAvatar();
-
-      const idUser = await runAsync(
-        `INSERT INTO User(userName, email, password, registrationDate, address, privkey, connectionStatus, avatarURL)
-                VALUES (?, ?, ?, ?, ?, ?, 0, ?)`,
-        [userName, email, hashPass, now, address, privKey, defaultAvatar]
+      console.log(">> Reçu POST /user");
+      // Récupère et valide le body
+      const { userName, email, password } = request.body as {
+        userName?: string;
+        email?: string;
+        password?: string;
+      };
+      if (!userName || !email || !password)
+        throw new ValidationError("userName, email and password required", 400);
+      assertValidEmail(email);
+      await validateUnique(
+        "User",
+        "userName",
+        userName,
+        "Username is already taken"
       );
+      await validateUnique(
+        "User",
+        "email",
+        email,
+        "Email is already registered"
+      );
+
+      const hashedPassword = await bcrypt.hash(password, 10);
+      const registrationDate = new Date().toISOString();
+      const userWallet = Wallet.createRandom();
+      const idUser: number = await runAsync(
+        `INSERT INTO User (
+           userName,
+           email,
+           password,
+           registrationDate,
+           address,
+           privkey,
+           connectionStatus,
+           avatarURL
+         ) VALUES (?, ?, ?, ?, ?, ?, 0, ?)`,
+        [
+          userName,
+          email,
+          hashedPassword,
+          registrationDate,
+          userWallet.address,
+          userWallet.privateKey,
+          getRandomDefaultAvatar(),
+        ]
+      );
+      app.metrics.signupCounter.inc();
       return reply.status(201).send({ idUser });
-    } catch (err: any) {
-      if (err.code === "SQLITE_CONSTRAINT") {
-        return reply.status(409).send({ error: "Username already taken" });
+    } catch (error: any) {
+      if (error instanceof ValidationError) {
+        return reply.status(error.status).send({ error: error.message });
       }
+      if (error.code === "SQLITE_CONSTRAINT") {
+        if (error.message.includes("User.email")) {
+          return reply
+            .status(409)
+            .send({ error: "Email is already registered" });
+        }
+        if (error.message.includes("User.userName")) {
+          return reply.status(409).send({ error: "Username is already taken" });
+        }
+      }
+      app.log.error(error, "Error occurred during signup");
       return reply.status(500).send({ error: "Internal server error" });
     }
   });
@@ -101,7 +141,6 @@ export default async function userRoutes(app: FastifyInstance) {
        WHERE userName = ?`,
         [userName]
       );
-
       if (!user)
         return reply
           .status(401)
@@ -137,6 +176,8 @@ export default async function userRoutes(app: FastifyInstance) {
         { sub: user.idUser, userName },
         { expiresIn: "2h" }
       );
+      app.onUserLogin();
+      app.metrics.loginSuccess.inc();
       return reply
         .setCookie("token", token, {
           // signed: true,
@@ -152,7 +193,9 @@ export default async function userRoutes(app: FastifyInstance) {
           idUser: user.idUser,
           avatarURL: user.avatarURL,
         });
-    } catch (err) {
+    } catch (err: any) {
+      app.log.error("Login handler error:", err);
+      app.metrics.loginFailure.labels("Login Failure").inc();
       return reply.status(500).send({ error: "Internal server error" });
     }
   });
@@ -175,8 +218,14 @@ export default async function userRoutes(app: FastifyInstance) {
           `UPDATE User SET connectionStatus = 0 WHERE idUser = ?`,
           [idUser]
         );
+        app.onUserLogout();
         return reply
-          .setCookie("token", "", cookieOpt)
+          .clearCookie("token", {
+            path: "/",
+            httpOnly: true,
+            sameSite: "strict",
+            // secure: true,
+          })
           .status(200)
           .send({ ok: true });
       } catch (err) {
@@ -187,6 +236,7 @@ export default async function userRoutes(app: FastifyInstance) {
       }
     }
   );
+
   app.put(
     "/account",
     { preHandler: [(app as any).authenticate] },
