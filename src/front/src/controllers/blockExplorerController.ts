@@ -10,7 +10,7 @@ interface Block {
   miner: string;
 }
 
-interface Transaction {
+interface BlockchainTransaction {
   idTransaction: number;
   hash: string;
   block_number: number;
@@ -149,7 +149,7 @@ export function renderBlockExplorer(
   async function fetchTransactions(
     page: number = 1,
     limit: number = 20
-  ): Promise<{ transactions: Transaction[]; pagination: any }> {
+  ): Promise<{ transactions: BlockchainTransaction[]; pagination: any }> {
     try {
       const response = await fetch(
         `/api/transactions?page=${page}&limit=${limit}`,
@@ -173,7 +173,7 @@ export function renderBlockExplorer(
 
   async function fetchTransactionByHash(
     hash: string
-  ): Promise<Transaction | null> {
+  ): Promise<BlockchainTransaction | null> {
     try {
       const response = await fetch(`/api/transactions/${hash}`, {
         method: "GET",
@@ -193,9 +193,9 @@ export function renderBlockExplorer(
   }
 
   // Convert database transactions to blocks format for display
-  function transactionsToBlocks(transactions: Transaction[]): Block[] {
+  function transactionsToBlocks(transactions: BlockchainTransaction[]): Block[] {
     // Group transactions by block number (use 0 for pending transactions)
-    const blockGroups: { [key: number]: Transaction[] } = {};
+    const blockGroups: { [key: number]: BlockchainTransaction[] } = {};
     transactions.forEach((tx) => {
       const blockNum = tx.block_number || 0; // Use 0 for pending transactions
       if (!blockGroups[blockNum]) {
@@ -230,7 +230,7 @@ export function renderBlockExplorer(
 
   // Convert database transactions to tournament format for display
   function transactionsToTournaments(
-    transactions: Transaction[]
+    transactions: BlockchainTransaction[]
   ): Tournament[] {
     return transactions
       .filter((tx) => tx.status === "confirmed")
@@ -247,7 +247,7 @@ export function renderBlockExplorer(
       .sort((a, b) => b.timestamp - a.timestamp);
   }
   // Store current transaction data
-  let currentTransactions: Transaction[] = [];
+  let currentTransactions: BlockchainTransaction[] = [];
   let currentBlocks: Block[] = [];
   let currentTournaments: Tournament[] = [];
 

@@ -10,6 +10,7 @@ export type ScreenChoise =
   | "profile"
   | "settings"
   | "blockexplorer"
+  | "friends"
   | "login";
 
 // Convert difficulty setting to numeric value
@@ -72,6 +73,10 @@ export function renderMenu(
     zoomIn();
     onSelect("profile");
   });
+  container.querySelector("#btnFriends")!.addEventListener("click", () => {
+    zoomIn();
+    onSelect("friends");
+  });
   container.querySelector("#btnSettings")!.addEventListener("click", () => {
     zoomIn();
     onSelect("settings");
@@ -86,6 +91,7 @@ export function renderMenu(
     .querySelector<HTMLButtonElement>("#btnLogout")!
     .addEventListener("click", async () => {
       try {
+        socket.close();
         const res = await fetch("/api/logout", {
           method: "POST",
           credentials: "include",

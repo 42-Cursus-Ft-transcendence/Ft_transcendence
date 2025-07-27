@@ -191,16 +191,19 @@ async function saveRankedMatch(
   player2: RankedPlayer,
   score1: number,
   score2: number,
-  eloChanges: { p1Update: EloUpdate; p2Update: EloUpdate }
+  eloChanges: { p1Update: EloUpdate; p2Update: EloUpdate },
+  matchDuration: number
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     const winnerId =
       score1 > score2 ? player1.sub : score2 > score1 ? player2.sub : null;
 
+    const matchDate = new Date().toISOString();
+
     db.run(
       `INSERT INTO RankedMatch (matchId, player1Id, player2Id, player1Score, player2Score, 
-       winnerId, player1EloChange, player2EloChange, matchDate) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
+       winnerId, player1EloChange, player2EloChange, matchDate, matchDuration) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         matchId,
         player1.sub,
@@ -210,6 +213,8 @@ async function saveRankedMatch(
         winnerId,
         eloChanges.p1Update.eloChange,
         eloChanges.p2Update.eloChange,
+        matchDate,
+        matchDuration,
       ],
       (err) => {
         if (err) reject(err);
@@ -293,25 +298,12 @@ export async function handleRankedStart(
       sessionGame.mode = "online";
       sessionGame.setMaxScore(10); // Set target to 10 for ranked matches
 
-      const loopTimer = setInterval(async () => {
-        sessionGame.update();
-        const state = JSON.stringify(sessionGame.getState());
-        opponent.socket.send(state);
-        socket.send(state);
-
-        // Check if game is over and auto-end match
-        if (sessionGame.isGameOver) {
-          clearInterval(loopTimer);
-          await handleRankedMatchEnd(session);
-        }
-      }, 1000 / 60);
-
       const session: RankedSession = {
         id: gameId,
         game: sessionGame,
         sockets: { p1: opponent.socket, p2: socket },
         players: { p1: opponent.payload, p2: rankedPlayer },
-        loopTimer,
+        loopTimer: null as any, // Will be set after rankedMatchFound messages
         startTime: Date.now(),
         isRanked: true,
       };
@@ -320,30 +312,81 @@ export async function handleRankedStart(
       socketToRankedSession.set(opponent.socket, session);
       socketToRankedSession.set(socket, session);
 
-      // Notify players
-      opponent.socket.send(
-        JSON.stringify({
-          type: "rankedMatchFound",
-          gameId,
-          youAre: "p1",
-          opponent: {
-            userName: rankedPlayer.userName,
-            elo: rankedPlayer.elo,
-          },
-        })
-      );
+      // Send rankedMatchFound messages with delay to avoid race condition
+      console.log('🎯 Sending rankedMatchFound to p1 (opponent):', {
+        userName: opponent.payload.userName,
+        opponentName: rankedPlayer.userName,
+        socketState: opponent.socket.readyState
+      });
 
-      socket.send(
-        JSON.stringify({
+      const p1Message = JSON.stringify({
+        type: "rankedMatchFound",
+        gameId,
+        youAre: "p1",
+        yourElo: opponent.payload.elo,
+        yourName: opponent.payload.userName,
+        opponent: {
+          userName: rankedPlayer.userName,
+          elo: rankedPlayer.elo,
+        },
+      });
+
+      try {
+        opponent.socket.send(p1Message);
+        console.log('✅ P1 ranked message sent successfully');
+      } catch (err) {
+        console.error('❌ Failed to send P1 ranked message:', err);
+      }
+
+      // Small delay between messages to avoid any potential race condition
+      setTimeout(() => {
+        console.log('🎯 Now sending rankedMatchFound to p2 (socket):', {
+          userName: rankedPlayer.userName,
+          opponentName: opponent.payload.userName,
+          socketState: socket.readyState
+        });
+
+        const p2Message = JSON.stringify({
           type: "rankedMatchFound",
           gameId,
           youAre: "p2",
+          yourElo: rankedPlayer.elo,
+          yourName: rankedPlayer.userName,
           opponent: {
             userName: opponent.payload.userName,
             elo: opponent.payload.elo,
           },
-        })
-      );
+        });
+
+        try {
+          socket.send(p2Message);
+          console.log('✅ P2 ranked message sent successfully');
+        } catch (err) {
+          console.error('❌ Failed to send P2 ranked message:', err);
+        }
+
+        console.log('📨 Both rankedMatchFound messages attempted. P1 message:', p1Message);
+        console.log('📨 P2 message:', p2Message);
+      }, 10); // 10ms delay between messages
+
+      // Small delay to ensure rankedMatchFound messages are processed before game starts
+      setTimeout(() => {
+        const loopTimer = setInterval(async () => {
+          sessionGame.update();
+          const state = JSON.stringify(sessionGame.getState());
+          opponent.socket.send(state);
+          socket.send(state);
+
+          // Check if game is over and auto-end match
+          if (sessionGame.isGameOver) {
+            clearInterval(loopTimer);
+            await handleRankedMatchEnd(session);
+          }
+        }, 1000 / 60);
+
+        // Update session with the actual timer
+        session.loopTimer = loopTimer;
+      }, 50); // 50ms delay to ensure message order
     } else {
       // Add to waiting queue
       rankedWaiting.push(newWaitingItem);
@@ -378,7 +421,14 @@ export async function handleRankedStop(socket: WebSocket): Promise<void> {
   const session = socketToRankedSession.get(socket);
   if (!session) return;
 
-  await handleRankedMatchEnd(session);
+  // When someone manually stops (back button), treat it as a forfeit
+  if (!session.game.isGameOver) {
+    console.log('🏆 Player manually stopped ranked match - treating as forfeit');
+    await handleRankedForfeit(session, socket, "forfeit");
+  } else {
+    // Game was already over, just clean up
+    await handleRankedMatchEnd(session);
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -403,6 +453,10 @@ async function handleRankedMatchEnd(session: RankedSession): Promise<void> {
     await updatePlayerRanking(eloChanges.p1Update, score1 > score2);
     await updatePlayerRanking(eloChanges.p2Update, score2 > score1);
 
+    // Calculate match duration in seconds
+    const matchDurationMs = Date.now() - session.startTime;
+    const matchDurationSeconds = Math.round(matchDurationMs / 1000);
+
     // Save match to database
     await saveRankedMatch(
       session.id,
@@ -410,7 +464,8 @@ async function handleRankedMatchEnd(session: RankedSession): Promise<void> {
       session.players.p2,
       score1,
       score2,
-      eloChanges
+      eloChanges,
+      matchDurationSeconds
     );
 
     // Post scores to blockchain (only if not already posted due to disconnect)
@@ -432,12 +487,14 @@ async function handleRankedMatchEnd(session: RankedSession): Promise<void> {
 
           // Store transaction hashes in database for blockchain explorer
           try {
+            const currentTimestamp = new Date().toISOString();
+
             await new Promise<void>((resolve, reject) => {
               db.run(
                 `INSERT OR REPLACE INTO BlockchainTransactions 
-                 (gameId, playerId, playerAddress, score, transactionHash, gameType, createdAt) 
-                 VALUES (?, ?, ?, ?, ?, 'ranked', datetime('now'))`,
-                [session.id, session.players.p1.sub, row1.address, score1, tx1],
+                 (game_id, player_address, score, hash, timestamp, status) 
+                 VALUES (?, ?, ?, ?, ?, ?, 'confirmed')`,
+                [session.id, session.players.p1.sub, row1.address, score1, tx1, currentTimestamp],
                 (err) => err ? reject(err) : resolve()
               );
             });
@@ -445,9 +502,9 @@ async function handleRankedMatchEnd(session: RankedSession): Promise<void> {
             await new Promise<void>((resolve, reject) => {
               db.run(
                 `INSERT OR REPLACE INTO BlockchainTransactions 
-                 (gameId, playerId, playerAddress, score, transactionHash, gameType, createdAt) 
-                 VALUES (?, ?, ?, ?, ?, 'ranked', datetime('now'))`,
-                [session.id, session.players.p2.sub, row2.address, score2, tx2],
+                 (game_id, userId, player_address, score, hash, timestamp, status) 
+                 VALUES (?, ?, ?, ?, ?, ?, 'confirmed')`,
+                [session.id, session.players.p2.sub, row2.address, score2, tx2, currentTimestamp],
                 (err) => err ? reject(err) : resolve()
               );
             });
@@ -515,29 +572,33 @@ export async function handleRankedForfeit(
     const disconnectedPlayer =
       disconnectedSocket === session.sockets.p1 ? "p1" : "p2";
     const winner = disconnectedPlayer === "p1" ? "p2" : "p1";
+    const disconnectedPlayerName = disconnectedPlayer === "p1" ? session.players.p1.userName : session.players.p2.userName;
+    const remainingSocket = disconnectedPlayer === "p1" ? session.sockets.p2 : session.sockets.p1;
+
+    console.log(
+      `🏆 Player ${disconnectedPlayerName} (${disconnectedPlayer}) forfeited due to ${reason}. Winner: ${winner}`
+    );
 
     // Set forfeit score (10-0 for the remaining player)
     session.game.forfeit(winner);
 
-    console.log(
-      `Player ${disconnectedPlayer} forfeited due to ${reason}. Winner: ${winner}`
-    );
-
-    // End the match with forfeit scores
+    // End the match with forfeit scores - this handles ELO, database, and blockchain
     await handleRankedMatchEnd(session);
 
     // Notify the remaining player about the forfeit
-    const remainingSocket =
-      disconnectedPlayer === "p1" ? session.sockets.p2 : session.sockets.p1;
     try {
       remainingSocket.send(
         JSON.stringify({
-          type: "opponentForfeited",
-          reason: reason,
+          type: "matchOver",
+          reason: "opponent_forfeit",
+          message: `${disconnectedPlayerName} has ${reason === "disconnection" ? "disconnected" : "forfeited"}. You win!`,
           gameId: session.id,
           winner: winner,
+          score: session.game.score,
+          forfeit: true
         })
       );
+      console.log(`✅ Notified remaining player about forfeit win`);
     } catch (err) {
       console.log(
         "Could not notify remaining player - they may have also disconnected"
@@ -563,7 +624,7 @@ async function getPlayerRank(userId: number): Promise<number> {
 export async function getLeaderboard(limit: number = 10): Promise<any[]> {
   return new Promise((resolve, reject) => {
     db.all(
-      `SELECT u.userName, pr.elo, pr.wins, pr.losses, pr.gamesPlayed 
+      `SELECT u.idUser as userId, u.userName, u.avatarURL, pr.elo, pr.wins, pr.losses, pr.gamesPlayed 
        FROM PlayerRanking pr 
        JOIN User u ON pr.userId = u.idUser 
        ORDER BY pr.elo DESC 
@@ -587,13 +648,14 @@ export async function cleanupRankedSocket(socket: WebSocket): Promise<void> {
   );
   if (waitingIndex >= 0) {
     rankedWaiting.splice(waitingIndex, 1);
+    console.log(`Removed player from ranked waiting queue`);
     return;
   }
 
   // Handle session cleanup with forfeit
   const session = socketToRankedSession.get(socket);
   if (session) {
-    // Check if disconnect was already handled in index.ts
+    // Check if disconnect was already handled
     if ((session as any).disconnectHandled) {
       console.log("Disconnect already handled, just cleaning up session");
       clearInterval(session.loopTimer);
@@ -606,11 +668,16 @@ export async function cleanupRankedSocket(socket: WebSocket): Promise<void> {
     // Check if the game is still in progress (not already ended)
     if (!session.game.isGameOver) {
       console.log(
-        `Player disconnected during active ranked match: ${session.id}`
+        `🏆 Player disconnected during active ranked match: ${session.id} - handling forfeit`
       );
+
+      // Mark disconnect as being handled to prevent duplicate processing
+      (session as any).disconnectHandled = true;
+
       await handleRankedForfeit(session, socket, "disconnection");
     } else {
       // Game was already over, just clean up
+      console.log(`Game already over, cleaning up ranked session: ${session.id}`);
       clearInterval(session.loopTimer);
       rankedSessions.delete(session.id);
       socketToRankedSession.delete(session.sockets.p1);

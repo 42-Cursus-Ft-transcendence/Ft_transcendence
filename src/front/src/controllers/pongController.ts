@@ -9,10 +9,13 @@ export function renderPong(container: HTMLElement, socket: WebSocket, onBack: ()
   let isGameActive = false;
   let keyHandlersAdded = false;
 
+  // Store player names for display
+  let player1Name = "P1";
+  let player2Name = "P2";
+
   // Single message handler for the entire session
   const messageHandler = (ev: MessageEvent) => {
     const msg = JSON.parse(ev.data);
-
     if (msg.type === 'waiting' && !isGameActive) {
       container.innerHTML = waitingTemplate;
       bindCancel();
@@ -21,6 +24,14 @@ export function renderPong(container: HTMLElement, socket: WebSocket, onBack: ()
       if (!isGameActive) {
         isGameActive = true;
         container.innerHTML = pongTemplate;
+
+        // Force update labels immediately after template is set
+        // Use both setTimeout and immediate call to ensure labels are updated
+        updatePlayerLabels();
+        setTimeout(() => {
+          updatePlayerLabels();
+        }, 0);
+
         bindGame(msg);
       } else {
         // Just update the existing game
@@ -30,8 +41,116 @@ export function renderPong(container: HTMLElement, socket: WebSocket, onBack: ()
       console.log('Game ended:', msg.score1, msg.score2);
       cleanup();
       onBack();
+    } else if (msg.type === 'matchOver') {
+      console.log('Match ended:', msg);
+      if (msg.message) {
+        alert(msg.message); // Show forfeit/disconnect message to user
+      }
+      cleanup();
+      onBack();
+    } else if (msg.type === 'rankedMatchOver') {
+      console.log('Ranked match ended:', msg);
+      // Show ELO changes and match results
+      if (msg.eloChanges) {
+        const p1Change = msg.eloChanges.p1.eloChange;
+        const p2Change = msg.eloChanges.p2.eloChange;
+        console.log(`ELO Changes - P1: ${p1Change > 0 ? '+' : ''}${p1Change}, P2: ${p2Change > 0 ? '+' : ''}${p2Change}`);
+      }
+      cleanup();
+      onBack();
+    } else if (msg.type === "rankedMatchFound") {
+      console.log('🏆 Ranked match found message received:', msg);
+      const yourP = msg.youAre;
+      const yourName = msg.yourName;
+      const opponent = msg.opponent;
+
+      console.log('🏷️ Setting ranked player names:', {
+        yourP,
+        yourName,
+        opponentName: opponent.userName
+      });
+
+      // Set player names based on position
+      if (yourP === "p1") {
+        player1Name = yourName;
+        player2Name = opponent.userName;
+      } else {
+        player1Name = opponent.userName;
+        player2Name = yourName;
+      }
+
+      console.log('🏷️ Final ranked player names set:', {
+        player1Name,
+        player2Name,
+        isGameActive
+      });
+
+      // Always try to update labels - if DOM isn't ready, the setTimeout in state handler will catch it
+      updatePlayerLabels();
+    } else if (msg.type === "matchFound") {
+      console.log('🎮 matchFound message received:', msg);
+      const yourP = msg.youAre;
+      console.log('Online match found, you are:', yourP, 'your name:', msg.yourName, 'opponent:', msg.opponent?.userName);
+
+      // If player names are included
+      if (msg.yourName && msg.opponent && msg.opponent.userName) {
+        console.log('🏷️ Setting online player names:', {
+          yourP,
+          yourName: msg.yourName,
+          opponentName: msg.opponent.userName
+        });
+
+        if (yourP === "p1") {
+          player1Name = msg.yourName;
+          player2Name = msg.opponent.userName;
+        } else {
+          player1Name = msg.opponent.userName;
+          player2Name = msg.yourName;
+        }
+
+        console.log('🏷️ Final online player names set:', {
+          player1Name,
+          player2Name,
+          isGameActive
+        });
+
+        // Always try to update labels - if DOM isn't ready, the setTimeout in state handler will catch it
+        updatePlayerLabels();
+      } else {
+        console.log('❌ Missing player names in matchFound message:', {
+          yourName: msg.yourName,
+          opponent: msg.opponent,
+          opponentUserName: msg.opponent?.userName
+        });
+      }
     }
   };
+
+  // Function to update player labels
+  function updatePlayerLabels() {
+    console.log('🏷️ updatePlayerLabels called with:', { player1Name, player2Name, isGameActive });
+    const player1Label = container.querySelector<HTMLElement>('#player1Label');
+    const player2Label = container.querySelector<HTMLElement>('#player2Label');
+
+    console.log('🏷️ Found label elements:', {
+      player1Label: !!player1Label,
+      player2Label: !!player2Label,
+      containerHTML: container.innerHTML.includes('player1Label')
+    });
+
+    if (player1Label) {
+      player1Label.textContent = player1Name;
+      console.log('🏷️ Set player1Label to:', player1Name);
+    } else {
+      console.log('❌ player1Label element not found');
+    }
+    if (player2Label) {
+      player2Label.textContent = player2Name;
+      console.log('🏷️ Set player2Label to:', player2Name);
+    } else {
+      console.log('❌ player2Label element not found');
+    }
+  }
 
   socket.addEventListener('message', messageHandler);
 
@@ -43,7 +162,7 @@ export function renderPong(container: HTMLElement, socket: WebSocket, onBack: ()
     const back = container.querySelector<HTMLButtonElement>('#backBtn');
     if (back) {
       back.addEventListener('click', () => {
-        socket.send(JSON.stringify({ type: 'stoplobby'}));
+        socket.send(JSON.stringify({ type: 'stoplobby' }));
         cleanup();
         onBack();
       });
@@ -54,8 +173,19 @@ export function renderPong(container: HTMLElement, socket: WebSocket, onBack: ()
   bindCancel();
 
   window.addEventListener('popstate', (event) => {
+    if (isGameActive) {
+      socket.send(JSON.stringify({ type: 'forfeit' }));
+    }
     cleanup();
   });
+
+  // Handle page refresh/close during active game
+  const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+    if (isGameActive) {
+      socket.send(JSON.stringify({ type: 'forfeit' }));
+    }
+  };
+  window.addEventListener('beforeunload', handleBeforeUnload);
   function bindGame(initial: any) {
     const CW = 500, CH = 300, PW = 10, PH = 60, BR = 6;
 
@@ -116,7 +246,13 @@ export function renderPong(container: HTMLElement, socket: WebSocket, onBack: ()
         else if (k === settings.p1DownKey) { ply = 'p1'; dir = 'down'; }
         else if (k === settings.p2UpKey) { ply = 'p2'; dir = 'up'; }
         else if (k === settings.p2DownKey) { ply = 'p2'; dir = 'down'; }
-        else if (k === 'escape') { cleanup(); onBack(); return; }
+        else if (k === 'escape') {
+          // Send forfeit message for active games instead of stop
+          socket.send(JSON.stringify({ type: 'forfeit' }));
+          cleanup();
+          onBack();
+          return;
+        }
 
         if (ply && dir) {
           socket.send(JSON.stringify({ type: 'input', player: ply, dir }));
@@ -143,7 +279,9 @@ export function renderPong(container: HTMLElement, socket: WebSocket, onBack: ()
     }
 
     backBtn.addEventListener('click', () => { cleanup(); onBack(); });
-    quitBtn.addEventListener('click', () => { cleanup(); onBack(); });
+    if (quitBtn) {
+      quitBtn.addEventListener('click', () => { cleanup(); onBack(); });
+    }
   }
 
 
@@ -162,7 +300,10 @@ export function renderPong(container: HTMLElement, socket: WebSocket, onBack: ()
       keyHandlersAdded = false;
     }
 
-    // Send stop message
+    // Remove beforeunload handler
+    window.removeEventListener('beforeunload', handleBeforeUnload);
+
+    // Send stop message (only if game wasn't forfeited already)
     socket.send(JSON.stringify({ type: 'stop' }));
   }
 

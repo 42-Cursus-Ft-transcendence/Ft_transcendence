@@ -9,13 +9,24 @@ import { handleStopLobby } from "./stoplobby";
 import { handleForfeit } from "./forfeit";
 import { socketToSession } from "./online";
 import { RankedSession } from "./tournament";
-import { getAsync } from "../../db";
+import { getAsync, getAllAsync } from "../../db";
 import { postScore } from "../../blockchain";
 import { db } from "../../db/db";
+import {
+  registerUserSocket,
+  unregisterUserSocket,
+  broadcastToFriends
+} from "./friends";
 
-export default function wsHandler(socket: WebSocket, request: FastifyRequest) {
+export default async function wsHandler(socket: WebSocket, request: FastifyRequest) {
   const user = request.user as { sub: number; userName: string };
   console.log(`✅ WS connected: user #${user.userName}`);
+
+  // Register user for friend notifications
+  await registerUserSocket(user.sub, socket);
+
+  // Notify friends that this user is now online
+  await notifyFriendsUserOnline(user.sub);
 
   socket.on("message", async (raw: Buffer) => {
     let msg: any;
@@ -61,106 +72,103 @@ export default function wsHandler(socket: WebSocket, request: FastifyRequest) {
   });
 
   socket.on("close", async () => {
-    // Handle online session cleanup
-    if (socketToSession.has(socket)) {
-      const session = socketToSession.get(socket);
-      if (session) {
-        console.log(`⚠️ WS disconnected: user #${session.players.p1.userName} vs ${session.players.p2.userName}`);
-        session.sockets.p1.send(JSON.stringify({ type: "STOP" }));
-        session.sockets.p2.send(JSON.stringify({ type: "STOP" }));
-      }
-    }
+    console.log(`⚠️ WS disconnected: user #${user.userName}`);
 
-    // Handle ranked session cleanup with forfeit
-    if (socketToRankedSession.has(socket)) {
-      const rankedSession = socketToRankedSession.get(socket);
-      if (rankedSession && !rankedSession.game.isGameOver) {
-        console.log(`🏆 Ranked game disconnect: forfeiting for disconnected player`);
+    // Notify friends that this user is now offline
+    await notifyFriendsUserOffline(user.sub);
 
-        // Determine which player disconnected and forfeit for them
-        const isP1 = rankedSession.sockets.p1 === socket;
-        const winner = isP1 ? 'p2' : 'p1';
-
-        // Forfeit the game (this should trigger score posting)
-        rankedSession.game.forfeit(winner);
-
-        // Mark that disconnect was handled to prevent duplicate processing
-        (rankedSession as any).disconnectHandled = true;
-
-        // Get final scores after forfeit
-        const score1 = rankedSession.game.score[0];
-        const score2 = rankedSession.game.score[1];
-
-        // Post scores to blockchain immediately (only for disconnections)
-        try {
-          const row1 = await getAsync<{ address: string }>(
-            `SELECT address FROM User WHERE idUser = ?`,
-            [rankedSession.players.p1.sub]
-          );
-          const row2 = await getAsync<{ address: string }>(
-            `SELECT address FROM User WHERE idUser = ?`,
-            [rankedSession.players.p2.sub]
-          );
-
-          if (row1 && row2) {
-            const tx1 = await postScore(rankedSession.id, row1.address, score1, rankedSession.players.p1.sub);
-            const tx2 = await postScore(rankedSession.id, row2.address, score2, rankedSession.players.p2.sub);
-            console.log("Forfeit scores posted to blockchain:", tx1, tx2);
-
-            // Store transaction hashes in database for blockchain explorer
-            try {
-              await new Promise<void>((resolve, reject) => {
-                db.run(
-                  `INSERT OR REPLACE INTO BlockchainTransactions 
-                   (gameId, playerId, playerAddress, score, transactionHash, gameType, createdAt) 
-                   VALUES (?, ?, ?, ?, ?, 'ranked', datetime('now'))`,
-                  [rankedSession.id, rankedSession.players.p1.sub, row1.address, score1, tx1],
-                  (err) => err ? reject(err) : resolve()
-                );
-              });
-
-              await new Promise<void>((resolve, reject) => {
-                db.run(
-                  `INSERT OR REPLACE INTO BlockchainTransactions 
-                   (gameId, playerId, playerAddress, score, transactionHash, gameType, createdAt) 
-                   VALUES (?, ?, ?, ?, ?, 'ranked', datetime('now'))`,
-                  [rankedSession.id, rankedSession.players.p2.sub, row2.address, score2, tx2],
-                  (err) => err ? reject(err) : resolve()
-                );
-              });
-
-              console.log("Forfeit transaction hashes stored in database");
-            } catch (err) {
-              console.error("Failed to store forfeit transaction hashes:", err);
-            }
-          }
-        } catch (err) {
-          console.error("Failed to post forfeit scores to blockchain:", err);
-        }
-
-        // Notify the other player
-        const otherSocket = isP1 ? rankedSession.sockets.p2 : rankedSession.sockets.p1;
-        const disconnectedPlayer = isP1 ? rankedSession.players.p1.userName : rankedSession.players.p2.userName;
-
-        try {
-          otherSocket?.send(JSON.stringify({
-            type: "STOP",
-            reason: "opponent_disconnected",
-            message: `${disconnectedPlayer} has disconnected. You win by forfeit!`,
-            winner: winner,
-            score: [score1, score2]
-          }));
-        } catch (err) {
-          console.log("Could not notify other player - they may have also disconnected");
-        }
-
-        console.log(`🏆 Forfeit win awarded to ${winner} due to ${disconnectedPlayer} disconnect`);
-      }
-    }
-
+    // Clean up all session types - let each handler manage its own disconnection logic
     cleanupOnlineSocket(socket);
     cleanupLocalGame(socket);
     await cleanupRankedSocket(socket);
-    console.log(`⚠️ WS disconnected: user #${user.userName}`);
+    await unregisterUserSocket(user.sub);
   });
+}
+
+// Helper function to notify friends when user goes online
+async function notifyFriendsUserOnline(userId: number) {
+  try {
+    // Get user's friends from database
+    const friends = await getAllAsync<{ userId: number; userName: string }>(
+      `SELECT 
+        CASE 
+          WHEN f.requesterId = ? THEN u2.idUser 
+          ELSE u1.idUser 
+        END as userId,
+        CASE 
+          WHEN f.requesterId = ? THEN u2.userName 
+          ELSE u1.userName 
+        END as userName
+      FROM Friends f
+      JOIN User u1 ON f.requesterId = u1.idUser
+      JOIN User u2 ON f.receiverId = u2.idUser
+      WHERE (f.requesterId = ? OR f.receiverId = ?) AND f.status = 'accepted'`,
+      [userId, userId, userId, userId]
+    );
+
+    // Get user info for notification
+    const user = await getAsync<{ userName: string; avatarURL?: string }>(
+      `SELECT userName, avatarURL FROM User WHERE idUser = ?`,
+      [userId]
+    );
+
+    if (user && friends.length > 0) {
+      const friendIds = friends.map(f => f.userId);
+      broadcastToFriends(friendIds, {
+        type: 'friend_online',
+        data: {
+          userId,
+          userName: user.userName,
+          avatarURL: user.avatarURL,
+          status: 'online'
+        }
+      });
+    }
+  } catch (error) {
+    console.error('Error notifying friends of user online:', error);
+  }
+}
+
+// Helper function to notify friends when user goes offline
+async function notifyFriendsUserOffline(userId: number) {
+  try {
+    // Get user's friends from database
+    const friends = await getAllAsync<{ userId: number; userName: string }>(
+      `SELECT 
+        CASE 
+          WHEN f.requesterId = ? THEN u2.idUser 
+          ELSE u1.idUser 
+        END as userId,
+        CASE 
+          WHEN f.requesterId = ? THEN u2.userName 
+          ELSE u1.userName 
+        END as userName
+      FROM Friends f
+      JOIN User u1 ON f.requesterId = u1.idUser
+      JOIN User u2 ON f.receiverId = u2.idUser
+      WHERE (f.requesterId = ? OR f.receiverId = ?) AND f.status = 'accepted'`,
+      [userId, userId, userId, userId]
+    );
+
+    // Get user info for notification
+    const user = await getAsync<{ userName: string; avatarURL?: string }>(
+      `SELECT userName, avatarURL FROM User WHERE idUser = ?`,
+      [userId]
+    );
+
+    if (user && friends.length > 0) {
+      const friendIds = friends.map(f => f.userId);
+      broadcastToFriends(friendIds, {
+        type: 'friend_offline',
+        data: {
+          userId,
+          userName: user.userName,
+          avatarURL: user.avatarURL,
+          status: 'offline'
+        }
+      });
+    }
+  } catch (error) {
+    console.error('Error notifying friends of user offline:', error);
+  }
 }

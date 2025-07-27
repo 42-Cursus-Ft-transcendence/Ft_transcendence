@@ -48,6 +48,10 @@ export function renderMenu(container, socket, onSelect) {
         zoomIn();
         onSelect("profile");
     });
+    container.querySelector("#btnFriends").addEventListener("click", () => {
+        zoomIn();
+        onSelect("friends");
+    });
     container.querySelector("#btnSettings").addEventListener("click", () => {
         zoomIn();
         onSelect("settings");
@@ -62,6 +66,7 @@ export function renderMenu(container, socket, onSelect) {
         .querySelector("#btnLogout")
         .addEventListener("click", async () => {
         try {
+            socket.close();
             const res = await fetch("/api/logout", {
                 method: "POST",
                 credentials: "include",

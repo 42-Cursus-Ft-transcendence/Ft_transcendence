@@ -22,6 +22,7 @@ interface LoginElements {
   errPass: HTMLParagraphElement;
   signupLink: HTMLAnchorElement;
   googleBtn: HTMLButtonElement;
+  togglePassword: HTMLElement;
 }
 
 export async function renderLogin(
@@ -44,6 +45,7 @@ export async function renderLogin(
   el.signupLink.addEventListener("click", handleSignup);
   el.form.addEventListener("submit", (e) => handleFormSubmit(e, el, onSuccess));
   el.googleBtn.addEventListener("click", handleGoogleLogin);
+  el.togglePassword.addEventListener("click", () => handleTogglePassword(el));
 }
 
 // ——————————————————————————————————————————————
@@ -60,6 +62,7 @@ function getElements(container: HTMLElement): LoginElements {
     signupLink:
       container.querySelector<HTMLAnchorElement>('a[href="#signup"]')!,
     googleBtn: container.querySelector("#googleBtn")!,
+    togglePassword: container.querySelector("#togglePassword")!,
   };
 }
 
@@ -68,6 +71,22 @@ function getElements(container: HTMLElement): LoginElements {
 function handleSignup(e: Event) {
   e.preventDefault();
   navigate("signup");
+}
+
+// ——————————————————————————————————————————————
+// 2.1) Toggle password visibility
+function handleTogglePassword({ passInput, togglePassword }: LoginElements) {
+  const isPassword = passInput.type === "password";
+
+  if (isPassword) {
+    // Show password
+    passInput.type = "text";
+    togglePassword.className = "bx bx-eye text-blue-300 cursor-pointer hover:text-pink-400 transition";
+  } else {
+    // Hide password
+    passInput.type = "password";
+    togglePassword.className = "bx bx-eye-slash text-blue-300 cursor-pointer hover:text-pink-400 transition";
+  }
 }
 
 // ——————————————————————————————————————————————
@@ -311,7 +330,7 @@ function show2FAVerification(
     // Handle back to login
     const handleBackToLogin = () => {
       resolve();
-      renderLogin(currentContainer!, () => {});
+      renderLogin(currentContainer!, () => { });
     };
 
     // Handle input navigation
