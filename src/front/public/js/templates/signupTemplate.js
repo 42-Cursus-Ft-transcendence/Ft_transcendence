@@ -70,7 +70,7 @@ export const signupTemplate = `
       <div>
         <div class="relative">
           <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <i class='bx bx-lock-alt text-pink-500'></i> 
+            <i class='bx bx-lock text-pink-500'></i> 
           </div>
           <input id="confirmPassword" type="password" required placeholder="Confirm Password" class="w-full pl-10 pr-12 py-3
                  bg-black/30 placeholder-blue-300

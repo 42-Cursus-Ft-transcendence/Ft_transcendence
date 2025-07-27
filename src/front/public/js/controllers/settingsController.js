@@ -1,4 +1,5 @@
 import { settingsTemplate } from "../templates/settingsTemplate.js";
+import { notificationTemplate } from "../templates/notificationTemplate.js";
 import { fetchUserProfile } from "../utils/auth.js";
 export const defaultGameplaySettings = {
     difficulty: "Normal",
@@ -64,21 +65,27 @@ const palettes = {
         bgOpacity: 100,
     },
 };
+// Global reference to current container for notifications
+let currentContainer = null;
 export async function renderSettings(container, onBack) {
     // Cleanup any existing keybind capture when switching views
     cleanupKeybindCapture();
-    container.innerHTML = settingsTemplate;
+    // Store container reference for notifications
+    currentContainer = container;
+    container.innerHTML = settingsTemplate + notificationTemplate;
     bindBackButton(container, onBack);
     await bindAccountSection(container);
     bindGameplaySection(container);
     await bindSecuritySection(container);
     bindTabNavigation(container);
+    bindNotificationHandlers(container);
 }
 /**
  * Cleanup function to be called when leaving settings page
  */
 export function cleanupSettings() {
     cleanupKeybindCapture();
+    currentContainer = null; // Clear container reference
 }
 /**
  * Bind the back button in the top-right corner.
@@ -228,7 +235,8 @@ async function bindAccountSection(container) {
         }
         // Check if there are changes and validation passed
         if (Object.keys(payload).length === 0 && valid) {
-            return alert("No changes to save");
+            showNotification("No changes to save");
+            return;
         }
         if (!valid) {
             return;
@@ -270,7 +278,7 @@ async function bindAccountSection(container) {
                     profile.avatarURL = updated.avatarURL;
                     profileImg.src = updated.avatarURL;
                 }
-                alert("Account settings saved successfully");
+                showNotification("Account settings saved successfully");
             }
         }
         catch (err) {
@@ -353,7 +361,7 @@ function bindGameplaySection(container) {
         settings.p2UpKey = p2UpInput.getAttribute('data-real-key') || settings.p2UpKey;
         settings.p2DownKey = p2DownInput.getAttribute('data-real-key') || settings.p2DownKey;
         saveGameplaySettings(settings);
-        alert("Gameplay settings saved");
+        showNotification("Gameplay settings saved");
     });
 }
 /**
@@ -676,7 +684,7 @@ async function bindSecuritySection(container) {
                 alert(err.error || "Unexpected error");
             }
             else {
-                alert("Password updated");
+                showNotification("Password updated successfully");
                 formPw.reset();
             }
         }
@@ -720,9 +728,10 @@ async function bindSecuritySection(container) {
             if (res.status === 401) {
                 const err = await res.json();
                 if (err.error?.includes("2FA has been disabled")) {
-                    // 2FA was disabled successfully, user needs to log in again
-                    alert("2FA has been disabled. You will be redirected to login.");
-                    window.location.href = "/"; // Redirect to login
+                    // Show notification and redirect after user clicks OK
+                    showNotificationWithCallback("2FA has been disabled. You will be redirected to login.", () => {
+                        window.location.href = "/"; // Redirect to login
+                    });
                     return;
                 }
                 else {
@@ -744,8 +753,10 @@ async function bindSecuritySection(container) {
                             // 2FA setup completed successfully
                             initialTwoFactor = true;
                             twoFactorInput.checked = true;
-                            alert("2FA has been successfully enabled! You will be redirected to login.");
-                            window.location.href = "/"; // Redirect to login
+                            // Show notification and redirect after user clicks OK
+                            showNotificationWithCallback("2FA has been successfully enabled! Click OK to be redirected to login.", () => {
+                                window.location.href = "/"; // Redirect to login
+                            });
                             return;
                         }
                         else {
@@ -805,6 +816,53 @@ function resetErrors(...els) {
 function showError(el, message) {
     el.textContent = message;
     el.classList.remove("hidden");
+}
+/**
+ * Bind notification modal handlers
+ */
+function bindNotificationHandlers(container) {
+    const notificationModal = container.querySelector("#notification-modal");
+    const notificationClose = container.querySelector("#notification-close");
+    const notificationOk = container.querySelector("#notification-ok");
+    // Close notification with X button
+    notificationClose.addEventListener("click", () => {
+        notificationModal.classList.add("hidden");
+    });
+    // Default OK button behavior (only for regular notifications without callback)
+    notificationOk.addEventListener("click", () => {
+        notificationModal.classList.add("hidden");
+    });
+}
+/**
+ * Show notification with custom message
+ */
+function showNotification(message) {
+    if (!currentContainer)
+        return;
+    const notificationModal = currentContainer.querySelector("#notification-modal");
+    const notificationContent = currentContainer.querySelector("#notification-content");
+    notificationContent.textContent = message;
+    notificationModal.classList.remove("hidden");
+}
+/**
+ * Show notification with callback executed when OK is clicked
+ */
+function showNotificationWithCallback(message, onOkCallback) {
+    if (!currentContainer)
+        return;
+    const notificationModal = currentContainer.querySelector("#notification-modal");
+    const notificationContent = currentContainer.querySelector("#notification-content");
+    const notificationOk = currentContainer.querySelector("#notification-ok");
+    notificationContent.textContent = message;
+    notificationModal.classList.remove("hidden");
+    // Remove any existing callback listeners
+    const newOkBtn = notificationOk.cloneNode(true);
+    notificationOk.parentNode?.replaceChild(newOkBtn, notificationOk);
+    // Add new callback listener
+    newOkBtn.addEventListener("click", () => {
+        notificationModal.classList.add("hidden");
+        onOkCallback();
+    });
 }
 // Helper function to handle file upload
 async function handleFileUpload(file) {

@@ -1,4 +1,5 @@
 import { settingsTemplate } from "../templates/settingsTemplate.js";
+import { notificationTemplate } from "../templates/notificationTemplate.js";
 import { fetchUserProfile } from "../utils/auth.js";
 
 export interface GameplaySettings {
@@ -86,6 +87,9 @@ const palettes = {
   },
 } as const;
 
+// Global reference to current container for notifications
+let currentContainer: HTMLElement | null = null;
+
 export async function renderSettings(
   container: HTMLElement,
   onBack: () => void
@@ -93,12 +97,16 @@ export async function renderSettings(
   // Cleanup any existing keybind capture when switching views
   cleanupKeybindCapture();
 
-  container.innerHTML = settingsTemplate;
+  // Store container reference for notifications
+  currentContainer = container;
+
+  container.innerHTML = settingsTemplate + notificationTemplate;
   bindBackButton(container, onBack);
   await bindAccountSection(container);
   bindGameplaySection(container);
   await bindSecuritySection(container);
   bindTabNavigation(container);
+  bindNotificationHandlers(container);
 }
 
 /**
@@ -106,6 +114,7 @@ export async function renderSettings(
  */
 export function cleanupSettings() {
   cleanupKeybindCapture();
+  currentContainer = null; // Clear container reference
 }
 
 /**
@@ -283,7 +292,8 @@ async function bindAccountSection(container: HTMLElement) {
 
     // Check if there are changes and validation passed
     if (Object.keys(payload).length === 0 && valid) {
-      return alert("No changes to save");
+      showNotification("No changes to save");
+      return;
     }
     if (!valid) {
       return;
@@ -326,7 +336,7 @@ async function bindAccountSection(container: HTMLElement) {
           profileImg.src = updated.avatarURL;
         }
 
-        alert("Account settings saved successfully");
+        showNotification("Account settings saved successfully");
       }
     } catch (err: any) {
       console.error("Error saving account settings:", err);
@@ -438,7 +448,7 @@ function bindGameplaySection(container: HTMLElement) {
     settings.p2DownKey = p2DownInput.getAttribute('data-real-key') || settings.p2DownKey;
 
     saveGameplaySettings(settings);
-    alert("Gameplay settings saved");
+    showNotification("Gameplay settings saved");
   });
 }
 
@@ -835,7 +845,7 @@ async function bindSecuritySection(container: HTMLElement) {
         const err = await res.json();
         alert(err.error || "Unexpected error");
       } else {
-        alert("Password updated");
+        showNotification("Password updated successfully");
         formPw.reset();
       }
     } catch {
@@ -882,9 +892,13 @@ async function bindSecuritySection(container: HTMLElement) {
       if (res.status === 401) {
         const err = await res.json();
         if (err.error?.includes("2FA has been disabled")) {
-          // 2FA was disabled successfully, user needs to log in again
-          alert("2FA has been disabled. You will be redirected to login.");
-          window.location.href = "/"; // Redirect to login
+          // Show notification and redirect after user clicks OK
+          showNotificationWithCallback(
+            "2FA has been disabled. You will be redirected to login.",
+            () => {
+              window.location.href = "/"; // Redirect to login
+            }
+          );
           return;
         } else {
           // Invalid password
@@ -903,10 +917,14 @@ async function bindSecuritySection(container: HTMLElement) {
               // 2FA setup completed successfully
               initialTwoFactor = true;
               twoFactorInput.checked = true;
-              alert(
-                "2FA has been successfully enabled! You will be redirected to login."
+
+              // Show notification and redirect after user clicks OK
+              showNotificationWithCallback(
+                "2FA has been successfully enabled! Click OK to be redirected to login.",
+                () => {
+                  window.location.href = "/"; // Redirect to login
+                }
               );
-              window.location.href = "/"; // Redirect to login
               return;
             } else {
               // User cancelled or failed verification
@@ -968,6 +986,62 @@ function resetErrors(...els: HTMLElement[]) {
 function showError(el: HTMLElement, message: string) {
   el.textContent = message;
   el.classList.remove("hidden");
+}
+
+/**
+ * Bind notification modal handlers
+ */
+function bindNotificationHandlers(container: HTMLElement) {
+  const notificationModal = container.querySelector<HTMLDivElement>("#notification-modal")!;
+  const notificationClose = container.querySelector<HTMLButtonElement>("#notification-close")!;
+  const notificationOk = container.querySelector<HTMLButtonElement>("#notification-ok")!;
+
+  // Close notification with X button
+  notificationClose.addEventListener("click", () => {
+    notificationModal.classList.add("hidden");
+  });
+
+  // Default OK button behavior (only for regular notifications without callback)
+  notificationOk.addEventListener("click", () => {
+    notificationModal.classList.add("hidden");
+  });
+}
+
+/**
+ * Show notification with custom message
+ */
+function showNotification(message: string) {
+  if (!currentContainer) return;
+
+  const notificationModal = currentContainer.querySelector<HTMLDivElement>("#notification-modal")!;
+  const notificationContent = currentContainer.querySelector<HTMLParagraphElement>("#notification-content")!;
+
+  notificationContent.textContent = message;
+  notificationModal.classList.remove("hidden");
+}
+
+/**
+ * Show notification with callback executed when OK is clicked
+ */
+function showNotificationWithCallback(message: string, onOkCallback: () => void) {
+  if (!currentContainer) return;
+
+  const notificationModal = currentContainer.querySelector<HTMLDivElement>("#notification-modal")!;
+  const notificationContent = currentContainer.querySelector<HTMLParagraphElement>("#notification-content")!;
+  const notificationOk = currentContainer.querySelector<HTMLButtonElement>("#notification-ok")!;
+
+  notificationContent.textContent = message;
+  notificationModal.classList.remove("hidden");
+
+  // Remove any existing callback listeners
+  const newOkBtn = notificationOk.cloneNode(true) as HTMLButtonElement;
+  notificationOk.parentNode?.replaceChild(newOkBtn, notificationOk);
+
+  // Add new callback listener
+  newOkBtn.addEventListener("click", () => {
+    notificationModal.classList.add("hidden");
+    onOkCallback();
+  });
 }
 
 // Helper function to handle file upload

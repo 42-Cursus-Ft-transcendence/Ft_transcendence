@@ -4,13 +4,13 @@ import { loadGameplaySettings } from "./settingsController.js";
 function getDifficultyValue(difficulty) {
     switch (difficulty) {
         case "Easy":
-            return 0.2;
+            return 0.1;
         case "Normal":
-            return 0.5;
+            return 0.4;
         case "Hard":
             return 1;
         default:
-            return 0.5; // fallback to Normal
+            return 0.4; // fallback to Normal
     }
 }
 export function renderMenu(container, socket, onSelect) {
