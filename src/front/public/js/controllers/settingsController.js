@@ -11,8 +11,8 @@ export const defaultGameplaySettings = {
     bgOpacity: 70,
     p1UpKey: "w",
     p1DownKey: "s",
-    p2UpKey: "ArrowUp",
-    p2DownKey: "ArrowDown",
+    p2UpKey: "arrowup",
+    p2DownKey: "arrowdown",
 };
 export function loadGameplaySettings() {
     const raw = localStorage.getItem("gameplaySettings");
@@ -552,16 +552,30 @@ function getKeyDisplayName(key) {
         "ArrowDown": "↓",
         "ArrowLeft": "←",
         "ArrowRight": "→",
+        "arrowup": "↑",
+        "arrowdown": "↓",
+        "arrowleft": "←",
+        "arrowright": "→",
         " ": "Space",
+        "space": "Space",
         "Control": "Ctrl",
+        "control": "Ctrl",
         "Alt": "Alt",
+        "alt": "Alt",
         "Shift": "Shift",
+        "shift": "Shift",
         "Meta": "Cmd",
+        "meta": "Cmd",
         "Tab": "Tab",
+        "tab": "Tab",
         "Enter": "Enter",
+        "enter": "Enter",
         "Backspace": "Backspace",
+        "backspace": "Backspace",
         "Delete": "Delete",
-        "Escape": "Escape"
+        "delete": "Delete",
+        "Escape": "Escape",
+        "escape": "Escape"
     };
     return displayMap[key] || key.toUpperCase();
 }
@@ -569,16 +583,9 @@ function getKeyDisplayName(key) {
  * Normalize key names for storage (keeps game compatibility)
  */
 function normalizeKeyName(key) {
-    // Only normalize specific cases to maintain game compatibility
-    const keyMap = {
-        " ": "space",
-        "Control": "ctrl",
-        "Alt": "alt",
-        "Shift": "shift",
-        "Meta": "cmd"
-    };
-    // Keep original case for arrow keys and most others to maintain compatibility
-    return keyMap[key] || key;
+    // For game compatibility, we need to match exactly what e.key.toLowerCase() produces
+    // The game controller uses e.key.toLowerCase() for comparison
+    return key.toLowerCase();
 }
 /**
  * Bind the security form to perform a PUT with passwords and 2FA toggle.

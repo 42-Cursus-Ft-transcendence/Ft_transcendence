@@ -1,7 +1,7 @@
 export const settingsTemplate = `
 <div class="w-full h-full flex flex-col items-center p-6 bg-black/70 backdrop-blur-sm rounded-[40px] shadow-neon font-arcade text-green-400 relative">
   <!-- Back Button -->
-  <button type="button" id="backBtn" class="absolute top-3 right-6 text-pink-400 hover:text-pink-200 text-2xl">&times;</button>
+  <button type="button" id="backBtn" class="absolute top-3 right-6 text-pink-400 hover:text-pink-200 text-2xl z-20">&times;</button>
 
   <!-- Onglets (fixes en haut) -->
   <div class="sticky top-0 w-full  z-10 border-b border-pink-500">
