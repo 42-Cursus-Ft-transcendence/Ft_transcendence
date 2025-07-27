@@ -1,7 +1,8 @@
 import { signupTemplate } from "../templates/signupTemplate.js";
+import { notificationTemplate } from "../templates/notificationTemplate.js";
 import { navigate } from "../index.js";
 export function renderSignup(container, onSuccess) {
-    container.innerHTML = signupTemplate;
+    container.innerHTML = signupTemplate + notificationTemplate;
     const form = container.querySelector("#signupForm");
     const btn = container.querySelector("#submitBtn");
     const txt = container.querySelector("#submitText");
@@ -16,9 +17,23 @@ export function renderSignup(container, onSuccess) {
     const loginLinker = container.querySelector('a[href="#login"]');
     const togglePassword = container.querySelector("#togglePassword");
     const toggleConfirmPassword = container.querySelector("#toggleConfirmPassword");
+    // Notification elements
+    const notificationModal = container.querySelector("#notification-modal");
+    const notificationContent = container.querySelector("#notification-content");
+    const notificationClose = container.querySelector("#notification-close");
+    const notificationOk = container.querySelector("#notification-ok");
     loginLinker.addEventListener("click", (e) => {
         e.preventDefault();
         navigate("login");
+    });
+    // Close notification modal
+    notificationClose.addEventListener("click", () => {
+        notificationModal.classList.add("hidden");
+    });
+    // OK button in notification modal
+    notificationOk.addEventListener("click", () => {
+        notificationModal.classList.add("hidden");
+        onSuccess();
     });
     // Toggle password visibility
     togglePassword.addEventListener("click", () => {
@@ -54,22 +69,22 @@ export function renderSignup(container, onSuccess) {
         // 2) Validation front
         let valid = true;
         if (nameInput.value.trim().length === 0) {
-            errName.textContent = "Le nom est requis";
+            errName.textContent = "Name is required";
             errName.classList.remove("hidden");
             valid = false;
         }
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailInput.value)) {
-            errEmail.textContent = "Email invalide";
+            errEmail.textContent = "Invalid email";
             errEmail.classList.remove("hidden");
             valid = false;
         }
         if (passInput.value.length < 8) {
-            errPass.textContent = "Le mot de passe doit faire ≥ 8 caractères";
+            errPass.textContent = "Password must be ≥ 8 characters";
             errPass.classList.remove("hidden");
             valid = false;
         }
         if (passInput.value !== confirmPassInput.value) {
-            errConfirmPass.textContent = "Les mots de passe ne correspondent pas";
+            errConfirmPass.textContent = "Passwords do not match";
             errConfirmPass.classList.remove("hidden");
             valid = false;
         }
@@ -91,16 +106,35 @@ export function renderSignup(container, onSuccess) {
             if (res.status === 201) {
                 const { idUser } = await res.json();
                 console.log("Utilisateur créé #", idUser);
-                onSuccess();
+                // Afficher la notification de succès
+                notificationContent.textContent = "Registration successful! Click OK to go to the login page.";
+                notificationModal.classList.remove("hidden");
             }
             else {
                 const err = await res.json();
-                if (res.status === 400) {
-                    errName.textContent = err.error;
-                    errName.classList.remove("hidden");
+                if (res.status === 409) {
+                    // Gestion spécifique des erreurs selon le type
+                    if (err.error.toLowerCase().includes('email')) {
+                        errEmail.textContent = err.error;
+                        errEmail.classList.remove("hidden");
+                    }
+                    else if (err.error.toLowerCase().includes('username') || err.error.toLowerCase().includes('name')) {
+                        errName.textContent = err.error;
+                        errName.classList.remove("hidden");
+                    }
+                    else if (err.error.toLowerCase().includes('password')) {
+                        errPass.textContent = err.error;
+                        errPass.classList.remove("hidden");
+                    }
+                    else {
+                        // Erreur générale, utiliser alert
+                        alert(err.error);
+                    }
                 }
-                else
+                else {
+                    // Pour les autres codes d'erreur, utiliser alert
                     alert(err.error || "Unknown error");
+                }
             }
         }
         catch (networkError) {

@@ -53,11 +53,43 @@ export const friendsTemplate = `
         </div>
         
         <div class="flex gap-3">
-          <button type="button" id="cancel-add-friend" class="flex-1 py-3 px-4 bg-gray-600/50 hover:bg-gray-600/70 text-white rounded-lg transition-colors">
+          <button type="button" id="cancel-add-friend" class="threeD-button-cancel">
             Cancel
           </button>
-          <button type="button" id="send-friend-request" class="flex-1 py-3 px-4 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-lg transition-all">
+          <button type="button" id="send-friend-request" class="threeD-button-set">
             Send
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Remove Friend Confirmation Modal -->
+  <div id="remove-friend-modal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-md animate-fadeIn">
+    <div class="flex items-center justify-center w-full h-full p-4">
+      <div class="bg-gradient-to-br from-purple-900/80 via-pink-900/60 to-black/90 backdrop-blur-sm border border-purple-400/50 rounded-2xl shadow-lg shadow-purple-500/30 w-full max-w-md p-6 space-y-6 animate-scaleIn">
+        <div class="flex justify-between items-center">
+          <h2 class="text-xl font-semibold text-pink-400 drop-shadow-lg">Remove Friend</h2>
+          <button type="button" id="close-remove-modal" class="text-pink-400 hover:text-purple-300 text-2xl transition-colors">&times;</button>
+        </div>
+        
+        <div class="text-center space-y-4">
+          <div class="flex justify-center">
+            <div class="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center">
+              <i class="bx bx-user-x text-3xl text-red-400"></i>
+            </div>
+          </div>
+          <p class="text-cyan-300 text-lg">Are you sure you want to remove</p>
+          <p id="friend-name-to-remove" class="text-white font-bold text-xl"></p>
+          <p class="text-purple-300 text-sm">from your friends list?</p>
+        </div>
+        
+        <div class="flex gap-3">
+          <button type="button" id="cancel-remove-friend" class="threeD-button-cancel">
+            Cancel
+          </button>
+          <button type="button" id="confirm-remove-friend" class="threeD-button-remove">
+            Remove
           </button>
         </div>
       </div>
@@ -111,11 +143,11 @@ export function createFriendCard(friend: {
       <!-- Action Buttons -->
       <div class="flex flex-col gap-1">
         <button 
-          class="friend-action-btn w-full py-1.5 px-3 bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-700 hover:to-pink-700 text-white rounded-lg transition-all text-xs font-medium"
+          class="threeD-button-remove text-xs text-center friend-action-btn"
           data-action="remove" 
           data-user-id="${friend.userId}"
         >
-          <i class="bx bx-user mr-1"></i>Remove
+          remove
         </button>
       </div>
     </div>

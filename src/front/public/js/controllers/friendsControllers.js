@@ -70,6 +70,14 @@ function bindFriendsInteractions(container) {
     const sendRequestBtn = container.querySelector('#send-friend-request');
     const usernameInput = container.querySelector('#friend-username');
     const errorElement = container.querySelector('#error-add-friend');
+    // Remove friend modal elements
+    const removeFriendModal = container.querySelector('#remove-friend-modal');
+    const closeRemoveModalBtn = container.querySelector('#close-remove-modal');
+    const cancelRemoveBtn = container.querySelector('#cancel-remove-friend');
+    const confirmRemoveBtn = container.querySelector('#confirm-remove-friend');
+    const friendNameToRemove = container.querySelector('#friend-name-to-remove');
+    // Store the user data for removal confirmation
+    let userToRemove = null;
     // Open modal
     addFriendBtn.addEventListener('click', () => {
         modal.classList.remove('hidden');
@@ -84,10 +92,42 @@ function bindFriendsInteractions(container) {
     };
     closeModalBtn.addEventListener('click', closeModal);
     cancelBtn.addEventListener('click', closeModal);
-    // Click outside to close
+    // Remove friend modal handlers
+    const closeRemoveModal = () => {
+        removeFriendModal.classList.add('hidden');
+        userToRemove = null;
+    };
+    closeRemoveModalBtn.addEventListener('click', closeRemoveModal);
+    cancelRemoveBtn.addEventListener('click', closeRemoveModal);
+    // Click outside to close modals
     modal.addEventListener('click', (e) => {
         if (e.target === modal) {
             closeModal();
+        }
+    });
+    removeFriendModal.addEventListener('click', (e) => {
+        if (e.target === removeFriendModal) {
+            closeRemoveModal();
+        }
+    });
+    // Confirm remove friend
+    confirmRemoveBtn.addEventListener('click', async () => {
+        if (!userToRemove)
+            return;
+        try {
+            confirmRemoveBtn.disabled = true;
+            confirmRemoveBtn.textContent = 'Removing...';
+            await removeFriend(userToRemove.id);
+            closeRemoveModal();
+            await bindFriendsContent(container);
+        }
+        catch (error) {
+            console.error('Friend removal error:', error);
+            alert(error.message || 'Failed to remove friend');
+        }
+        finally {
+            confirmRemoveBtn.disabled = false;
+            confirmRemoveBtn.textContent = 'Remove';
         }
     });
     // Send friend request
@@ -126,17 +166,14 @@ function bindFriendsInteractions(container) {
         const requestBtn = target.closest('.request-action-btn');
         if (actionBtn) {
             const userId = parseInt(actionBtn.dataset.userId);
-            // Only remove action is available now
-            if (confirm('Are you sure you want to remove this friend?')) {
-                try {
-                    await removeFriend(userId);
-                    await bindFriendsContent(container);
-                }
-                catch (error) {
-                    console.error('Friend action error:', error);
-                    alert(error.message || 'Failed to remove friend');
-                }
-            }
+            // Find the friend's name from the card
+            const friendCard = actionBtn.closest('.bg-gradient-to-br');
+            const friendNameElement = friendCard?.querySelector('h3.text-sm.font-bold.text-white');
+            const friendName = friendNameElement?.textContent?.trim() || 'Unknown';
+            // Show remove confirmation modal
+            userToRemove = { id: userId, name: friendName };
+            friendNameToRemove.textContent = friendName;
+            removeFriendModal.classList.remove('hidden');
         }
         if (requestBtn) {
             const action = requestBtn.dataset.action;

@@ -18,6 +18,39 @@
     @apply translate-y-2;
     box-shadow: 0 0.25rem 0 #ff3cac;
   }
+
+  .threeD-button-cancel {
+    @apply w-full uppercase tracking-widest text-white text-lg text-center
+           px-8 py-4 rounded-lg
+           bg-gradient-to-r from-slate-600 via-slate-700 to-slate-800
+           transition-transform duration-100 ease-out hover:cursor-pointer;
+    box-shadow: 0 0.5rem 0 #475569;
+  }
+  .threeD-button-cancel:hover {
+    @apply scale-105;
+    box-shadow: 0 1rem 0 #334155;
+  }
+  .threeD-button-cancel:active {
+    @apply translate-y-2;
+    box-shadow: 0 0.25rem 0 #64748b;
+  }
+
+  .threeD-button-remove {
+    @apply w-full uppercase tracking-widest text-white text-lg text-center
+           px-8 py-4 rounded-lg
+           bg-gradient-to-r from-red-500 via-red-600 to-red-700
+           transition-transform duration-100 ease-out hover:cursor-pointer;
+    box-shadow: 0 0.5rem 0 #dc2626;
+  }
+  .threeD-button-remove:hover {
+    @apply scale-105;
+    box-shadow: 0 1rem 0 #b91c1c;
+  }
+  .threeD-button-remove:active {
+    @apply translate-y-2;
+    box-shadow: 0 0.25rem 0 #f87171;
+  }
+
   .zoomable {
     @apply transition-transform duration-300 ease-in-out origin-[50%_50%];
   }
