@@ -1,5 +1,6 @@
 import { pongTemplate } from '../templates/pongTemplate.js';
 import { waitingTemplate } from '../templates/loadingTemplate.js';
+import { notificationTemplate } from '../templates/notificationTemplate.js';
 import { loadGameplaySettings } from './settingsController.js';
 export function renderPong(container, socket, onBack) {
     container.innerHTML = waitingTemplate;
@@ -9,6 +10,35 @@ export function renderPong(container, socket, onBack) {
     // Store player names for display
     let player1Name = "P1";
     let player2Name = "P2";
+    // Function to show notification with callback
+    function showNotification(message, callback) {
+        // Add notification modal to container if not already present
+        if (!container.querySelector('#notification-modal')) {
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = notificationTemplate;
+            container.appendChild(tempDiv.firstElementChild);
+        }
+        const modal = container.querySelector('#notification-modal');
+        const content = container.querySelector('#notification-content');
+        const okBtn = container.querySelector('#notification-ok');
+        const closeBtn = container.querySelector('#notification-close');
+        // Convert message to HTML with proper formatting
+        const formattedMessage = message.replace(/\n/g, '<br>');
+        content.innerHTML = formattedMessage;
+        modal.classList.remove('hidden');
+        const handleClose = () => {
+            modal.classList.add('hidden');
+            if (callback)
+                callback();
+        };
+        // Remove existing listeners to avoid duplicates
+        const newOkBtn = okBtn.cloneNode(true);
+        okBtn.parentNode.replaceChild(newOkBtn, okBtn);
+        const newCloseBtn = closeBtn.cloneNode(true);
+        closeBtn.parentNode.replaceChild(newCloseBtn, closeBtn);
+        newOkBtn.addEventListener('click', handleClose);
+        newCloseBtn.addEventListener('click', handleClose);
+    }
     // Single message handler for the entire session
     const messageHandler = (ev) => {
         const msg = JSON.parse(ev.data);
@@ -35,27 +65,56 @@ export function renderPong(container, socket, onBack) {
         }
         else if (msg.type === 'STOP') {
             console.log('Game ended:', msg.score1, msg.score2);
-            cleanup();
-            onBack();
+            // Determine winner and create message
+            const score1 = msg.score1 || 0;
+            const score2 = msg.score2 || 0;
+            const winner = score1 > score2 ? player1Name : player2Name;
+            const message = `<div style="text-align: center;"><strong>Game Over!</strong><br><br><span style="color: #00ff00;">${winner}</span> wins!<br><br>Score: <span style="color: #00ffff;">${score1} - ${score2}</span></div>`;
+            showNotification(message, () => {
+                cleanup();
+                onBack();
+            });
         }
         else if (msg.type === 'matchOver') {
             console.log('Match ended:', msg);
+            let message = '';
             if (msg.message) {
-                alert(msg.message); // Show forfeit/disconnect message to user
+                message = `<div style="text-align: center;"><strong>Match Ended</strong><br><br>${msg.message}</div>`;
             }
-            cleanup();
-            onBack();
+            else {
+                // Fallback message if no specific message provided
+                message = '<div style="text-align: center;"><strong>Match Ended</strong></div>';
+            }
+            showNotification(message, () => {
+                cleanup();
+                onBack();
+            });
         }
         else if (msg.type === 'rankedMatchOver') {
             console.log('Ranked match ended:', msg);
-            // Show ELO changes and match results
+            let message = '<div style="text-align: center;"><strong>Ranked Match Over!</strong><br><br>';
+            // Add match result
+            if (msg.winner) {
+                const winnerName = msg.winner === 'p1' ? player1Name : player2Name;
+                message += `🥇 <span style="color: #00ff00;">${winnerName}</span> wins!<br><br>`;
+            }
+            // Add score if available
+            if (msg.score) {
+                message += `Score: <span style="color: #00ffff;">${msg.score[0]} - ${msg.score[1]}</span><br><br>`;
+            }
+            // Add ELO changes
             if (msg.eloChanges) {
                 const p1Change = msg.eloChanges.p1.eloChange;
                 const p2Change = msg.eloChanges.p2.eloChange;
-                console.log(`ELO Changes - P1: ${p1Change > 0 ? '+' : ''}${p1Change}, P2: ${p2Change > 0 ? '+' : ''}${p2Change}`);
+                message += `<strong>ELO Changes:</strong><br>`;
+                message += `<span style="color: ${p1Change >= 0 ? '#00ff00' : '#ff4444'};">${player1Name}: ${p1Change > 0 ? '+' : ''}${p1Change}</span><br>`;
+                message += `<span style="color: ${p2Change >= 0 ? '#00ff00' : '#ff4444'};">${player2Name}: ${p2Change > 0 ? '+' : ''}${p2Change}</span>`;
             }
-            cleanup();
-            onBack();
+            message += '</div>';
+            showNotification(message, () => {
+                cleanup();
+                onBack();
+            });
         }
         else if (msg.type === "rankedMatchFound") {
             console.log('🏆 Ranked match found message received:', msg);
