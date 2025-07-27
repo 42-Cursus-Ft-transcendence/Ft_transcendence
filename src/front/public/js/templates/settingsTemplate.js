@@ -151,6 +151,19 @@ export const settingsTemplate = `
           <input type="range" name="bgOpacity" min="0" max="100" value="70" class="w-1/2 accent-pink-400" />
         </div>
 
+        <!-- AUDIO SETTINGS -->
+        <div class="flex items-center justify-between">
+          <label class="text-purple-300">Music Volume</label>
+          <input type="range" name="musicVolume" min="0" max="100" value="30" class="w-1/2 accent-pink-400" />
+        </div>
+        
+        <div class="flex items-center justify-between">
+          <label class="text-purple-300">Music Control</label>
+          <button type="button" id="music-toggle" class="w-24 bg-purple-900/50 border border-purple-400/50 rounded p-2 text-center cursor-pointer hover:border-pink-400 text-cyan-300">
+            <i id="music-icon" class="bx bx-pause text-lg"></i>
+          </button>
+        </div>
+
         <!-- CONTROL KEYBINDS -->
         <div class="flex items-center justify-between">
           <label class="text-purple-300">P1 Up Key</label>
