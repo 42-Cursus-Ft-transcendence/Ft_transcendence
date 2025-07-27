@@ -8,18 +8,46 @@ export function renderSignup(container, onSuccess) {
     const nameInput = container.querySelector("#name");
     const emailInput = container.querySelector("#email");
     const passInput = container.querySelector("#password");
+    const confirmPassInput = container.querySelector("#confirmPassword");
     const errName = container.querySelector("#error-name");
     const errEmail = container.querySelector("#error-email");
     const errPass = container.querySelector("#error-password");
+    const errConfirmPass = container.querySelector("#error-confirmPassword");
     const loginLinker = container.querySelector('a[href="#login"]');
+    const togglePassword = container.querySelector("#togglePassword");
+    const toggleConfirmPassword = container.querySelector("#toggleConfirmPassword");
     loginLinker.addEventListener("click", (e) => {
         e.preventDefault();
         navigate("login");
     });
+    // Toggle password visibility
+    togglePassword.addEventListener("click", () => {
+        const isPassword = passInput.type === "password";
+        if (isPassword) {
+            passInput.type = "text";
+            togglePassword.className = "bx bx-eye text-blue-300 cursor-pointer hover:text-pink-400 transition";
+        }
+        else {
+            passInput.type = "password";
+            togglePassword.className = "bx bx-eye-slash text-blue-300 cursor-pointer hover:text-pink-400 transition";
+        }
+    });
+    // Toggle confirm password visibility
+    toggleConfirmPassword.addEventListener("click", () => {
+        const isPassword = confirmPassInput.type === "password";
+        if (isPassword) {
+            confirmPassInput.type = "text";
+            toggleConfirmPassword.className = "bx bx-eye text-blue-300 cursor-pointer hover:text-pink-400 transition";
+        }
+        else {
+            confirmPassInput.type = "password";
+            toggleConfirmPassword.className = "bx bx-eye-slash text-blue-300 cursor-pointer hover:text-pink-400 transition";
+        }
+    });
     form.addEventListener("submit", async (e) => {
         e.preventDefault();
         // 1) Reset des erreurs
-        [errName, errEmail, errPass].forEach((p) => {
+        [errName, errEmail, errPass, errConfirmPass].forEach((p) => {
             p.textContent = "";
             p.classList.add("hidden");
         });
@@ -38,6 +66,11 @@ export function renderSignup(container, onSuccess) {
         if (passInput.value.length < 8) {
             errPass.textContent = "Le mot de passe doit faire ≥ 8 caractères";
             errPass.classList.remove("hidden");
+            valid = false;
+        }
+        if (passInput.value !== confirmPassInput.value) {
+            errConfirmPass.textContent = "Les mots de passe ne correspondent pas";
+            errConfirmPass.classList.remove("hidden");
             valid = false;
         }
         if (!valid)

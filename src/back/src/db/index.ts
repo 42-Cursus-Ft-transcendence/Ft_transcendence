@@ -27,3 +27,15 @@ export function getAsync<T = any>(
     });
   });
 }
+
+export function getAllAsync<T = any>(
+  sql: string,
+  params: any[]
+): Promise<T[]> {
+  return new Promise((resolve, reject) => {
+    db.all(sql, params, (err, rows) => {
+      if (err) reject(err);
+      else resolve((rows as T[]) ?? []);
+    });
+  });
+}

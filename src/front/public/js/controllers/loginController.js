@@ -20,6 +20,7 @@ export async function renderLogin(container, onSuccess) {
     el.signupLink.addEventListener("click", handleSignup);
     el.form.addEventListener("submit", (e) => handleFormSubmit(e, el, onSuccess));
     el.googleBtn.addEventListener("click", handleGoogleLogin);
+    el.togglePassword.addEventListener("click", () => handleTogglePassword(el));
 }
 // ——————————————————————————————————————————————
 // 1)  Isolating element references
@@ -34,6 +35,7 @@ function getElements(container) {
         errPass: container.querySelector("#error-password"),
         signupLink: container.querySelector('a[href="#signup"]'),
         googleBtn: container.querySelector("#googleBtn"),
+        togglePassword: container.querySelector("#togglePassword"),
     };
 }
 // ——————————————————————————————————————————————
@@ -41,6 +43,21 @@ function getElements(container) {
 function handleSignup(e) {
     e.preventDefault();
     navigate("signup");
+}
+// ——————————————————————————————————————————————
+// 2.1) Toggle password visibility
+function handleTogglePassword({ passInput, togglePassword }) {
+    const isPassword = passInput.type === "password";
+    if (isPassword) {
+        // Show password
+        passInput.type = "text";
+        togglePassword.className = "bx bx-eye text-blue-300 cursor-pointer hover:text-pink-400 transition";
+    }
+    else {
+        // Hide password
+        passInput.type = "password";
+        togglePassword.className = "bx bx-eye-slash text-blue-300 cursor-pointer hover:text-pink-400 transition";
+    }
 }
 // ——————————————————————————————————————————————
 // 3) Handler to send it to form (err checking + exec logic)

@@ -2,13 +2,14 @@ import { FastifyInstance } from "fastify";
 import bcrypt from "bcrypt";
 import { Wallet } from "ethers";
 
-import { runAsync, getAsync } from "../db";
+import { runAsync, getAsync, getAllAsync } from "../db";
 import { getRandomDefaultAvatar } from "../utils/avatar";
 import {
   assertValidEmail,
   validateUnique,
   ValidationError,
 } from "../utils/userValidation";
+import { sendFriendNotification } from "../websocket/handlers/friends";
 
 export default async function userRoutes(app: FastifyInstance) {
   app.post("/signup", async (request, reply): Promise<void> => {
@@ -80,14 +81,14 @@ export default async function userRoutes(app: FastifyInstance) {
       return reply.status(500).send({ error: "Internal server error" });
     }
   });
-
   app.get(
     "/me",
     { preHandler: [(app as any).authenticate] },
     async (request, reply) => {
       const idUser = (request.user as any).sub as number;
       try {
-        const res = await getAsync<{
+        // Get basic user information
+        const userRes = await getAsync<{
           userName: string;
           email: string;
           isTotpEnabled: number;
@@ -96,16 +97,107 @@ export default async function userRoutes(app: FastifyInstance) {
           `SELECT userName, email, isTotpEnabled, avatarURL FROM User WHERE idUser = ?`,
           [idUser]
         );
-        if (!res) return reply.status(401).send({ error: "User not found" });
+
+        if (!userRes) return reply.status(401).send({ error: "User not found" });
+
+        // Get user ranking statistics (same query as leaderboard)
+        const rankingRes = await getAsync<{
+          elo: number;
+          wins: number;
+          losses: number;
+          gamesPlayed: number;
+          lastMatchDate?: string;
+        }>(
+          `SELECT pr.elo, pr.wins, pr.losses, pr.gamesPlayed, pr.lastMatchDate 
+           FROM PlayerRanking pr 
+           WHERE pr.userId = ?`,
+          [idUser]
+        );
+
+        // If no ranking data exists, create default entry (for ranked matches only)
+        if (!rankingRes) {
+          console.log(`>> Creating default PlayerRanking entry for user ${idUser}`);
+          await runAsync(
+            `INSERT INTO PlayerRanking (userId, elo, wins, losses, gamesPlayed) 
+             VALUES (?, 1200, 0, 0, 0)`,
+            [idUser]
+          );
+        }
+
+        // Get total match statistics (including normal games from Match table)
+        const totalMatchesRes = await getAsync<{
+          totalWins: number;
+          totalLosses: number;
+          totalGamesPlayed: number;
+        }>(
+          `SELECT 
+            COUNT(CASE WHEN winnerId = ? THEN 1 END) as totalWins,
+            COUNT(CASE WHEN winnerId != ? THEN 1 END) as totalLosses,
+            COUNT(*) as totalGamesPlayed
+           FROM User_Match um
+           JOIN Match m ON um.matchId = m.idMatch
+           WHERE um.userId = ?`,
+          [idUser, idUser, idUser]
+        );
+
+        // Get ranking data (either existing or newly created default)
+        const finalRankingRes = rankingRes || {
+          elo: 1200,
+          wins: 0,
+          losses: 0,
+          gamesPlayed: 0,
+          lastMatchDate: null
+        };
+
+        // Combine ranked and total statistics
+        const totalStats = totalMatchesRes || { totalWins: 0, totalLosses: 0, totalGamesPlayed: 0 };
+
         return reply.status(200).send({
           idUser,
-          userName: res.userName,
-          email: res.email,
-          isTotpEnabled: res.isTotpEnabled === 1,
-          avatarURL: res.avatarURL,
+          userName: userRes.userName,
+          email: userRes.email,
+          isTotpEnabled: userRes.isTotpEnabled === 1,
+          avatarURL: userRes.avatarURL,
+          // ELO is only from ranked matches
+          elo: finalRankingRes.elo,
+          // Wins/losses from ranked matches only
+          rankedWins: finalRankingRes.wins,
+          rankedLosses: finalRankingRes.losses,
+          rankedGamesPlayed: finalRankingRes.gamesPlayed,
+          // Total wins/losses including normal games
+          totalWins: totalStats.totalWins,
+          totalLosses: totalStats.totalLosses,
+          totalGamesPlayed: totalStats.totalGamesPlayed,
+          lastMatchDate: finalRankingRes.lastMatchDate
         });
       } catch (err) {
+        console.error(">> Error in /me route:", err);
         return reply.status(500).send({ error: "Internal server error" });
+      }
+    }
+  );
+
+  app.get(
+    "/checkAuth",
+    { preHandler: [(app as any).authenticate] },
+    async (request, reply) => {
+      try {
+        const idUser = (request.user as any).sub as number;
+        const userName = (request.user as any).userName as string;
+
+        console.log(">> checkAuth successful for user:", userName, "ID:", idUser);
+
+        return reply.status(200).send({
+          authenticated: true,
+          userId: idUser,
+          userName: userName,
+        });
+      } catch (err) {
+        console.error(">> checkAuth error:", err);
+        return reply.status(401).send({
+          authenticated: false,
+          error: "Authentication failed",
+        });
       }
     }
   );
@@ -126,7 +218,6 @@ export default async function userRoutes(app: FastifyInstance) {
         idUser: number;
         email: string;
         password: string;
-        connectionStatus: number;
         isTotpEnabled: number;
         avatarURL?: string;
       }>(
@@ -134,7 +225,6 @@ export default async function userRoutes(app: FastifyInstance) {
          idUser, 
          email, 
          password, 
-         connectionStatus, 
          isTotpEnabled, 
          avatarURL
        FROM User
@@ -150,9 +240,6 @@ export default async function userRoutes(app: FastifyInstance) {
         return reply
           .status(401)
           .send({ error: "Invalid username or password" });
-      await runAsync(`UPDATE User SET connectionStatus = 1 WHERE idUser = ?`, [
-        user.idUser,
-      ]);
       if (user.isTotpEnabled === 1) {
         const pre2faToken = app.jwt.sign(
           { sub: user.idUser, pre2fa: true },
@@ -214,10 +301,6 @@ export default async function userRoutes(app: FastifyInstance) {
         // secure:   true
       };
       try {
-        await runAsync(
-          `UPDATE User SET connectionStatus = 0 WHERE idUser = ?`,
-          [idUser]
-        );
         app.onUserLogout();
         return reply
           .clearCookie("token", {
@@ -383,7 +466,534 @@ export default async function userRoutes(app: FastifyInstance) {
       }
     }
   );
+
+  // Route pour récupérer l'historique des matchs de l'utilisateur
+  app.get(
+    "/match-history",
+    { preHandler: [(app as any).authenticate] },
+    async (request, reply) => {
+      const idUser = (request.user as any).sub as number;
+
+      try {
+        console.log(">> Fetching match history for user ID:", idUser);
+
+        // Récupérer les matchs classés (RankedMatch avec ELO)
+        const rankedMatches = await getAllAsync<{
+          matchId: string;
+          player1Id: number;
+          player2Id: number;
+          player1Score: number;
+          player2Score: number;
+          winnerId: number;
+          player1EloChange: number;
+          player2EloChange: number;
+          matchDate: string;
+          matchDuration: number;
+          opponent_name: string;
+        }>(
+          `SELECT 
+            rm.matchId,
+            rm.player1Id,
+            rm.player2Id,
+            rm.player1Score,
+            rm.player2Score,
+            rm.winnerId,
+            rm.player1EloChange,
+            rm.player2EloChange,
+            rm.matchDate,
+            rm.matchDuration,
+            CASE 
+              WHEN rm.player1Id = ? THEN u2.userName 
+              ELSE u1.userName 
+            END as opponent_name
+          FROM RankedMatch rm
+          LEFT JOIN User u1 ON rm.player1Id = u1.idUser
+          LEFT JOIN User u2 ON rm.player2Id = u2.idUser
+          WHERE rm.player1Id = ? OR rm.player2Id = ?
+          ORDER BY rm.matchDate DESC`,
+          [idUser, idUser, idUser]
+        );
+
+        // Récupérer les matchs normaux (Match sans ELO)
+        const normalMatches = await getAllAsync<{
+          matchId: number;
+          matchDate: string;
+          player1Score: number;
+          player2Score: number;
+          winnerId: number;
+          player1Name: string;
+          player2Name: string;
+        }>(
+          `SELECT 
+            m.idMatch as matchId,
+            m.matchDate,
+            m.player1Score,
+            m.player2Score,
+            m.winnerId,
+            u1.userName as player1Name,
+            u2.userName as player2Name
+          FROM User_Match um
+          JOIN Match m ON um.matchId = m.idMatch
+          LEFT JOIN User_Match um2 ON um2.matchId = m.idMatch AND um2.userId != ?
+          LEFT JOIN User u1 ON um.userId = u1.idUser
+          LEFT JOIN User u2 ON um2.userId = u2.idUser
+          WHERE um.userId = ?
+          ORDER BY m.matchDate DESC`,
+          [idUser, idUser]
+        );
+
+        // Combiner et transformer les données
+        const allMatches = [
+          ...rankedMatches.map(match => {
+            const isPlayer1 = match.player1Id === idUser;
+            const playerScore = isPlayer1 ? match.player1Score : match.player2Score;
+            const opponentScore = isPlayer1 ? match.player2Score : match.player1Score;
+            const eloChange = isPlayer1 ? match.player1EloChange : match.player2EloChange;
+            const won = match.winnerId === idUser;
+
+            return {
+              matchId: match.matchId,
+              date: match.matchDate,
+              opponent: match.opponent_name,
+              playerScore: playerScore,
+              opponentScore: opponentScore,
+              won: won,
+              eloChange: eloChange,
+              duration: match.matchDuration || 0,
+              type: 'ranked' as const
+            };
+          }),
+          ...normalMatches.map(match => {
+            // Determine opponent name - it's the other player
+            const opponentName = match.player1Name === (request.user as any).userName ?
+              match.player2Name : match.player1Name;
+
+            return {
+              matchId: match.matchId.toString(),
+              date: match.matchDate,
+              opponent: opponentName || 'Unknown',
+              playerScore: match.player1Score, // Simplified for normal matches
+              opponentScore: match.player2Score,
+              won: match.winnerId === idUser,
+              eloChange: 0, // No ELO change for normal matches
+              duration: 0,
+              type: 'normal' as const
+            };
+          })
+        ];
+
+        // Trier par date et limiter à 50
+        const sortedMatches = allMatches
+          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+          .slice(0, 50);
+
+        console.log(`>> Found ${sortedMatches.length} matches for user ${idUser} (${rankedMatches.length} ranked, ${normalMatches.length} normal)`);
+
+        return reply.status(200).send({
+          matches: sortedMatches,
+          total: sortedMatches.length,
+        });
+      } catch (err) {
+        console.error(">> Error fetching match history:", err);
+        return reply.status(500).send({
+          error: "Internal server error",
+          matches: [],
+          total: 0,
+        });
+      }
+    }
+  );
+
+  // ============================================
+  // FRIENDS ROUTES
+  // ============================================
+
+  // Get user's friends and pending requests
+  app.get(
+    "/friends",
+    { preHandler: [(app as any).authenticate] },
+    async (request, reply) => {
+      const userId = (request.user as any).sub as number;
+
+      try {
+        console.log(">> Getting friends for user:", userId);
+
+        // Get confirmed friends
+        const friends = await getAllAsync<{
+          userId: number;
+          userName: string;
+          avatarURL?: string;
+          connectionStatus: number;
+        }>(
+          `SELECT 
+            CASE 
+              WHEN f.requesterId = ? THEN u2.idUser 
+              ELSE u1.idUser 
+            END as userId,
+            CASE 
+              WHEN f.requesterId = ? THEN u2.userName 
+              ELSE u1.userName 
+            END as userName,
+            CASE 
+              WHEN f.requesterId = ? THEN u2.avatarURL 
+              ELSE u1.avatarURL 
+            END as avatarURL,
+            CASE 
+              WHEN f.requesterId = ? THEN u2.connectionStatus 
+              ELSE u1.connectionStatus 
+            END as connectionStatus
+          FROM Friends f
+          JOIN User u1 ON f.requesterId = u1.idUser
+          JOIN User u2 ON f.receiverId = u2.idUser
+          WHERE (f.requesterId = ? OR f.receiverId = ?) AND f.status = 'accepted'`,
+          [userId, userId, userId, userId, userId, userId]
+        );
+
+        // Get pending friend requests (received)
+        const receivedRequests = await getAllAsync<{
+          userId: number;
+          userName: string;
+          avatarURL?: string;
+          requestedAt: string;
+        }>(
+          `SELECT u.idUser as userId, u.userName, u.avatarURL, f.requestedAt
+          FROM Friends f
+          JOIN User u ON f.requesterId = u.idUser
+          WHERE f.receiverId = ? AND f.status = 'pending'`,
+          [userId]
+        );
+
+        // Get pending friend requests (sent)
+        const sentRequests = await getAllAsync<{
+          userId: number;
+          userName: string;
+          avatarURL?: string;
+          requestedAt: string;
+        }>(
+          `SELECT u.idUser as userId, u.userName, u.avatarURL, f.requestedAt
+          FROM Friends f
+          JOIN User u ON f.receiverId = u.idUser
+          WHERE f.requesterId = ? AND f.status = 'pending'`,
+          [userId]
+        );
+
+        // Format friends data
+        const formattedFriends = friends.map(friend => ({
+          userId: friend.userId,
+          userName: friend.userName,
+          avatarURL: friend.avatarURL || null,
+          status: friend.connectionStatus === 1 ? 'online' : 'offline',
+          lastSeen: null, // Not available in current schema
+          isOnline: friend.connectionStatus === 1
+        }));
+
+        // Format pending requests
+        const pendingRequests = [
+          ...receivedRequests.map(req => ({
+            requestId: req.userId, // Using userId as requestId for simplicity
+            userId: req.userId,
+            userName: req.userName,
+            avatarURL: req.avatarURL || null,
+            requestedAt: req.requestedAt,
+            type: 'received' as const
+          })),
+          ...sentRequests.map(req => ({
+            requestId: req.userId,
+            userId: req.userId,
+            userName: req.userName,
+            avatarURL: req.avatarURL || null,
+            requestedAt: req.requestedAt,
+            type: 'sent' as const
+          }))
+        ];
+
+        return reply.status(200).send({
+          friends: formattedFriends,
+          pendingRequests: pendingRequests
+        });
+
+      } catch (error) {
+        console.error("Error fetching friends:", error);
+        return reply.status(500).send({ error: "Internal server error" });
+      }
+    }
+  );
+
+  // Send friend request
+  app.post(
+    "/friends/request",
+    { preHandler: [(app as any).authenticate] },
+    async (request, reply) => {
+      const userId = (request.user as any).sub as number;
+      const { username } = request.body as { username: string };
+
+      if (!username) {
+        return reply.status(400).send({ error: "Username is required" });
+      }
+
+      try {
+        console.log(">> Sending friend request from user", userId, "to", username);
+
+        // Find target user
+        const targetUser = await getAsync<{ idUser: number }>(
+          `SELECT idUser FROM User WHERE userName = ?`,
+          [username]
+        );
+
+        if (!targetUser) {
+          return reply.status(404).send({ error: "User not found" });
+        }
+
+        if (targetUser.idUser === userId) {
+          return reply.status(400).send({ error: "Cannot send friend request to yourself" });
+        }
+
+        // Check if friendship already exists
+        const existingFriendship = await getAsync<{ status: string }>(
+          `SELECT status FROM Friends 
+          WHERE (requesterId = ? AND receiverId = ?) OR (requesterId = ? AND receiverId = ?)`,
+          [userId, targetUser.idUser, targetUser.idUser, userId]
+        );
+
+        if (existingFriendship) {
+          if (existingFriendship.status === 'accepted') {
+            return reply.status(400).send({ error: "Already friends" });
+          } else if (existingFriendship.status === 'pending') {
+            return reply.status(400).send({ error: "Friend request already pending" });
+          }
+        }
+
+        // Create friend request
+        await runAsync(
+          `INSERT INTO Friends (requesterId, receiverId, status, requestedAt)
+          VALUES (?, ?, 'pending', ?)`,
+          [userId, targetUser.idUser, new Date().toISOString()]
+        );
+
+        // Get requester info for notification
+        const requesterInfo = await getAsync<{ userName: string; avatarURL?: string }>(
+          `SELECT userName, avatarURL FROM User WHERE idUser = ?`,
+          [userId]
+        );
+
+        // Send real-time notification to target user
+        if (requesterInfo) {
+          sendFriendNotification(targetUser.idUser, {
+            type: 'friend_request_received',
+            data: {
+              userId: userId,
+              userName: requesterInfo.userName,
+              avatarURL: requesterInfo.avatarURL,
+              requestedAt: new Date().toISOString(),
+              type: 'received'
+            }
+          });
+        }
+
+        return reply.status(200).send({ message: "Friend request sent successfully" });
+
+      } catch (error) {
+        console.error("Error sending friend request:", error);
+        return reply.status(500).send({ error: "Internal server error" });
+      }
+    }
+  );
+
+  // Accept friend request
+  app.post(
+    "/friends/request/:userId/accept",
+    { preHandler: [(app as any).authenticate] },
+    async (request, reply) => {
+      const userId = (request.user as any).sub as number;
+      const { userId: requesterId } = request.params as { userId: string };
+      const requesterIdNum = parseInt(requesterId);
+
+      try {
+        console.log(">> Accepting friend request from", requesterIdNum, "to", userId);
+
+        // Check if pending request exists
+        const pendingRequest = await getAsync<{ idFriendship: number }>(
+          `SELECT idFriendship FROM Friends 
+          WHERE requesterId = ? AND receiverId = ? AND status = 'pending'`,
+          [requesterIdNum, userId]
+        );
+
+        if (!pendingRequest) {
+          return reply.status(404).send({ error: "Friend request not found" });
+        }
+
+        // Update status to accepted
+        await runAsync(
+          `UPDATE Friends SET status = 'accepted', acceptedAt = ?
+          WHERE requesterId = ? AND receiverId = ? AND status = 'pending'`,
+          [new Date().toISOString(), requesterIdNum, userId]
+        );
+
+        // Get user info for notification
+        const accepterInfo = await getAsync<{ userName: string; avatarURL?: string }>(
+          `SELECT userName, avatarURL FROM User WHERE idUser = ?`,
+          [userId]
+        );
+
+        // Send real-time notification to the original requester
+        if (accepterInfo) {
+          sendFriendNotification(requesterIdNum, {
+            type: 'friend_request_accepted',
+            data: {
+              userId: userId,
+              userName: accepterInfo.userName,
+              avatarURL: accepterInfo.avatarURL,
+              status: 'accepted'
+            }
+          });
+        }
+
+        return reply.status(200).send({ message: "Friend request accepted" });
+
+      } catch (error) {
+        console.error("Error accepting friend request:", error);
+        return reply.status(500).send({ error: "Internal server error" });
+      }
+    }
+  );
+
+  // Decline friend request
+  app.post(
+    "/friends/request/:userId/decline",
+    { preHandler: [(app as any).authenticate] },
+    async (request, reply) => {
+      const userId = (request.user as any).sub as number;
+      const { userId: requesterId } = request.params as { userId: string };
+      const requesterIdNum = parseInt(requesterId);
+
+      try {
+        console.log(">> Declining friend request from", requesterIdNum, "to", userId);
+
+        // Check if pending request exists
+        const pendingRequest = await getAsync<{ idFriendship: number }>(
+          `SELECT idFriendship FROM Friends 
+          WHERE requesterId = ? AND receiverId = ? AND status = 'pending'`,
+          [requesterIdNum, userId]
+        );
+
+        if (!pendingRequest) {
+          return reply.status(404).send({ error: "Friend request not found" });
+        }
+
+        // Delete the request
+        await runAsync(
+          `DELETE FROM Friends 
+          WHERE requesterId = ? AND receiverId = ? AND status = 'pending'`,
+          [requesterIdNum, userId]
+        );
+
+        return reply.status(200).send({ message: "Friend request declined" });
+
+      } catch (error) {
+        console.error("Error declining friend request:", error);
+        return reply.status(500).send({ error: "Internal server error" });
+      }
+    }
+  );
+
+  // Cancel friend request (for sent requests)
+  app.delete(
+    "/friends/request/:userId/cancel",
+    { preHandler: [(app as any).authenticate] },
+    async (request, reply) => {
+      const userId = (request.user as any).sub as number;
+      const { userId: receiverId } = request.params as { userId: string };
+      const receiverIdNum = parseInt(receiverId);
+
+      try {
+        console.log(">> Cancelling friend request from", userId, "to", receiverIdNum);
+
+        // Check if pending request exists
+        const pendingRequest = await getAsync<{ idFriendship: number }>(
+          `SELECT idFriendship FROM Friends 
+          WHERE requesterId = ? AND receiverId = ? AND status = 'pending'`,
+          [userId, receiverIdNum]
+        );
+
+        if (!pendingRequest) {
+          return reply.status(404).send({ error: "Friend request not found" });
+        }
+
+        // Delete the request
+        await runAsync(
+          `DELETE FROM Friends 
+          WHERE requesterId = ? AND receiverId = ? AND status = 'pending'`,
+          [userId, receiverIdNum]
+        );
+
+        return reply.status(200).send({ message: "Friend request cancelled" });
+
+      } catch (error) {
+        console.error("Error cancelling friend request:", error);
+        return reply.status(500).send({ error: "Internal server error" });
+      }
+    }
+  );
+
+  // Remove friend
+  app.delete(
+    "/friends/:userId",
+    { preHandler: [(app as any).authenticate] },
+    async (request, reply) => {
+      const userId = (request.user as any).sub as number;
+      const { userId: friendId } = request.params as { userId: string };
+      const friendIdNum = parseInt(friendId);
+
+      try {
+        console.log(">> Removing friend", friendIdNum, "from user", userId);
+
+        // Check if friendship exists
+        const friendship = await getAsync<{ idFriendship: number }>(
+          `SELECT idFriendship FROM Friends 
+          WHERE ((requesterId = ? AND receiverId = ?) OR (requesterId = ? AND receiverId = ?)) 
+          AND status = 'accepted'`,
+          [userId, friendIdNum, friendIdNum, userId]
+        );
+
+        if (!friendship) {
+          return reply.status(404).send({ error: "Friendship not found" });
+        }
+
+        // Delete the friendship
+        await runAsync(
+          `DELETE FROM Friends 
+          WHERE ((requesterId = ? AND receiverId = ?) OR (requesterId = ? AND receiverId = ?)) 
+          AND status = 'accepted'`,
+          [userId, friendIdNum, friendIdNum, userId]
+        );
+
+        // Get user info for notification
+        const removerInfo = await getAsync<{ userName: string }>(
+          `SELECT userName FROM User WHERE idUser = ?`,
+          [userId]
+        );
+
+        // Send real-time notification to the removed friend
+        if (removerInfo) {
+          sendFriendNotification(friendIdNum, {
+            type: 'friend_removed',
+            data: {
+              userId: userId,
+              userName: removerInfo.userName
+            }
+          });
+        }
+
+        return reply.status(200).send({ message: "Friend removed successfully" });
+
+      } catch (error) {
+        console.error("Error removing friend:", error);
+        return reply.status(500).send({ error: "Internal server error" });
+      }
+    }
+  );
 }
+
 export async function createGame(
   idp1: number,
   idp2: number,
