@@ -137,11 +137,11 @@ API_JSON=$(docker exec -i es sh -c '\
       "name": "logstash_monitoring_key",
       "role_descriptors": {
         "logstash_monitoring": {
-          "cluster": ["monitor","manage"],
+          "cluster": ["monitor", "manage"],
           "indices": [
             {
               "names": [".monitoring-*"],
-              "privileges": ["read","view_index_metadata"]
+              "privileges": ["read","write","create_index","indices:admin/mapping/put"]
             }
           ]
         }
