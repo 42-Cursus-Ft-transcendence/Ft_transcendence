@@ -106,7 +106,7 @@ API_JSON=$(docker exec -i es sh -c '\
       "name": "logstash_api_key",
       "role_descriptors": {
         "logstash_writer": {
-          "cluster": ["monitor", "manage_index_templates"],
+          "cluster": ["monitor", "manage_index_templates", "manage_ilm"],
           "index": [
             {
               "names": ["ft_transcende-logs-*"],
@@ -117,6 +117,12 @@ API_JSON=$(docker exec -i es sh -c '\
       }
     }'\'' \
 ')
+
+if echo "$API_JSON" | jq -e 'has("error")' >/dev/null; then
+  echo "❌ Main Logstash API key Creating Failure:"
+  echo "$API_JSON" | jq .
+  exit 1
+fi
 
 ID=$(printf '%s' "$API_JSON" \
        | sed -n 's/.*"id"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
@@ -148,6 +154,12 @@ API_JSON=$(docker exec -i es sh -c '\
       }
     }'\'' \
 ')
+
+if echo "$API_JSON" | jq -e 'has("error")' >/dev/null; then
+  echo "❌ Monitoring API key Creating Failure:"
+  echo "$API_JSON" | jq .
+  exit 1
+fi
 
 ID=$(printf '%s' "$API_JSON" \
        | sed -n 's/.*"id"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')

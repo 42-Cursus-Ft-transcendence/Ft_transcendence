@@ -11,7 +11,7 @@ RUN chmod +x /usr/local/bin/pull_chaine_generation.sh
 USER logstash
 COPY ./pipeline/ft_transcend.conf /usr/share/logstash/pipeline/
 COPY ./config/logstash.yml /usr/share/logstash/config/logstash.yml
-COPY ./config/pipelines.yml /usr/share/logstash/config/pipelines.yml
+#COPY ./config/pipelines.yml /usr/share/logstash/config/pipelines.yml
 # The above settings are additional when using multi-pipelines.
 
 EXPOSE 5044

@@ -161,10 +161,10 @@ services:
       test:
         [
           "CMD-SHELL",
-          "curl -k -u elastic:${ELASTIC_PASSWORD} https://localhost:9200/_cluster/health?wait_for_status=green&timeout=1s >/dev/null 2>&1",
+          "curl -k -u elastic:${ELASTIC_PASSWORD} https://elasticsearch:9200/_cluster/health?wait_for_status=green&timeout=1s >/dev/null 2>&1",
         ]
       interval: 5s
-      timeout: 5s
+      timeout: 10s
       retries: 50
     restart: on-failure
     networks:
@@ -177,8 +177,8 @@ services:
       dockerfile: Dockerfile
     container_name: logstash
     environment:
-      - LOGSTASH_API_KEY=${LOGSTASH_API_KEY:-} #API key for Logstash
-      - LOGSTASH_MONITORING_API_KEY=${LOGSTASH_MONITORING_API_KEY:-} # API key for monitoring
+      - LOGSTASH_API_KEY #API key for Logstash
+      - LOGSTASH_MONITORING_API_KEY # API key for monitoring
       - ELASTICSEARCH_HOSTS=https://elasticsearch:9200
       - LS_JAVA_OPTS=-Xmx512m -Xms512m
       - LOGGING_ROOT_LEVEL=debug
