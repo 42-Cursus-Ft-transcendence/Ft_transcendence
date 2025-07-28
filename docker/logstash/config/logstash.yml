@@ -13,3 +13,5 @@ xpack.monitoring.elasticsearch.api_key: "${LOGSTASH_MONITORING_API_KEY}"
 xpack.monitoring.enabled: true
 
 pipeline.buffer.type: heap
+
+path.logs: /var/log/logstash
