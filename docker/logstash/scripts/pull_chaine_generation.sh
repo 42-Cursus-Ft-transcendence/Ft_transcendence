@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+for i in {1..300}; do
+  nc -z elasticsearch 9200 && break
+  sleep 1
+done
+
 TMP=/tmp/logstash-certs
 mkdir -p "$TMP"
 

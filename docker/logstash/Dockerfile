@@ -2,7 +2,7 @@ FROM docker.elastic.co/logstash/logstash:8.17.2
 
 USER root
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends iproute2 lsof && \
+    apt-get install -y --no-install-recommends iproute2 lsof netcat-traditional && \
     rm -rf /var/lib/apt/lists/*
 
 COPY ./scripts/pull_chaine_generation.sh /usr/local/bin/pull_chaine_generation.sh

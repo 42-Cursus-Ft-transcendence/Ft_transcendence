@@ -165,7 +165,7 @@ services:
         ]
       interval: 5s
       timeout: 10s
-      retries: 50
+      retries: 80
     restart: on-failure
     networks:
       elknet:
@@ -180,7 +180,7 @@ services:
       - LOGSTASH_API_KEY #API key for Logstash
       - LOGSTASH_MONITORING_API_KEY # API key for monitoring
       - ELASTICSEARCH_HOSTS=https://elasticsearch:9200
-      - LS_JAVA_OPTS=-Xmx512m -Xms512m
+      - LS_JAVA_OPTS=-Xmx1g -Xms1g
       - LOGGING_ROOT_LEVEL=debug
     env_file:
       - .env
