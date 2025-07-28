@@ -13,6 +13,12 @@ import { backgroundMusic } from "./utils/backgroundMusic.js";
 import { applyMusicStateFromSettings } from "./controllers/settingsController.js";
 export let socket;
 const root = document.getElementById("root");
+// Heartbeat configuration
+const PING_INTERVAL = 30000; // 30 seconds
+const PONG_TIMEOUT = 5000; // 5 seconds to wait for pong
+let pingTimer = null;
+let pongTimer = null;
+let isReconnecting = false;
 function doRender(screen) {
     if (screen === "404") {
         console.log("⚠️ rendering 404 template…", root);
@@ -184,10 +190,80 @@ function ensureArcadeFrame() {
 // Export function to initialize the socket
 export function initSocket(url) {
     socket = new WebSocket(url);
-    socket.onopen = () => console.log("✅ WebSocket connectée");
+    socket.onopen = () => {
+        console.log("✅ WebSocket connectée");
+        isReconnecting = false;
+        startHeartbeat();
+    };
     socket.onerror = (err) => console.error("❌ Erreur WebSocket", err);
-    socket.onclose = () => console.log("⚠️ WebSocket fermée");
+    socket.onclose = (evt) => {
+        console.log("⚠️ WebSocket fermée");
+        stopHeartbeat();
+        // Only attempt reconnection if not a clean close (1000) and not already reconnecting
+        if (evt.code !== 1000 && !isReconnecting) {
+            attemptReconnection(url);
+        }
+    };
+    // Add pong handling to existing message handler
+    const originalOnMessage = socket.onmessage;
+    socket.addEventListener('message', (evt) => {
+        try {
+            const msg = JSON.parse(evt.data);
+            if (msg.type === 'pong') {
+                if (pongTimer) {
+                    window.clearTimeout(pongTimer);
+                    pongTimer = null;
+                }
+                // Don't call other handlers for pong messages
+                return;
+            }
+        }
+        catch (e) {
+            // Not JSON or not a pong, let other handlers deal with it
+        }
+    });
     return socket;
+}
+function startHeartbeat() {
+    stopHeartbeat(); // Clear any existing timers
+    pingTimer = window.setInterval(() => {
+        if (socket.readyState === WebSocket.OPEN) {
+            // Send ping
+            socket.send(JSON.stringify({ type: 'ping' }));
+            // Set timeout for pong response
+            pongTimer = window.setTimeout(() => {
+                console.log("❌ Pong timeout - connection appears dead");
+                // Force close to trigger reconnection
+                socket.close();
+            }, PONG_TIMEOUT);
+        }
+    }, PING_INTERVAL);
+}
+function stopHeartbeat() {
+    if (pingTimer) {
+        window.clearInterval(pingTimer);
+        pingTimer = null;
+    }
+    if (pongTimer) {
+        window.clearTimeout(pongTimer);
+        pongTimer = null;
+    }
+}
+function attemptReconnection(url) {
+    if (isReconnecting)
+        return;
+    isReconnecting = true;
+    console.log("🔄 Attempting WebSocket reconnection...");
+    // Wait 2 seconds before reconnecting
+    window.setTimeout(() => {
+        try {
+            initSocket(url);
+        }
+        catch (err) {
+            console.error("❌ Reconnection failed:", err);
+            isReconnecting = false;
+        }
+    }, 2000);
 }
 // If you need to access the socket elsewhere
 export function getSocket() {

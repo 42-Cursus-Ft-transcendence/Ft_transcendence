@@ -4,6 +4,37 @@ import { runAsync } from "../../db";
 // Map to track user connections for real-time notifications
 export const userSockets = new Map<number, WebSocket>();
 
+// Function to check if a WebSocket is still alive
+function isSocketAlive(socket: WebSocket): boolean {
+    return socket.readyState === socket.OPEN;
+}
+
+// Clean up dead connections from user sockets map
+function cleanupUserSockets(): void {
+    const deadUsers: number[] = [];
+    for (const [userId, socket] of userSockets.entries()) {
+        if (!isSocketAlive(socket)) {
+            deadUsers.push(userId);
+        }
+    }
+    
+    deadUsers.forEach(userId => {
+        console.log(`🧹 Removing dead friend socket for user ${userId}`);
+        userSockets.delete(userId);
+    });
+}
+
+// Periodic cleanup - run every 60 seconds
+setInterval(() => {
+    const beforeSize = userSockets.size;
+    cleanupUserSockets();
+    const afterSize = userSockets.size;
+    
+    if (beforeSize !== afterSize) {
+        console.log(`🧹 Cleaned up ${beforeSize - afterSize} dead friend socket connections`);
+    }
+}, 60000);
+
 // Register user socket when they connect
 export async function registerUserSocket(userId: number, socket: WebSocket) {
     userSockets.set(userId, socket);

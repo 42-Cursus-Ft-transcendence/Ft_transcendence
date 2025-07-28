@@ -48,6 +48,32 @@ export interface EloUpdate {
 // ─────────────────────────────────────────────────────────────────────────────
 export const rankedWaiting: RankedWaitingItem[] = [];
 const rankedSessions = new Map<string, RankedSession>();
+
+// Function to check if a WebSocket is still alive
+function isSocketAlive(socket: WebSocket): boolean {
+    return socket.readyState === socket.OPEN;
+}
+
+// Clean up dead connections from ranked waiting queue
+function cleanupRankedWaitingQueue(): void {
+    for (let i = rankedWaiting.length - 1; i >= 0; i--) {
+        if (!isSocketAlive(rankedWaiting[i].socket)) {
+            console.log(`🧹 Removing dead connection from ranked waiting queue: ${rankedWaiting[i].payload.userName}`);
+            rankedWaiting.splice(i, 1);
+        }
+    }
+}
+
+// Periodic cleanup - run every 60 seconds
+setInterval(() => {
+    const beforeRankedWaiting = rankedWaiting.length;
+    cleanupRankedWaitingQueue();
+    const afterRankedWaiting = rankedWaiting.length;
+    
+    if (beforeRankedWaiting !== afterRankedWaiting) {
+        console.log(`🧹 Cleaned up ${beforeRankedWaiting - afterRankedWaiting} dead connections from ranked waiting queue`);
+    }
+}, 60000);
 export const socketToRankedSession = new Map<WebSocket, RankedSession>();
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -266,6 +292,9 @@ export async function handleRankedStart(
   payload: { sub: number; userName: string }
 ): Promise<void> {
   try {
+    // Clean up any dead connections before attempting to match
+    cleanupRankedWaitingQueue();
+    
     const rankedPlayer = await getPlayerRanking(payload.sub);
     if (!rankedPlayer) {
       socket.send(

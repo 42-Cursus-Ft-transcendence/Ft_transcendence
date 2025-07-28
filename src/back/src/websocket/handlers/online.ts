@@ -25,10 +25,39 @@ export const waiting: WaitingItem[] = [];
 export const sessions = new Map<string, Session>();
 export const socketToSession = new Map<WebSocket, Session>();
 
+// Function to check if a WebSocket is still alive
+function isSocketAlive(socket: WebSocket): boolean {
+    return socket.readyState === socket.OPEN;
+}
+
+// Clean up dead connections from waiting queue
+function cleanupWaitingQueue(): void {
+    for (let i = waiting.length - 1; i >= 0; i--) {
+        if (!isSocketAlive(waiting[i].socket)) {
+            console.log(`🧹 Removing dead connection from waiting queue: ${waiting[i].payload.userName}`);
+            waiting.splice(i, 1);
+        }
+    }
+}
+
+// Periodic cleanup - run every 60 seconds
+setInterval(() => {
+    const beforeWaiting = waiting.length;
+    cleanupWaitingQueue();
+    const afterWaiting = waiting.length;
+    
+    if (beforeWaiting !== afterWaiting) {
+        console.log(`🧹 Cleaned up ${beforeWaiting - afterWaiting} dead connections from waiting queue`);
+    }
+}, 60000);
+
 export function handleOnlineStart(
     socket: WebSocket,
     payload: { sub: number; userName: string }
 ): void {
+    // Clean up any dead connections before attempting to match
+    cleanupWaitingQueue();
+    
     if (waiting.length > 0) {
         const opponent = waiting.shift()!;
         const p1 = opponent.payload;

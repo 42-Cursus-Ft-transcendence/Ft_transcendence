@@ -66,6 +66,10 @@ export default async function wsHandler(socket: WebSocket, request: FastifyReque
         await handleForfeit(socket);
         break;
 
+      case "ping":
+        socket.send(JSON.stringify({ type: "pong" }));
+        break;
+
       default:
         socket.send(JSON.stringify({ type: "error", message: "Unknown type" }));
     }
