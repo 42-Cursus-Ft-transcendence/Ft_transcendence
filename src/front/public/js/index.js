@@ -161,9 +161,11 @@ window.addEventListener("DOMContentLoaded", () => {
     // WebSocket setup follows…
     const protocol = location.protocol === "https:" ? "wss" : "ws";
     const socket = initSocket(`${protocol}://${location.host}/ws`);
-    socket.addEventListener("close", (evt) => {
-        // If the server closed with a 401, redirect to login
-        navigate("login");
+    // Handle page refresh/close - force clean disconnection
+    window.addEventListener("beforeunload", () => {
+        if (socket && socket.readyState === WebSocket.OPEN) {
+            socket.close(1000, "Page unloading");
+        }
     });
 });
 // Lorsque l’utilisateur clique sur Précédent/Suivant
@@ -199,6 +201,12 @@ export function initSocket(url) {
     socket.onclose = (evt) => {
         console.log("⚠️ WebSocket fermée");
         stopHeartbeat();
+        // Check if this is an authentication error (401) or clean close
+        if (evt.code === 1002 || evt.code === 1008) {
+            // Authentication failed - redirect to login
+            navigate("login");
+            return;
+        }
         // Only attempt reconnection if not a clean close (1000) and not already reconnecting
         if (evt.code !== 1000 && !isReconnecting) {
             attemptReconnection(url);
