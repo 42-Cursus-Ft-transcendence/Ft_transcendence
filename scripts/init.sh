@@ -31,4 +31,6 @@ echo " Elasticsearch is ready!"
 
 ./scripts/api_token_generation.sh "${ENV_FILE}"
 
+./scripts/ilm_init.sh "${ENV_FILE}"
+
 echo "✅ ELK stack setup completed."

@@ -1,0 +1,10 @@
+{
+  "index_patterns": ["ft_logs-*"],
+  "template": {
+    "settings": {
+      "index.lifecycle.name": "ft_logs_policy",
+      "index.lifecycle.rollover_alias": "ft_logs-write"
+    },
+    "mappings": { "dynamic": true }
+  }
+}
