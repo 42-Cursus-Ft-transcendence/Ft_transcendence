@@ -78,21 +78,49 @@ else
 fi
 
 # ───────────────────────────────────────────────
-# 4) Import the dumped NDJSON
+# 4‑A) Import index-pattern + related objects
 # ───────────────────────────────────────────────
-echo "▶ Importing saved objects from $EXPORT_FILE"
-IMPORT_RESP=$(curl -s ${AUTH} \
+echo "▶ Importing index-pattern and related objects from ${EXPORT_FILE}"
+INDEX_IMPORT_RESP=$(curl -s ${AUTH} \
   -H "kbn-xsrf: true" \
   -F "file=@${EXPORT_FILE}" \
   "${KIBANA_BASE}/api/saved_objects/_import?overwrite=true")
 
-# 2) success 필드(true/false)로 검사
-if printf '%s' "$IMPORT_RESP" | jq -e '.success == true' >/dev/null; then
-  echo "✔ Import succeeded: $(wc -l < "$EXPORT_FILE") objects imported"
+# Check the success field (true/false)
+if printf '%s' "${INDEX_IMPORT_RESP}" | jq -e '.success == true' >/dev/null; then
+  echo "✔ Index-pattern import succeeded: $(wc -l < "${EXPORT_FILE}") objects imported"
 else
-  echo "❌ Import failed, check Kibana logs for details."
-  # (print the full response for debugging)
-  # echo "$IMPORT_RESP"
+  echo "❌ Index-pattern import failed, check Kibana logs for details."
+  # Uncomment to debug:
+  # echo "${INDEX_IMPORT_RESP}"
   exit 1
 fi
+
+# ───────────────────────────────────────────────
+# 4‑B) Import additional dashboard file
+# ───────────────────────────────────────────────
+DASHBOARD_FILE="/usr/share/kibana/dashboards/ft_transcende-logs.ndjson"
+
+if [ -f "${DASHBOARD_FILE}" ]; then
+  echo "▶ Importing dashboard from ${DASHBOARD_FILE}"
+  DASH_IMPORT_RESP=$(curl -s ${AUTH} \
+    -H "kbn-xsrf: true" \
+    -F "file=@${DASHBOARD_FILE}" \
+    "${KIBANA_BASE}/api/saved_objects/_import?createNewCopies=true")
+
+  # Check the success field (true/false)
+  if printf '%s' "${DASH_IMPORT_RESP}" | jq -e '.success == true' >/dev/null; then
+    echo "✔ Dashboard import succeeded: $(wc -l < "${DASHBOARD_FILE}") objects imported"
+  else
+    echo "❌ Dashboard import failed, check Kibana logs for details."
+    # Uncomment to debug:
+    # echo "${DASH_IMPORT_RESP}"
+    exit 1
+  fi
+else
+  echo "⚠ No dashboard file found at ${DASHBOARD_FILE}, skipping dashboard import."
+fi
+
+echo "✔ All imports completed successfully."
+
 echo "✔ All objects imported successfully."
