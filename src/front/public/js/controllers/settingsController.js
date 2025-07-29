@@ -936,17 +936,88 @@ function showNotificationWithCallback(message, onOkCallback) {
         onOkCallback();
     });
 }
+// Helper function to validate image file by checking magic bytes
+async function validateImageFile(file) {
+    return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+            const arrayBuffer = reader.result;
+            const bytes = new Uint8Array(arrayBuffer);
+            // Check magic bytes for different image formats
+            if (bytes.length < 4) {
+                resolve(false);
+                return;
+            }
+            // PNG: 89 50 4E 47
+            if (bytes[0] === 0x89 /* 137 decimal */ &&
+                bytes[1] === 0x50 /* 'P' (0x50) */ &&
+                bytes[2] === 0x4E /* 'N' (0x4E) */ &&
+                bytes[3] === 0x47 /* 'G' (0x47) */) {
+                resolve(true);
+                return;
+            }
+            // JPEG: FF D8 FF
+            if (bytes[0] === 0xFF && bytes[1] === 0xD8 && bytes[2] === 0xFF) {
+                resolve(true);
+                return;
+            }
+            if (bytes.length >= 12 &&
+                // "RIFF" in ASCII
+                bytes[0] === 0x52 /* 'R' (0x52) */ &&
+                bytes[1] === 0x49 /* 'I' (0x49) */ &&
+                bytes[2] === 0x46 /* 'F' (0x46) */ &&
+                bytes[3] === 0x46 /* 'F' (0x46) */ &&
+                // "WEBP" in ASCII at offset 8
+                bytes[8] === 0x57 /* 'W' (0x57) */ &&
+                bytes[9] === 0x45 /* 'E' (0x45) */ &&
+                bytes[10] === 0x42 /* 'B' (0x42) */ &&
+                bytes[11] === 0x50 /* 'P' (0x50) */) {
+                resolve(true);
+                return;
+            }
+            resolve(false);
+        };
+        reader.onerror = () => resolve(false);
+        reader.readAsArrayBuffer(file.slice(0, 12)); // Read only first 12 bytes for efficiency
+    });
+}
+// Helper function to validate image using Image object
+async function validateImageContent(file) {
+    return new Promise((resolve) => {
+        const img = new Image();
+        const url = URL.createObjectURL(file);
+        img.onload = () => {
+            URL.revokeObjectURL(url);
+            resolve(img.width > 0 && img.height > 0);
+        };
+        img.onerror = () => {
+            URL.revokeObjectURL(url);
+            resolve(false);
+        };
+        img.src = url;
+    });
+}
 // Helper function to handle file upload
 async function handleFileUpload(file) {
-    // Validate file type
+    // First validation: Basic file type check
     const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
     if (!allowedTypes.includes(file.type)) {
         throw new Error("Only JPEG, PNG and WebP images are allowed");
     }
-    // Validate file size (max 2MB)
+    // Second validation: Check file size (max 2MB)
     const maxSize = 2 * 1024 * 1024; // 2MB
     if (file.size > maxSize) {
         throw new Error("Image must be smaller than 2MB");
+    }
+    // Third validation: Check magic bytes (file signature)
+    const isValidMagicBytes = await validateImageFile(file);
+    if (!isValidMagicBytes) {
+        throw new Error("Invalid image file format");
+    }
+    // Fourth validation: Try to load as actual image
+    const isValidImage = await validateImageContent(file);
+    if (!isValidImage) {
+        throw new Error("File is corrupted or not a valid image");
     }
     // Convert to Base64 for database storage (current approach)
     return new Promise((resolve, reject) => {
