@@ -10,6 +10,7 @@ RUN apt-get update \
     netcat-openbsd \
  && rm -rf /var/lib/apt/lists/*
 
+COPY ./dashboards /usr/share/kibana/dashboards
 COPY ./kibana-import /usr/share/kibana/scripts/kibana-import
 
 USER kibana
