@@ -109,8 +109,8 @@ API_JSON=$(docker exec -i es sh -c '\
           "cluster": ["monitor", "manage_index_templates", "manage_ilm"],
           "index": [
             {
-              "names": ["ft_transcende-logs-*"],
-              "privileges": ["create","create_index","write"]
+              "names": ["ft_transcende-logs", "ft_transcende-logs-*"],
+              "privileges": ["create","create_index","write", "manage"]
             }
           ]
         }

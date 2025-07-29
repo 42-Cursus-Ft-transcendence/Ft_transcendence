@@ -16,3 +16,6 @@ pipeline.buffer.type: heap
 
 path.config: /usr/share/logstash/pipeline/ft_transcend.conf
 path.logs: /var/log/logstash
+
+queue.type: persisted
+queue.max_bytes: 4gb
