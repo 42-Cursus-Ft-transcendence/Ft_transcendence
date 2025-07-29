@@ -1,2 +1,1 @@
-- pipeline.id: main
-  path.config: "/usr/share/logstash/pipeline/ft_transcend.conf"
+# when serveral pipelines are used
