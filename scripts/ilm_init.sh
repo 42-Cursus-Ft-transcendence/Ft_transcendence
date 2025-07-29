@@ -8,13 +8,11 @@ ENV_FILE=${ENV_FILE:-.env}
 
 : "${ELASTIC_PASSWORD:?ELASTIC_PASSWORD must be set in ${ENV_FILE}}"
 
-POLICY_NAME=ft_logs_policy
-TEMPLATE_NAME=ft_logs_template
-POLICY_NAME=ft_logs_policy
-TEMPLATE_NAME=ft_logs_template
+POLICY_NAME=ft_transcende-logs-policy
+TEMPLATE_NAME=ft_transcende-logs-template
 
-POLICY_FILE="$(dirname "$0")/../ilm/ft_logs_policy.json"
-TEMPLATE_FILE="$(dirname "$0")/../ilm/ft_logs_template.json"
+POLICY_FILE="$(dirname "$0")/../ilm/ft_transcende-logs-policy.json"
+TEMPLATE_FILE="$(dirname "$0")/../ilm/ft_transcende-logs-template.json"
 
 for f in "$POLICY_FILE" "$TEMPLATE_FILE"; do
   [[ -f $f ]] || { echo "❌  Missing $f"; exit 1; }

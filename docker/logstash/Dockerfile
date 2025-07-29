@@ -17,4 +17,4 @@ COPY ./config/logstash.yml /usr/share/logstash/config/logstash.yml
 EXPOSE 5044
 
 ENTRYPOINT ["/usr/local/bin/pull_chaine_generation.sh"]
-CMD ["bin/logstash"]
+CMD ["bin/logstash", "--pipeline.shutdown_timeout", "120"]

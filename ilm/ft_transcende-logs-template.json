@@ -1,0 +1,15 @@
+{
+  "index_patterns": ["ft_transcende-logs-*"],
+  "template": {
+    "settings": {
+      "index.lifecycle.name": "ft_transcende-logs-policy",
+      "index.lifecycle.rollover_alias": "ft_transcende-logs"
+    },
+    "mappings": {
+      "properties": {
+        "service": { "type": "keyword" },
+        "environment": { "type": "keyword" }
+      }
+    }
+  }
+}
