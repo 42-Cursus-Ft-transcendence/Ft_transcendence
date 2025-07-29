@@ -315,19 +315,41 @@ async function fetchMatchHistory(): Promise<MatchHistory[]> {
             console.error('Invalid match history data structure');
             return [];
         }
+        const matchHistory: MatchHistory[] = data.matches.map((match: any) => {
+            console.log('🔍 Debug match data:', {
+                matchId: match.matchId,
+                opponent: match.opponent,
+                playerScore: match.playerScore,
+                opponentScore: match.opponentScore,
+                won: match.won,
+                eloChange: match.eloChange
+            });
 
-        // Transform backend data to frontend interface
-        const matchHistory: MatchHistory[] = data.matches.map((match: any) => ({
-            matchId: match.matchId,
-            opponent: match.opponent,
-            opponentId: 0, // Backend doesn't provide opponent ID in current structure
-            result: match.won ? 'win' : 'loss',
-            playerScore: match.playerScore,
-            opponentScore: match.opponentScore,
-            eloChange: match.eloChange,
-            matchDate: match.date,
-            type: match.type || 'normal' // Include match type
-        }));
+
+            let playerScore = match.playerScore;
+            let opponentScore = match.opponentScore;
+            const actualResult = match.won ? 'win' : 'loss';
+
+            if (match.won && playerScore < opponentScore) {
+                console.warn(`🔧 CORRECTION: Won=true mais score ${playerScore}-${opponentScore}, inversion des scores`);
+                [playerScore, opponentScore] = [opponentScore, playerScore];
+            } else if (!match.won && playerScore > opponentScore) {
+                console.warn(`� CORRECTION: Won=false mais score ${playerScore}-${opponentScore}, inversion des scores`);
+                [playerScore, opponentScore] = [opponentScore, playerScore];
+            }
+
+            return {
+                matchId: match.matchId,
+                opponent: match.opponent,
+                opponentId: 0, 
+                result: actualResult, 
+                playerScore: playerScore, 
+                opponentScore: opponentScore, 
+                eloChange: match.eloChange,
+                matchDate: match.date,
+                type: match.type || 'normal' 
+            };
+        });
 
         console.log(`>> Successfully fetched ${matchHistory.length} matches`);
         return matchHistory;
