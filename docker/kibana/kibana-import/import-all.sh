@@ -9,7 +9,7 @@ KIBANA_BASE="http://kibana:5601"
 ELASTIC_USER="elastic"
 ELASTIC_PASS="${ELASTIC_PASSWORD}"
 AUTH="-u ${ELASTIC_USER}:${ELASTIC_PASS}"
-PATTERN="ft_transcende-*"
+PATTERN="ft_transcende-logs-*"
 
 # ───────────────────────────────────────────────
 # 1) Wait for Kibana

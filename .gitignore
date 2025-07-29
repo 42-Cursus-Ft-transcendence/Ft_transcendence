@@ -4,7 +4,8 @@ node_modules
 src/back/dist
 *.env
 *.env.*
-
+.env
+.env.*
 /docker/volumes
 log
 logs
