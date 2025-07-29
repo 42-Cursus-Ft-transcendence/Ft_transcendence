@@ -1,10 +1,10 @@
 export const arcadeTemplate = `
-<div class="relative zoomable inline-block">
+<div class="relative zoomable flex justify-center items-center min-h-screen">
   <!-- Image in foreground, ignore pointer events -->
   <img
     src="./assets/arcademachine.png"
     alt="borne arcade"
-    class="relative z-10 filter brightness-100 hover:brightness-75 transition pointer-events-none"
+    class="relative z-10 h-screen w-auto filter brightness-100 hover:brightness-75 transition pointer-events-none"
   />
 
   <!-- Interactive div under the image -->
